@@ -70,6 +70,15 @@ function storageSandbox(initial, revision, responses){
   vm.createContext(sandbox);vm.runInContext(fs.readFileSync('js/core.js','utf8')+'\nglobalThis.store=Storage;',sandbox);
   return {sandbox,local,writes};
 }
+test('stats aggregate counts recurring debit card top-ups in monthly and yearly income', () => {
+  const sandbox={console,Intl,Date,Utils:{parseDate:s=>new Date(s+'T00:00:00'),dateKey:d=>d.toISOString().slice(0,10)},window:{},Bonds,Config:{TYPES:{debit_card:{liability:false}}},Storage:{all:()=>[{id:'d',type:'debit_card',amount:1000,rate:0,operations:[{direction:'in',amount:5000,frequency:'monthly',date:'2026-01-01'},{direction:'out',amount:1000,frequency:'weekly',date:'2026-01-05'}]}]}};
+  vm.createContext(sandbox);vm.runInContext(fs.readFileSync('js/simulator.js','utf8')+'\nglobalThis.stats=Stats;',sandbox);
+  const s=sandbox.stats.aggregate();
+  assert.equal(s.inc,60000);
+  assert.ok(s.exp>=52000&&s.exp<=53000,'weekly withdrawals ~52x1000, got '+s.exp);
+  assert.equal(s.netMonthly,(s.inc-s.exp)/12);
+  assert.equal(s.assets,1000);
+});
 test('cloud conflict preserves local pending data and never overwrites on later retries', async()=>{
   const fixture=storageSandbox([{id:'local'}],3,[{products:[{id:'remote'}],revision:4},{products:[{id:'remote'}],revision:4}]);
   fixture.sandbox.store.save([{id:'local-edit'}]);

@@ -5,6 +5,30 @@
 
 window.__KEY_RATE__ = window.__KEY_RATE__ ?? 16;
 
+// Сколько раз операция повторится за ближайшие 12 месяцев.
+// Используется для сводки «Доходность за год / за месяц» вверху приложения,
+// чтобы регулярные пополнения (например, на дебетовую карту) шли в общий зачёт.
+function opOccurrencesInYear(op){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const start = Utils.parseDate(op.date);
+  if (!start) return 0;
+  const end = op.endDate ? Utils.parseDate(op.endDate) : null;
+  const horizon = new Date(now);
+  horizon.setFullYear(horizon.getFullYear() + 1);
+  if (op.frequency === 'once') return (start >= now && start <= horizon) ? 1 : 0;
+  let n = 0;
+  const d = new Date(start);
+  let guard = 0;
+  while (d <= horizon && guard++ < 1200){
+    if (d >= now && (!end || d <= end)) n++;
+    if (op.frequency === 'weekly')       d.setDate(d.getDate() + 7);
+    else if (op.frequency === 'monthly') d.setMonth(d.getMonth() + 1);
+    else if (op.frequency === 'yearly')  d.setFullYear(d.getFullYear() + 1);
+    else break;
+  }
+  return n;
+}
+
 const Simulator = (() => {
   const { parseDate } = Utils;
 
@@ -228,7 +252,8 @@ const Simulator = (() => {
 const Stats = (() => {
   function aggregate(){
     let assets = 0, debts = 0, inc = 0, exp = 0;
-    Storage.all().forEach(p => {
+    const list = Storage.all();
+    list.forEach(p => {
       if (p.type === 'expense'){
         exp += (p.amount || 0) * 12;
         return;
@@ -257,6 +282,19 @@ const Stats = (() => {
         inc += (p.amount || 0) * (p.rate || 0) / 100;
       }
     });
+
+    // Регулярные пополнения и снятия идут в общий годовой зачёт:
+    // пополнение — в доход, снятие — в расход (для обязательств пополнение
+    // уменьшает долг, снятие — увеличивает).
+    list.forEach(p => (p.operations || []).forEach(op => {
+      if (!op.amount) return;
+      const n = opOccurrencesInYear(op);
+      if (!n) return;
+      const total = op.amount * n;
+      if (op.direction === 'out') exp += total;
+      else                        inc += total;
+    }));
+
     const net = assets - debts;
     const netAnnual = inc - exp;
     const netMonthly = netAnnual / 12;

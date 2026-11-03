@@ -100,6 +100,9 @@ const App = (() => {
     bootstrapData();
     refresh();
 
+    // Уведомления: недельная сверка расходов и скорые списания
+    if (typeof Notify !== 'undefined') Notify.init();
+
     // Кнопка обновления цен в карточках
     window.__REFRESH__ = () => refresh();
 

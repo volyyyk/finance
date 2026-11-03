@@ -28,6 +28,7 @@
         <h2>Настройки</h2>
         <p class="op-meta" id="syncStatus" role="status">Подключение облачного сохранения…</p>
     <button class="btn ghost" id="installApp">Установить приложение</button>
+    <button class="btn ghost" id="enableNotifyBtn" title="Напоминание раз в неделю и за 3 дня до списаний">Включить уведомления</button>
     <button class="btn ghost" id="exportBtn" title="Скачать все данные в JSON">⤓ Экспорт</button>
     <button class="btn ghost" id="loadCloudBtn">Открыть облачную версию</button>
     <button class="btn ghost" id="importBtn" title="Загрузить из JSON">⤒ Импорт</button>
@@ -54,8 +55,13 @@
   <span id="pwaMessage"></span>
   <button class="btn primary" id="updateApp" hidden>Обновить</button>
 </aside>
+<aside class="pwa-notice" id="alertsNotice" role="status" hidden>
+  <span id="alertsMessage"></span>
+</aside>
 <main>
   <section class="stats" id="stats"></section>
+
+  <section class="card" id="sinceVisitCard" hidden></section>
 
   <section class="charts-row">
     <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
@@ -209,6 +215,7 @@
 <script src="js/charts.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="js/notifications.js"></script>
 <script src="js/app.js"></script>
 <script src="js/pwa.js"></script>
 </body>

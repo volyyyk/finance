@@ -86,7 +86,16 @@
           if (worker.state === 'installed') checkWaiting();
         });
       });
-      navigator.serviceWorker.ready.then(() => { offlineReady = true; showStatus(); });
+      navigator.serviceWorker.ready.then(async reg => {
+        offlineReady = true; showStatus();
+        // Фоновая проверка уведомлений, если браузер поддерживает Periodic Background Sync
+        try {
+          const status = await navigator.permissions?.query({ name: 'periodic-background-sync' });
+          if (reg.periodicSync && status?.state === 'granted'){
+            await reg.periodicSync.register('finance-check', { minInterval: 7 * 86400000 });
+          }
+        } catch { /* не поддерживается — уведомления сработают при открытии приложения */ }
+      });
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && navigator.onLine) registration.update().catch(() => {});
       });

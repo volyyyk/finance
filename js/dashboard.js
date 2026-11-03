@@ -216,6 +216,101 @@ const ProductList = (() => {
   return { render, getSelected, clearSelection, refreshProductPrices };
 })();
 
+/* Отчёт с последнего захода: зачисления, списания, купоны и погашения. */
+const SinceVisit = (() => {
+  const { $, parseDate, fmtMoney, fmtDate, escapeHtml } = Utils;
+  const lastVisit = Number(localStorage.getItem('fin_lastVisit') || 0);
+  let visitMarked = false;
+
+  // Все даты повторения операции в интервале (fromTs, toTs]
+  function occurrencesBetween(op, fromTs, toTs){
+    const start = parseDate(op.date); if (!start) return [];
+    const end = op.endDate ? parseDate(op.endDate) : null;
+    const out = [];
+    const push = d => { if (d.getTime() > fromTs && d.getTime() <= toTs) out.push(new Date(d)); };
+    if (op.frequency === 'once'){ push(start); return out; }
+    let d = new Date(start);
+    let guard = 0;
+    while (d.getTime() <= toTs && guard++ < 600){
+      if (end && d > end) break;
+      push(d);
+      if (op.frequency === 'weekly')       d.setDate(d.getDate() + 7);
+      else if (op.frequency === 'monthly') d.setMonth(d.getMonth() + 1);
+      else if (op.frequency === 'yearly')  d.setFullYear(d.getFullYear() + 1);
+      else break;
+    }
+    return out;
+  }
+
+  // Что произошло между двумя моментами времени
+  function eventsBetween(fromTs, toTs){
+    const items = [];
+    Storage.all().forEach(p => {
+      (p.operations || []).forEach(op => {
+        occurrencesBetween(op, fromTs, toTs).forEach(d => items.push({
+          ts: d.getTime(), date: d, direction: op.direction === 'out' ? 'out' : 'in',
+          amount: op.amount || 0,
+          title: `${op.direction === 'out' ? 'Списание' : 'Пополнение'}: ${p.name}`
+        }));
+      });
+      // Купоны и погашения фиксируются в paidEvents при запуске приложения
+      if (p.type === 'investment') (p.assets || []).forEach(a => {
+        Object.values(a.paidEvents || {}).forEach(ev => {
+          const ts = Date.parse(ev.date);
+          if (ts > fromTs && ts <= toTs) items.push({
+            ts, date: new Date(ts), direction: 'in', amount: ev.amount || 0,
+            title: `${ev.type === 'principal' ? 'Погашение' : 'Купон'}: ${a.shortname || a.secid}`
+          });
+        });
+      });
+    });
+    return items.sort((a,b) => a.ts - b.ts);
+  }
+
+  function render(){
+    const card = $('sinceVisitCard');
+    if (!card) return;
+    if (!lastVisit){ card.hidden = true; return; }
+    const now = Date.now();
+    const items = eventsBetween(lastVisit, now);
+    const days = Math.floor((now - lastVisit) / 86400000);
+    const sumIn  = items.filter(i => i.direction === 'in').reduce((s,i) => s + i.amount, 0);
+    const sumOut = items.filter(i => i.direction === 'out').reduce((s,i) => s + i.amount, 0);
+    const net = sumIn - sumOut;
+    const agoTxt = days === 0 ? 'сегодня' : days === 1 ? 'вчера' : `${days} дн. назад`;
+
+    const rows = items.map(i => `
+      <div class="event ${i.direction === 'in' ? 'event-in' : 'event-out'}">
+        <div class="event-icon">${i.direction === 'in' ? '⬇️' : '⬆️'}</div>
+        <div class="event-body">
+          <div class="event-title">${escapeHtml(i.title)}</div>
+          <div class="event-meta">${fmtDate(i.date)}</div>
+        </div>
+        <div class="event-amount">${i.direction === 'in' ? '+' : '−'}${fmtMoney(i.amount)}</div>
+      </div>`).join('');
+
+    card.hidden = false;
+    card.innerHTML = `
+      <h2>С последнего захода · ${agoTxt} (${fmtDate(new Date(lastVisit))})</h2>
+      <div class="since-totals">
+        <div class="since-total in"><span>Зачисления</span><b>+${fmtMoney(sumIn)}</b></div>
+        <div class="since-total out"><span>Списания</span><b>−${fmtMoney(sumOut)}</b></div>
+        <div class="since-total net"><span>Итого</span><b>${net >= 0 ? '+' : '−'}${fmtMoney(Math.abs(net))}</b></div>
+      </div>
+      ${items.length
+        ? `<details class="since-details"><summary>Что произошло (${items.length})</summary>${rows}</details>`
+        : '<div class="empty">За это время операций не было</div>'}`;
+
+    // Отмечаем текущий заход один раз за сессию
+    if (!visitMarked){
+      visitMarked = true;
+      localStorage.setItem('fin_lastVisit', String(now));
+      if (typeof Notify !== 'undefined' && Notify.syncMeta) Notify.syncMeta();
+    }
+  }
+  return { render };
+})();
+
 const Dashboard = (() => {
   const { $, fmtMoney, fmtPct, fmtDate, escapeHtml, dateKey } = Utils;
   let calDate = new Date();
@@ -381,6 +476,7 @@ const Dashboard = (() => {
   function nextMonth(){ calDate.setMonth(calDate.getMonth()+1); renderCalendar(); }
   function renderAll(){
     renderStats(); renderEvents(); renderCalendar(); renderCharts(); renderForecast();
+    SinceVisit.render();
   }
   return { renderAll, renderCharts, prevMonth, nextMonth };
 })();
