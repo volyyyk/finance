@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Финансовый учёт</title>
+<meta name="theme-color" content="#2563eb">
+<meta name="description" content="Учёт доходов, вкладов и инвестиций с доступом без интернета">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Финансы">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <h1>Финансовый учёт</h1>
+  <div id="saveStatus" style="font-size:12px;color:var(--green);transition:opacity 0.3s;opacity:0;margin-left:15px;">✓ Сохранено</div>
+  <div class="header-actions">
+    <details class="settings" id="settingsMenu">
+      <summary class="btn ghost" aria-label="Настройки" title="Настройки">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></svg>
+      </summary>
+      <div class="settings-panel">
+        <h2>Настройки</h2>
+        <p class="op-meta" id="syncStatus" role="status">Подключение облачного сохранения…</p>
+    <button class="btn ghost" id="installApp">Установить приложение</button>
+    <button class="btn ghost" id="exportBtn" title="Скачать все данные в JSON">⤓ Экспорт</button>
+    <button class="btn ghost" id="loadCloudBtn">Открыть облачную версию</button>
+    <button class="btn ghost" id="importBtn" title="Загрузить из JSON">⤒ Импорт</button>
+    <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js">↺ Сброс к seed</button>
+          <details class="card install-guide" id="installGuide">
+    <summary>Установка на телефон · <span id="offlineStatus" role="status">Подготовка автономного режима…</span></summary>
+    <div class="install-content">
+      <p><strong>Android:</strong> откройте этот сайт в Chrome по HTTPS. Нажмите «Установить приложение» или выберите в меню браузера «Установить приложение» / «Добавить на главный экран».</p>
+      <p><strong>iPhone и iPad:</strong> откройте сайт в Safari → «Поделиться» → «На экран Домой» → «Добавить».</p>
+      <p>Дождитесь статуса «Готово к работе без интернета», затем запускайте приложение с его значка. Учёт, редактор, графики, импорт и экспорт работают без сети. Поиск бумаг, свежие котировки MOEX и ставка ЦБ требуют интернета. Сохранённые цены могут устареть.</p>
+      <p>APK для установки не нужен. Сайт не создаёт APK-файлы. Ошибку «Файл повреждён» у стороннего APK нельзя определить без самого файла и сведений о его сборке.</p>
+      <p>Данные сохраняются в облаке с доступом из этого браузера; локальная копия позволяет работать без интернета. Очистка cookies лишает доступа к облачной копии. Для переноса на другое устройство используйте экспорт и импорт.</p>
+    </div>
+  </details>
+
+      </div>
+    </details>
+    <button class="btn primary" id="addBtn">+ Добавить продукт</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+  </div>
+</header>
+
+<aside class="pwa-notice" id="pwaNotice" role="status" hidden>
+  <span id="pwaMessage"></span>
+  <button class="btn primary" id="updateApp" hidden>Обновить</button>
+</aside>
+<main>
+  <section class="stats" id="stats"></section>
+
+  <section class="charts-row">
+    <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
+    <div class="chart-card"><h3>Доход (накопленный)</h3><canvas id="chartIncome"></canvas></div>
+    <div class="chart-card"><h3>Расход (накопленный)</h3><canvas id="chartExpense"></canvas></div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Ближайшие 6 событий</h2>
+      <div id="eventsList"></div>
+    </section>
+    <section class="card">
+      <div class="cal-header">
+        <button id="calPrev">‹</button>
+        <span id="calTitle"></span>
+        <button id="calNext">›</button>
+      </div>
+      <div id="calendar"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Мои продукты</h2>
+    <div id="productsList"></div>
+    <div class="actions-bar">
+      <button class="btn primary" id="addBtn2">+ Добавить продукт</button>
+      <button class="btn danger" id="deleteBtn">Удалить выбранные</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Прогноз динамики капитала</h2>
+    <div class="forecast-grid">
+      <div class="forecast-col">
+        <h3>Без учёта событий</h3>
+        <div id="fc1"></div>
+      </div>
+      <div class="forecast-col">
+        <h3>С учётом событий</h3>
+        <div id="fc2"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Модальное окно редактора -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+    <h2 id="modalTitle">Новый продукт</h2>
+    <form id="productForm">
+      <input type="hidden" id="f_id">
+      <div class="field">
+        <label>Тип продукта</label>
+        <select id="f_type"></select>
+      </div>
+      <div class="field">
+        <label>Название</label>
+        <input type="text" id="f_name" required placeholder="Например, Вклад «Накопительный»">
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label id="label_amount">Текущая сумма (₽)</label>
+          <input type="number" id="f_amount" step="0.01" required min="0">
+        </div>
+        <div class="field">
+          <label>Ставка (% годовых)</label>
+          <input type="number" id="f_rate" step="0.01" required min="0">
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Дата начала</label>
+          <input type="date" id="f_start">
+        </div>
+        <div class="field" id="field_end">
+          <label>Дата окончания</label>
+          <input type="date" id="f_end">
+        </div>
+      </div>
+
+      <div id="endActionBlock" style="display:none">
+        <div class="field">
+          <label>Действие при окончании</label>
+          <select id="f_endAction">
+            <option value="">— не выбрано —</option>
+            <option value="close">Закрыть</option>
+            <option value="transfer">Перевести на другой продукт</option>
+            <option value="change">Изменить условия</option>
+          </select>
+        </div>
+        <div class="field" id="field_transfer" style="display:none">
+          <label>Перевести на продукт</label>
+          <select id="f_transferTo"></select>
+        </div>
+        <div id="changeBlock" style="display:none">
+          <div class="row-2">
+            <div class="field">
+              <label>Новая ставка (% годовых)</label>
+              <input type="number" id="f_newRate" step="0.01" min="0">
+            </div>
+            <div class="field">
+              <label>Новая дата окончания</label>
+              <input type="date" id="f_newEndDate">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Комментарий</label>
+        <input type="text" id="f_comment" placeholder="Банк, брокер и т.п.">
+      </div>
+
+      <div class="ops-section">
+        <h4>Пополнения и снятия</h4>
+        <div id="opsList"></div>
+        <div class="add-op">
+          <div class="row-3">
+            <select id="op_dir">
+              <option value="in">Пополнить</option>
+              <option value="out">Снять</option>
+            </select>
+            <input type="number" id="op_amount" step="0.01" placeholder="Сумма ₽">
+            <select id="op_freq"></select>
+          </div>
+          <div class="row-2">
+            <input type="date" id="op_date" title="Дата">
+            <input type="date" id="op_endDate" title="Дата окончания (для регулярных)">
+          </div>
+          <div class="add-op-actions">
+            <button type="button" class="btn small" id="addOpBtn">+ Добавить</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cancelBtn">Отмена</button>
+        <button type="submit" class="btn primary">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ВАЖНО: порядок подключения не менять -->
+<script src="data/seed.js"></script>
+<script src="js/core.js"></script>
+<script src="js/moex.js"></script>
+<script src="js/bonds.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/app.js"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>
