@@ -417,9 +417,18 @@ const Dashboard = (() => {
       });
       balance.push(net); income.push(inc); expense.push(exp);
     }
-    Charts.draw($('chartBalance'), [{color:'#2563eb', data:balance}]);
-    Charts.draw($('chartIncome'),  [{color:'#16a34a', data:income}]);
-    Charts.draw($('chartExpense'), [{color:'#dc2626', data:expense}]);
+    // Отметки оси X для прогнозов на 2 года (24 точки по месяцам)
+    const xTicks = [
+      {x: 0, label: 'сейчас'},
+      {x: 1/24, label: '1 мес'},
+      {x: 6/24, label: '6 мес'},
+      {x: 12/24, label: '1 год'},
+      {x: 18/24, label: '1.5 года'},
+      {x: 1, label: '2 года'}
+    ];
+    Charts.draw($('chartBalance'), [{color:'#2563eb', data:balance}], {xTicks});
+    Charts.draw($('chartIncome'),  [{color:'#16a34a', data:income}], {xTicks});
+    Charts.draw($('chartExpense'), [{color:'#dc2626', data:expense}], {xTicks});
   }
 
   function renderForecast(){

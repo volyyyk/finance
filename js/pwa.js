@@ -92,7 +92,7 @@
         try {
           const status = await navigator.permissions?.query({ name: 'periodic-background-sync' });
           if (reg.periodicSync && status?.state === 'granted'){
-            await reg.periodicSync.register('finance-check', { minInterval: 7 * 86400000 });
+            await reg.periodicSync.register('finance-check', { minInterval: 86400000 });
           }
         } catch { /* не поддерживается — уведомления сработают при открытии приложения */ }
       });

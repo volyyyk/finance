@@ -1,9 +1,10 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v5';
+const CACHE_NAME = 'finance-cache-v6';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/manifest.json',
   '/data/seed.js', '/js/core.js', '/js/moex.js', '/js/simulator.js', '/js/bonds.js',
-  '/js/charts.js', '/js/editor.js', '/js/dashboard.js', '/js/notifications.js', '/js/app.js',
+  '/js/charts.js', '/js/results.js', '/js/cashback.js', '/js/editor.js', '/js/dashboard.js',
+  '/js/notifications.js', '/js/app.js',
   '/js/pwa.js', '/icons/icon-180.png', '/icons/icon-192.png', '/icons/icon-512.png'
 ];
 const SHELL = new Set(ASSETS);
@@ -34,30 +35,53 @@ async function readMeta(){
   } catch { return null; }
 }
 
+async function writeMeta(meta){
+  try {
+    const cache = await caches.open(META_CACHE);
+    await cache.put('/meta',
+      new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
+  } catch {}
+}
+
 // Фоновая проверка (браузеры с поддержкой Periodic Background Sync,
-// приложение должно быть установлено): недельная сверка расходов
-// и напоминания за 3 дня до списаний.
+// приложение должно быть установлено): напоминание о сверке расходов
+// в выбранный день недели и предупреждения за 3 дня до списаний.
 self.addEventListener('periodicsync', event => {
   if (event.tag !== 'finance-check') return;
   event.waitUntil((async () => {
     const meta = await readMeta();
     if (!meta) return;
     const now = Date.now();
-    if (meta.lastVisit && now - meta.lastVisit >= 7 * DAY_MS){
+    meta.sent ||= [];
+
+    // Недельная сверка расходов: в выбранный день, не чаще раза в сутки
+    const checkDay = Number.isInteger(meta.checkDay) ? meta.checkDay : 0;
+    const nowDate = new Date();
+    if (nowDate.getDay() === checkDay && now - (meta.lastWeeklyTs || 0) >= 20 * 3600 * 1000){
       await self.registration.showNotification('Пора свериться с расходами', {
-        body: 'Прошла неделя с последнего захода. Откройте приложение и сверьтесь с расходами.',
+        body: 'Сегодня день сверки расходов. Откройте приложение и проверьте траты за неделю.',
         tag: 'fin-weekly', icon: '/icons/icon-192.png'
       });
+      meta.lastWeeklyTs = now;
     }
+
+    // Предупреждения за 3 дня до списаний
     for (const p of meta.payments || []){
       const days = Math.round((p.ts - now) / DAY_MS);
-      if (days < 0 || days > 3) continue;
+      if (days < 0 || days > 3 || meta.sent.includes(p.key)) continue;
       await self.registration.showNotification('Скорое списание', {
         body: `${p.title}${p.amount ? ': ' + p.amount.toLocaleString('ru-RU') + ' ₽' : ''} — ` +
               (days === 0 ? 'сегодня' : days === 1 ? 'завтра' : `через ${days} дн.`),
         tag: p.key, icon: '/icons/icon-192.png'
       });
+      meta.sent.push(p.key);
     }
+
+    // Чистим отправленные ключи, вышедшие за горизонт проверки
+    const weekAgo = now - 7 * DAY_MS;
+    const live = (meta.payments || []).filter(p => p.ts >= weekAgo).map(p => p.key);
+    meta.sent = meta.sent.filter(k => live.includes(k));
+    await writeMeta(meta);
   })());
 });
 

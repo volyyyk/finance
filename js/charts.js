@@ -1,6 +1,8 @@
 /* ============================================================
    charts.js — Charts (рисование на Canvas)
    Зависит: ничего, кроме DOM
+   draw(canvas, series, opts) — opts.xTicks = [{x: 0..1, label, grid}]
+   задаёт отметки по оси X (день, неделя, месяц, полгода, год).
    ============================================================ */
 
 const Charts = (() => {
@@ -11,15 +13,16 @@ const Charts = (() => {
     return Math.round(v).toString();
   }
 
-  function draw(canvas, series){
+  function draw(canvas, series, opts = {}){
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
+    if (rect.width < 5 || rect.height < 5) return;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(rect.width * dpr));
     canvas.height = Math.max(1, Math.floor(rect.height * dpr));
     ctx.scale(dpr, dpr);
     const W = rect.width, H = rect.height;
-    const pad = {top: 8, right: 8, bottom: 20, left: 44};
+    const pad = {top: 8, right: 8, bottom: 26, left: 44};
     const plotW = W - pad.left - pad.right;
     const plotH = H - pad.top - pad.bottom;
 
@@ -34,6 +37,7 @@ const Charts = (() => {
     const yOf = v => pad.top + plotH * (1 - (v - min) / (max - min));
     const xOf = (i, n) => pad.left + plotW * (n <= 1 ? 0 : i / (n - 1));
 
+    // Сетка и подписи по оси Y
     ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
     ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
     for (let i=0; i<=3; i++){
@@ -41,6 +45,19 @@ const Charts = (() => {
       const y = yOf(v);
       ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W-pad.right, y); ctx.stroke();
       ctx.fillText(shortNum(v), pad.left - 6, y + 3);
+    }
+
+    // Отметки по оси X
+    if (opts.xTicks?.length){
+      ctx.strokeStyle = '#e2e8f0'; ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      opts.xTicks.forEach(t => {
+        const x = pad.left + plotW * Math.max(0, Math.min(1, Number(t.x) || 0));
+        if (t.grid !== false){
+          ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, H - pad.bottom); ctx.stroke();
+        }
+        ctx.fillText(t.label, x, H - pad.bottom + 15);
+      });
     }
 
     series.forEach(s=>{

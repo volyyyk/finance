@@ -14,6 +14,12 @@ const Notify = (() => {
   // Момент последнего захода фиксируем до того, как SinceVisit обновит его
   const prevVisit = Number(localStorage.getItem('fin_lastVisit') || 0);
 
+  // Выбранный день напоминания о сверке расходов (0=вс … 6=сб)
+  function getCheckDay(){
+    const v = Number(localStorage.getItem('fin_checkDay'));
+    return Number.isInteger(v) && v >= 0 && v <= 6 ? v : 0;
+  }
+
   // Предстоящие платежи по кредитным картам и кредитам:
   // конец льготного периода и регулярные выплаты долга (операции «Пополнить»)
   function payments(daysAhead){
@@ -39,13 +45,15 @@ const Notify = (() => {
     } catch (e){ return false; }
   }
 
+  // Напоминание о сверке расходов приходит в выбранный день недели.
+  // Если приложение открыто в этот день — сверка уже идёт, отмечаем её
+  // выполненной и показываем подсказку в приложении.
   function checkWeekly(){
-    if (!prevVisit) return;
-    if (Date.now() - prevVisit >= WEEK_MS){
-      show('Пора свериться с расходами',
-        'Прошла неделя с последнего захода. Откройте приложение и сверьтесь с расходами.',
-        'fin-weekly');
-    }
+    const d = new Date();
+    if (d.getDay() !== getCheckDay()) return null;
+    localStorage.setItem('fin_lastWeeklyTs', String(Date.now()));
+    syncMeta();
+    return 'Сегодня день сверки расходов — проверьте траты за неделю';
   }
 
   function dayText(days){
@@ -60,12 +68,12 @@ const Notify = (() => {
     try { alerted = JSON.parse(localStorage.getItem(LS_ALERTS) || '{}'); } catch {}
     Object.keys(alerted).forEach(k => { if (alerted[k] < now.getTime()) delete alerted[k]; });
 
-    const texts = [];
+    const paymentTexts = [];
     items.forEach(e => {
       const days = Math.round((e.date - now) / DAY_MS);
       const key  = `${e.product.id}:${dateKey(e.date)}`;
       const text = `${e.title}${e.amount ? ': ' + fmtMoney(e.amount) : ''} — ${dayText(days)}`;
-      texts.push(text);
+      paymentTexts.push(text);
       if (!alerted[key]){
         alerted[key] = e.date.getTime();
         show('Скорое списание', text, key);
@@ -73,10 +81,15 @@ const Notify = (() => {
     });
     localStorage.setItem(LS_ALERTS, JSON.stringify(alerted));
 
+    // Плашка под заголовком: скорые списания и день сверки
     const aside = $('alertsNotice');
     const message = $('alertsMessage');
     if (message){
-      if (texts.length){ message.textContent = '⚠ ' + texts.join(' · '); if (aside) aside.hidden = false; }
+      const texts = [];
+      const weekly = checkWeekly();
+      if (weekly) texts.push(weekly);
+      texts.push(...paymentTexts);
+      if (texts.length){ message.textContent = texts.join(' · '); if (aside) aside.hidden = false; }
       else if (aside) aside.hidden = true;
     }
   }
@@ -88,6 +101,8 @@ const Notify = (() => {
       reg?.active?.postMessage({
         type: 'fin-meta',
         lastVisit: Number(localStorage.getItem('fin_lastVisit') || Date.now()),
+        lastWeeklyTs: Number(localStorage.getItem('fin_lastWeeklyTs') || 0),
+        checkDay: getCheckDay(),
         payments: payments(10).map(e => ({
           key: `${e.product.id}:${dateKey(e.date)}`,
           title: e.title,
@@ -123,6 +138,15 @@ const Notify = (() => {
     };
     checkWeekly();
     checkPayments();
+    // Выбор дня напоминания о сверке расходов
+    const daySel = $('checkDay');
+    if (daySel){
+      daySel.value = String(getCheckDay());
+      daySel.onchange = () => {
+        localStorage.setItem('fin_checkDay', daySel.value);
+        syncMeta();
+      };
+    }
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) checkPayments();
     });

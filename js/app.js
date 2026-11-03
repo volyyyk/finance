@@ -103,6 +103,28 @@ const App = (() => {
     // Уведомления: недельная сверка расходов и скорые списания
     if (typeof Notify !== 'undefined') Notify.init();
 
+    // Зафиксированные результаты
+    if (typeof Results !== 'undefined') Results.init();
+
+    // Переключение режимов: Учёт / Кешбэк
+    const main = $('modeMain'), cbMode = $('modeCashback');
+    if (main && cbMode){
+      const switchMode = (mode) => {
+        const isCb = mode === 'cashback';
+        localStorage.setItem('fin_mode', isCb ? 'cashback' : 'main');
+        main.hidden = isCb; cbMode.hidden = !isCb;
+        $('tabMain').classList.toggle('active', !isCb);
+        $('tabCashback').classList.toggle('active', isCb);
+        $('addBtn').hidden = isCb;
+        if (isCb){ if (window.Cashback) window.Cashback.render(); }
+        else App.refresh();
+      };
+      $('tabMain').onclick = () => switchMode('main');
+      $('tabCashback').onclick = () => switchMode('cashback');
+      switchMode(localStorage.getItem('fin_mode') === 'cashback' ? 'cashback' : 'main');
+    }
+    if (window.Cashback && typeof window.Cashback.init === 'function') window.Cashback.init();
+
     // Кнопка обновления цен в карточках
     window.__REFRESH__ = () => refresh();
 
@@ -156,7 +178,11 @@ const App = (() => {
     let resizeTimer;
     window.addEventListener('resize', ()=>{
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(()=>Dashboard.renderCharts(), 150);
+      resizeTimer = setTimeout(()=>{
+        Dashboard.renderCharts();
+        const rd = $('resultsDetails');
+        if (rd && rd.open && typeof Results !== 'undefined') Results.render();
+      }, 150);
     });
 
     // Индикатор сохранения

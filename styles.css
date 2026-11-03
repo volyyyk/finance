@@ -205,3 +205,53 @@ body.editor-open{overflow:hidden}
 .since-total.out b{color:var(--red)}
 .since-details{margin-top:6px}
 .since-details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:8px;user-select:none}
+
+/* Переключение режимов (Главная / Кешбэк) */
+.mode-tabs{display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:4px;flex-wrap:wrap}
+.mode-tabs .tab{flex:1;min-width:96px;border:none;background:transparent;color:var(--muted);
+  padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;text-align:center}
+.mode-tabs .tab.active{background:var(--card);color:var(--text);border:1px solid var(--border)}
+
+/* Раздел «Результаты» (фиксация промежуточных сумм) */
+#resultsDetails>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
+  font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);user-select:none;min-height:44px}
+#resultsDetails>summary::-webkit-details-marker{display:none}
+#resultsDetails>summary::before{content:'▸';font-size:12px;transition:transform .15s}
+#resultsDetails[open]>summary::before{transform:rotate(90deg)}
+.results-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}
+#chartSnapshots{width:100%;height:220px}
+.snapshot-row{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-size:13px;padding:6px 0;border-bottom:1px dashed var(--border)}
+.snapshot-row .snapshot-del{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:14px}
+
+/* Режим «Кешбэк» */
+#cbMonth{font-size:16px;margin:0 0 12px}
+#cbView h3,#cbEdit h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);margin:16px 0 8px}
+#cbView h3:first-child{margin-top:0}
+.cb-list{display:flex;flex-direction:column;gap:6px}
+.cb-row{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--bg);border:1px solid var(--border);border-radius:10px}
+.cb-row .cb-cat{flex:1;min-width:0;font-size:14px;font-weight:500;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-row .cb-best{font-size:13px;white-space:nowrap}
+.cb-row .cb-best b{font-size:15px;color:var(--green)}
+.cb-quick{margin-top:12px}
+.cb-quick summary{cursor:pointer;color:var(--muted);font-size:13px;user-select:none}
+.cb-add{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.cb-add input[type=text]{flex:2;min-width:110px}
+.cb-add input[type=number]{flex:1;min-width:64px}
+.cb-add select{flex:2;min-width:110px}
+.cb-bank{background:var(--bg);border:1px solid var(--border);border-radius:10px;
+  padding:10px 12px;margin-bottom:10px}
+.cb-bank-head{display:flex;gap:8px;align-items:center}
+.cb-bank-head input[type=text]{flex:1;font-weight:600}
+.cb-bank .cb-add{margin-top:8px}
+
+/* Поле выбора дня сверки в настройках */
+.settings-field{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.settings-field>span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.settings-field select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--card);color:var(--text);font-size:13px}
