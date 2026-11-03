@@ -1,19 +1,25 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v6';
-const ASSETS = [
-  '/', '/index.html', '/styles.css', '/manifest.json',
-  '/data/seed.js', '/js/core.js', '/js/moex.js', '/js/simulator.js', '/js/bonds.js',
-  '/js/charts.js', '/js/results.js', '/js/cashback.js', '/js/editor.js', '/js/dashboard.js',
-  '/js/notifications.js', '/js/app.js',
-  '/js/pwa.js', '/icons/icon-180.png', '/icons/icon-192.png', '/icons/icon-512.png'
+const CACHE_NAME = 'finance-cache-v7';
+// Базовый путь приложения: работает и в корне домена (Netlify),
+// и в подкаталоге вроде /finance/ на GitHub Pages.
+const BASE = new URL('./', self.registration.scope);
+const ASSET_NAMES = [
+  './', './index.html', './styles.css', './manifest.json',
+  './data/seed.js', './js/core.js', './js/moex.js', './js/simulator.js', './js/bonds.js',
+  './js/charts.js', './js/results.js', './js/cashback.js', './js/editor.js', './js/dashboard.js',
+  './js/notifications.js', './js/app.js',
+  './js/pwa.js', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'
 ];
-const SHELL = new Set(ASSETS);
+const ASSET_URLS = {};
+ASSET_NAMES.forEach(n => { ASSET_URLS[n] = new URL(n, BASE).toString(); });
 const META_CACHE = 'finance-meta';
+const META_URL = new URL('./meta', BASE).toString();
+const ICON_URL = new URL('./icons/icon-192.png', BASE).toString();
 const DAY_MS = 86400000;
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(
-    ASSETS.map(url => new Request(url, { cache: 'reload' }))
+    Object.values(ASSET_URLS).map(url => new Request(url, { cache: 'reload' }))
   )));
 });
 
@@ -21,7 +27,7 @@ self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
   // Страница передаёт дату последнего захода и предстоящие списания
   if (event.data?.type === 'fin-meta'){
-    event.waitUntil(caches.open(META_CACHE).then(cache => cache.put('/meta',
+    event.waitUntil(caches.open(META_CACHE).then(cache => cache.put(META_URL,
       new Response(JSON.stringify(event.data), { headers: { 'Content-Type': 'application/json' } })
     )));
   }
@@ -30,7 +36,7 @@ self.addEventListener('message', event => {
 async function readMeta(){
   try {
     const cache = await caches.open(META_CACHE);
-    const res = await cache.match('/meta');
+    const res = await cache.match(META_URL);
     return res ? await res.json() : null;
   } catch { return null; }
 }
@@ -38,7 +44,7 @@ async function readMeta(){
 async function writeMeta(meta){
   try {
     const cache = await caches.open(META_CACHE);
-    await cache.put('/meta',
+    await cache.put(META_URL,
       new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
   } catch {}
 }
@@ -60,7 +66,7 @@ self.addEventListener('periodicsync', event => {
     if (nowDate.getDay() === checkDay && now - (meta.lastWeeklyTs || 0) >= 20 * 3600 * 1000){
       await self.registration.showNotification('Пора свериться с расходами', {
         body: 'Сегодня день сверки расходов. Откройте приложение и проверьте траты за неделю.',
-        tag: 'fin-weekly', icon: '/icons/icon-192.png'
+        tag: 'fin-weekly', icon: ICON_URL
       });
       meta.lastWeeklyTs = now;
     }
@@ -72,7 +78,7 @@ self.addEventListener('periodicsync', event => {
       await self.registration.showNotification('Скорое списание', {
         body: `${p.title}${p.amount ? ': ' + p.amount.toLocaleString('ru-RU') + ' ₽' : ''} — ` +
               (days === 0 ? 'сегодня' : days === 1 ? 'завтра' : `через ${days} дн.`),
-        tag: p.key, icon: '/icons/icon-192.png'
+        tag: p.key, icon: ICON_URL
       });
       meta.sent.push(p.key);
     }
@@ -94,18 +100,28 @@ self.addEventListener('activate', event => {
   })());
 });
 
+// Кэшируем только собственные ресурсы в пределах базового пути
+function assetKey(pathname){
+  const base = BASE.pathname; // всегда заканчивается на '/'
+  if (pathname === base) return './';
+  if (!pathname.startsWith(base)) return null;
+  return './' + pathname.slice(base.length);
+}
+
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
   // Live financial APIs and non-GET requests are never cached.
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (request.mode === 'navigate') {
-    if (url.pathname !== '/' && url.pathname !== '/index.html') return;
+    const key = assetKey(url.pathname);
+    if (key !== './' && key !== './index.html') return;
     event.respondWith(caches.open(CACHE_NAME).then(async cache =>
-      (await cache.match('/index.html')) || fetch(request)));
+      (await cache.match(ASSET_URLS['./index.html'])) || fetch(request)));
     return;
   }
-  if (!SHELL.has(url.pathname)) return;
+  const key = assetKey(url.pathname);
+  if (!key || !(key in ASSET_URLS)) return;
   event.respondWith(caches.open(CACHE_NAME).then(async cache =>
-    (await cache.match(url.pathname)) || fetch(request)));
+    (await cache.match(ASSET_URLS[key])) || fetch(request)));
 });

@@ -74,7 +74,7 @@
   });
   window.addEventListener('load', async () => {
     try {
-      registration = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+      registration = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
       const checkWaiting = () => {
         waitingWorker = registration.waiting;
         showStatus();

@@ -38,7 +38,7 @@ const Notify = (() => {
     if (!('Notification' in window) || Notification.permission !== 'granted') return false;
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
-      const options = { body, tag, icon: '/icons/icon-192.png' };
+      const options = { body, tag, icon: 'icons/icon-192.png' };
       if (reg) await reg.showNotification(title, options);
       else new Notification(title, options);
       return true;
