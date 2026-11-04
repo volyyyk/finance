@@ -28,7 +28,7 @@ const Bonds = require('../js/bonds.js');
 const CbLogic = require('../js/cashback.js');
 const Charts = require('../js/charts.js');
 
-// ----- Детерминированный PRNG (mulberry32): «вариабельность» тестов
+// ----- Детерминированный PRNG (mulberry32): «вариативность» тестов
 // воспроизводится от запуска к запуску фиксированным зерном.
 function mulberry32(seed){
   return function(){
@@ -122,7 +122,7 @@ function coreMods(over = {}, files = ['js/core.js']){
 test('Config.TYPES: полный набор типов с корректными атрибутами', () => {
   const { mods } = coreMods();
   const keys = Object.keys(mods.Config.TYPES).sort();
-  assert.deepEqual(keys, ['credit_card','debit_card','deposit','expense','investment','loan']);
+  assert.deepEqual(keys, ['apartment','credit_card','debit_card','deposit','expense','investment','loan']);
   for (const t of Object.values(mods.Config.TYPES)){
     assert.ok(t.label && t.icon, 'у каждого типа есть подпись и иконка');
     assert.equal(typeof t.liability, 'boolean');
@@ -818,7 +818,7 @@ function dashboardSandbox(over){
   const sb = makeSandbox(over);
   const mods = loadInto(sb,
     ['js/core.js','js/bonds.js','js/simulator.js','js/charts.js','js/dashboard.js'],
-    '{Storage, Stats, Events, Dashboard, GoalBar, Simulator, Utils}');
+    '{Storage, Stats, Events, Dashboard, GoalBar, Simulator, Utils, ProductList}');
   return { sb, mods };
 }
 
@@ -960,6 +960,107 @@ test('Dashboard: прогноз «без учёта событий» не зак
   // прямой прогон симулятора согласован с колонкой fc1
   const sim = mods.Simulator.simulateAll(120, { noEvents: true });
   assert.ok(sim['d1'].history[120].value > 100000, 'вклад без событий вырос за 10 лет');
+});
+
+test('Simulator: квартира растёт в цене, аренда — в доход, ремонт — в расход', () => {
+  const { mods } = simMods([{ id: 'apt', type: 'apartment', name: 'Квартира', amount: 12000000,
+    rate: 8, rented: true, rentPrice: 60000, upkeepRate: 2, operations: [] }]);
+  const res = mods.Simulator.simulateAll(12);
+  const h = res.apt.history[12];
+  assert.ok(h.value > 12900000 && h.value < 13100000, 'стоимость выросла на ~8%: ' + h.value);
+  assert.ok(h.cumIncome > 1700000 && h.cumIncome < 1730000, 'доход = рост + аренда 12 мес: ' + h.cumIncome);
+  assert.ok(h.cumExpense > 245000 && h.cumExpense < 255000, 'ремонт ~2%/год: ' + h.cumExpense);
+  const s = mods.Stats.aggregate();
+  assert.equal(s.assets, 12000000, 'квартира в активах');
+  assert.equal(s.inc, 12000000 * 0.08 + 60000 * 12, 'доход: рост + аренда за год');
+  assert.equal(s.exp, 12000000 * 0.02, 'расход: ремонт за год');
+});
+
+test('Stats: продукт «вне бюджета» не входит в баланс, но влияет на доход', () => {
+  const { mods } = simMods([
+    { id: 'card', type: 'debit_card', name: 'Карта', amount: 100000, rate: 0, offBudget: true,
+      operations: [{ id: 'o1', direction: 'in', amount: 5000, frequency: 'monthly', date: dayFromNow(-10) }] },
+    { id: 'dep', type: 'deposit', name: 'Вклад', amount: 400000, rate: 0, operations: [] },
+  ]);
+  const s = mods.Stats.aggregate();
+  assert.equal(s.assets, 400000, 'карта вне бюджета — не в активах');
+  assert.equal(s.net, 400000, 'чистый баланс без карты');
+  assert.equal(s.inc, 60000, 'пополнения карты влияют на доход');
+});
+
+test('Events: погашение облигации в событиях; тап по событию ведёт к карточке', () => {
+  const { sb, mods } = dashboardSandbox();
+  setStorage(sb, [{
+    id: 'inv', type: 'investment', name: 'Брокерский счёт', amount: 1000, rate: 5, operations: [],
+    assets: [{ id: 'b1', kind: 'bond', secid: 'RU000A105SD4', shortname: 'ОФЗ 105SD4', qty: 2, nominal: 1000,
+      lastPrice: 980, priceUnit: 'rub', accountingFrom: dayFromNow(-30), maturityDate: dayFromNow(60),
+      paidEvents: {}, coupons: [{ date: dayFromNow(20), value: 40 }] }],
+  }]);
+  const maturity = mods.Events.all().find(e => e.title.includes('Погашение'));
+  assert.ok(maturity, 'событие погашения облигации есть');
+  assert.equal(maturity.amount, 2000, 'номинал к получению: 2 × 1000');
+  mods.Dashboard.renderAll();
+  const el = sb.document.getElementById('eventsList');
+  assert.ok(el.innerHTML.includes('Погашение'), 'погашение видно в списке событий');
+  assert.ok(el.innerHTML.includes('data-evprod'), 'события кликабельны — открывают карточку продукта');
+});
+
+test('Календарь: тап по дате с событием показывает события, пустая дата не реагирует', () => {
+  const { sb, mods } = dashboardSandbox();
+  const evDate = dayFromNow(3);
+  setStorage(sb, [
+    { id: 'd1', type: 'deposit', name: 'Вклад', amount: 100000, rate: 10, operations: [], endDate: evDate },
+    { id: 'cc', type: 'credit_card', name: 'Карта', amount: 50000, rate: 0, limit: 100000,
+      gracePeriodEndDate: evDate, operations: [] },
+  ]);
+  mods.Dashboard.renderAll();
+  const panel = sb.document.getElementById('calDayInfo');
+  assert.equal(panel.hidden, true, 'панель дня скрыта до выбора');
+  mods.Dashboard.showDay(evDate);
+  assert.equal(panel.hidden, false, 'панель дня открыта');
+  assert.ok(panel.innerHTML.includes('Окончание'), 'событие окончания на панели');
+  assert.ok(panel.innerHTML.includes('Льготный период'), 'событие грейса на панели');
+  mods.Dashboard.showDay(dayFromNow(10));
+  assert.equal(panel.hidden, true, 'пустой день — панель скрывается, календарь не реагирует');
+});
+
+test('ProductList: одинаковые типы сворачиваются в список, одиночный виден сразу', () => {
+  const { sb, mods } = dashboardSandbox();
+  setStorage(sb, [
+    { id: 'd1', type: 'deposit', name: 'Вклад 1', amount: 100000, rate: 10, operations: [] },
+    { id: 'd2', type: 'deposit', name: 'Вклад 2', amount: 200000, rate: 12, operations: [] },
+    { id: 'i1', type: 'investment', name: 'Брокерский', amount: 50000, rate: 5, operations: [], assets: [] },
+  ]);
+  mods.ProductList.render(() => {});
+  const html = sb.document.getElementById('productsList').innerHTML;
+  assert.equal((html.match(/product-group/g) || []).length, 1, 'одна свёрнутая группа — вклады');
+  assert.ok(html.includes('2 шт.'), 'счётчик продуктов в заголовке группы');
+  assert.ok(/300[\s\u00A0\u202F]?000/.test(html), 'сумма группы в заголовке');
+  assert.ok(html.includes('Вклад 1') && html.includes('Вклад 2'), 'вклады внутри группы');
+  assert.ok(html.includes('Брокерский'), 'одиночная инвестиция видна сразу');
+
+  // Один продукт типа — без сворачивания
+  const single = dashboardSandbox();
+  setStorage(single.sb, [{ id: 'd1', type: 'deposit', name: 'Один вклад', amount: 100000, rate: 5, operations: [] }]);
+  single.mods.ProductList.render(() => {});
+  const html2 = single.sb.document.getElementById('productsList').innerHTML;
+  assert.ok(!html2.includes('product-group'), 'одиночный продукт не сворачивается');
+  assert.ok(html2.includes('Один вклад'));
+});
+
+test('ProductList: закрытые продукты уходят в серый архив в конце списка', () => {
+  const { sb, mods } = dashboardSandbox();
+  setStorage(sb, [
+    { id: 'd1', type: 'deposit', name: 'Действующий вклад', amount: 100000, rate: 10, operations: [], endDate: dayFromNow(90) },
+    { id: 'd2', type: 'deposit', name: 'Закрытый вклад', amount: 200000, rate: 12, operations: [], endDate: dayFromNow(-30) },
+  ]);
+  mods.ProductList.render(() => {});
+  const html = sb.document.getElementById('productsList').innerHTML;
+  assert.ok(html.includes('product-archive'), 'архив в конце списка');
+  assert.ok(html.includes('Архив · 1'), 'счётчик архива');
+  assert.ok(html.indexOf('Закрытый вклад') > html.indexOf('product-archive'), 'закрытый вклад внутри архива');
+  assert.ok(html.indexOf('Действующий вклад') < html.indexOf('product-archive'), 'действующий вклад до архива');
+  assert.ok(!html.includes('product-group'), 'в активном списке один вклад — без сворачивания');
 });
 
 // ============================================================================
@@ -1130,7 +1231,7 @@ test('Seed: массив продуктов с уникальными id и ко
   assert.ok(Array.isArray(data) && data.length >= 6, 'достаточно демо-продуктов: ' + data.length);
   const ids = data.map(p => p.id);
   assert.equal(new Set(ids).size, ids.length, 'id уникальны');
-  const validTypes = new Set(['deposit','investment','debit_card','credit_card','loan','expense']);
+  const validTypes = new Set(['deposit','investment','debit_card','credit_card','loan','expense','apartment']);
   for (const p of data){
     assert.ok(validTypes.has(p.type), 'тип: ' + p.type);
     assert.ok(p.name && typeof p.name === 'string', 'имя заполнено');
@@ -1207,6 +1308,17 @@ test('Seed: купоны облигаций дают непустой графи
   assert.ok(future >= 2, 'есть будущие выплаты: ' + future);
 });
 
+test('Seed: демо-квартира с ростом стоимости, арендой и ремонтом', () => {
+  const { mods } = seedMods();
+  const apt = mods.SEED.find(p => p.type === 'apartment');
+  assert.ok(apt, 'есть демо-квартира');
+  assert.ok(apt.amount > 0, 'стоимость задана');
+  assert.ok(apt.rate > 0, 'рост стоимости задан');
+  assert.ok(apt.rented === true || apt.rented === false, 'флаг сдачи задан');
+  if (apt.rented) assert.ok(apt.rentPrice > 0, 'цена аренды задана');
+  assert.ok(apt.upkeepRate > 0, 'расходы на ремонт заданы');
+});
+
 // ============================================================================
 // 12. PWA-целостность: sw.js ↔ index.html ↔ уведомления
 // ============================================================================
@@ -1258,17 +1370,20 @@ test('index.html: ключевые элементы интерфейса на м
   const html = src('index.html');
   const ids = ['goalCard','createGoalBtn','cbBanksBtn','resetZeroBtn','enableNotifyBtn','checkDay',
     'alertsMessage','installApp','updateApp','importFile','tabMain','tabCashback','stats','eventsList',
-    'calendar','fc1','fc2','productsList','modalBg','themeToggle','snapshotBtn','saveStatus','sinceVisitCard'];
+    'calendar','calDayInfo','fc1','fc2','productsList','modalBg','themeToggle','snapshotBtn','saveStatus','sinceVisitCard'];
   for (const id of ids){
     assert.ok(html.includes(`id="${id}"`), 'id="' + id + '" отсутствует');
   }
   assert.ok(html.includes('js/notifications.js'), 'модуль уведомлений подключён');
   assert.ok(html.includes('js/charts.js'));
+  assert.ok(!html.includes('chartExpense'), 'график расходов удалён с дашборда');
 });
 
 test('app.js: смена темы сбрасывает кэш цветов графиков', () => {
   const app = src('js/app.js');
   assert.ok(app.includes('Charts.resetThemeCache'), 'кэш CSS-переменных сбрасывается при смене темы');
+  assert.ok(app.includes('exportExcel'), 'экспорт в Excel присутствует');
+  assert.ok(app.includes('\\uFEFF'), 'BOM для корректной кириллицы в Excel');
 });
 
 test('package.json: прогон тестов охватывает все файлы tests/', () => {
@@ -1320,4 +1435,3 @@ test('Charts.draw: крошечный canvas не падает и не рису�
   // rect.width = 0 → рисование остановилось до изменения размеров
   assert.equal(canvas.width, 0);
 });
-

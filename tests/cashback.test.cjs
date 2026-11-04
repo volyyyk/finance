@@ -35,7 +35,7 @@ test('groupByCategory: main row has no subcategory, subs sorted and capped at 3'
       { id: 'c2', name: 'Магазины', sub: 'Дикси', value: 20 }
     ]},
     { id: 'yb', name: 'Яндекс Банк', cats: [
-      { id: 'c3', name: 'Магазины', sub: 'Перекрёсток', value: 30 },
+      { id: 'c3', name: 'Магазины', sub: 'Перекёсток', value: 30 },
       { id: 'c4', name: 'Такси', value: 15 }
     ]}
   ];
@@ -51,7 +51,7 @@ test('groupByCategory: main row has no subcategory, subs sorted and capped at 3'
   assert.equal(shops.top.sub, null);
   // Подкатегории: до 3 лучших по убыванию процента
   assert.equal(shops.subs.length, 3);
-  assert.deepEqual(shops.subs.map(s => s.sub), ['Перекрёсток', 'Дикси', 'Пятёрочка']);
+  assert.deepEqual(shops.subs.map(s => s.sub), ['Перекёсток', 'Дикси', 'Пятёрочка']);
   assert.deepEqual(shops.subs.map(s => s.value), [30, 20, 12]);
   assert.equal(taxi.top.value, 15);
   assert.deepEqual(taxi.subs, []);
@@ -125,6 +125,18 @@ test('allByCategory groups every entry of the month by category', () => {
   const cafe = byCat.find(g => g.name === 'Кафе');
   assert.deepEqual(cafe.entries.map(e => e.bankName), ['Сбер', 'Т-Банк']); // по убыванию %
   assert.deepEqual(CbLogic.allByCategory([]), []);
+});
+
+test('level: подсветка категории по размеру кешбэка', () => {
+  assert.equal(CbLogic.level(0), 'low');
+  assert.equal(CbLogic.level(1), 'low');
+  assert.equal(CbLogic.level(2.9), 'low');
+  assert.equal(CbLogic.level(3), 'mid');
+  assert.equal(CbLogic.level(4.9), 'mid');
+  assert.equal(CbLogic.level(5), 'high');
+  assert.equal(CbLogic.level(15), 'high');
+  assert.equal(CbLogic.level(null), 'low');
+  assert.equal(CbLogic.level('7'), 'high');
 });
 
 test('dict stores banks and categories independently', () => {

@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v11';
+const CACHE_NAME = 'finance-cache-v12';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
@@ -139,3 +139,4 @@ self.addEventListener('fetch', event => {
   event.respondWith(caches.open(CACHE_NAME).then(async cache =>
     (await cache.match(ASSET_URLS[key])) || fetch(request)));
 });
+

@@ -47,6 +47,7 @@
     </div>
     <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему">🌙 Тёмная тема</button>
     <button class="btn ghost" id="exportBtn" title="Скачать все данные в JSON">⤓ Экспорт</button>
+    <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу CSV, которая открывается в Excel">⤓ Экспорт в Excel (CSV)</button>
     <button class="btn ghost" id="loadCloudBtn">Открыть облачную версию</button>
     <button class="btn ghost" id="importBtn" title="Загрузить из JSON">⤒ Импорт</button>
     <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js">↺ Сброс к seed</button>
@@ -86,7 +87,6 @@
   <section class="charts-row">
     <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
     <div class="chart-card"><h3>Доход (накопленный)</h3><canvas id="chartIncome"></canvas></div>
-    <div class="chart-card"><h3>Расход (накопленный)</h3><canvas id="chartExpense"></canvas></div>
   </section>
 
   <div class="grid-2">
@@ -101,6 +101,7 @@
         <button id="calNext">›</button>
       </div>
       <div id="calendar"></div>
+      <div id="calDayInfo" class="cal-day-info" hidden></div>
     </section>
   </div>
 
@@ -268,3 +269,4 @@
 <script src="js/pwa.js"></script>
 </body>
 </html>
+

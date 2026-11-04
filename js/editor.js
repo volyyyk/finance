@@ -98,6 +98,46 @@ const ProductEditor = (() => {
       }
     }
 
+    if (!$('apartmentBlock')) {
+      const form = $('productForm');
+      if (form) {
+        const div = document.createElement('div');
+        div.id = 'apartmentBlock';
+        div.style.display = 'none';
+        div.innerHTML = `
+          <div class="row-2">
+            <div class="field">
+              <label>Аренда в месяц (₽), если сдаётся</label>
+              <input type="number" id="f_rentPrice" step="0.01" min="0" placeholder="60000">
+            </div>
+            <div class="field">
+              <label>Расходы на квартиру — ремонт (% стоимости в год)</label>
+              <input type="number" id="f_upkeepRate" step="0.01" min="0" placeholder="2">
+            </div>
+          </div>
+          <div class="field">
+            <label class="cb-check"><input type="checkbox" id="f_rented"> Квартира сдаётся в аренду</label>
+          </div>`;
+        const actions = form.querySelector('.modal-actions');
+        if (actions) form.insertBefore(div, actions); else form.appendChild(div);
+      }
+    }
+
+    if (!$('offBudgetBlock')) {
+      const form = $('productForm');
+      if (form) {
+        const div = document.createElement('div');
+        div.id = 'offBudgetBlock';
+        div.style.display = 'none';
+        div.innerHTML = `
+          <div class="field">
+            <label class="cb-check"><input type="checkbox" id="f_offBudget"> Не считать в текущем бюджете <span class="op-meta">(доходы и расходы учитываются)</span></label>
+          </div>`;
+        const actions = form.querySelector('.modal-actions');
+        if (actions) form.insertBefore(div, actions); else form.appendChild(div);
+      }
+    }
+
     const endBlock = $('endActionBlock');
     if (endBlock && !$('endActionsList')) {
       endBlock.innerHTML = `
@@ -158,8 +198,14 @@ const ProductEditor = (() => {
     const isExpense = type === 'expense';
     const isInvest = type === 'investment';
     const isCredit = type === 'credit_card';
+    const isApartment = type === 'apartment';
+    // «Вне бюджета»: дебетовая карта, инвестиции и квартира не участвуют
+    // в текущем балансе, но их доходы и расходы учитываются в статистике.
+    const canOffBudget = type === 'debit_card' || isInvest || isApartment;
 
     if ($('creditCardBlock')) $('creditCardBlock').style.display = isCredit ? '' : 'none';
+    if ($('apartmentBlock')) $('apartmentBlock').style.display = isApartment ? '' : 'none';
+    if ($('offBudgetBlock')) $('offBudgetBlock').style.display = canOffBudget ? '' : 'none';
     if ($('field_end')) $('field_end').style.display = hasEnd ? '' : 'none';
     if ($('endActionBlock')) {
       const hasEndDate = $('f_end') && $('f_end').value;
@@ -172,6 +218,7 @@ const ProductEditor = (() => {
         ? 'Сумма в месяц (₽)'
         : isCredit ? 'Долг на текущий день (₽)'
         : isInvest   ? 'Свободные деньги (кэш) (₽)'
+        : isApartment ? 'Стоимость квартиры (₽)'
         : t.liability ? 'Текущий долг (₽)'
         : 'Текущая сумма (₽)';
     }
@@ -183,8 +230,13 @@ const ProductEditor = (() => {
         if (label) {
           label.textContent = isCredit ? 'Ставка по долгу (% годовых)'
             : isInvest ? 'Ожидаемый рост акций (% годовых)'
+            : isApartment ? 'Рост стоимости квартиры (% в год)'
             : 'Ставка (% годовых)';
         }
+      }
+      if (isApartment && !$('f_rate').value) {
+        $('f_rate').value = 8;
+        $('f_rate').placeholder = '8';
       }
     }
   }
@@ -217,6 +269,10 @@ const ProductEditor = (() => {
       if ($('f_comment')) $('f_comment').value = p.comment || '';
       if ($('f_limit')) $('f_limit').value = p.limit ?? 0;
       if ($('f_gracePeriodEnd')) $('f_gracePeriodEnd').value = p.gracePeriodEndDate || '';
+      if ($('f_rented')) $('f_rented').checked = p.rented === true;
+      if ($('f_rentPrice')) $('f_rentPrice').value = p.rentPrice ?? '';
+      if ($('f_upkeepRate')) $('f_upkeepRate').value = p.upkeepRate ?? '';
+      if ($('f_offBudget')) $('f_offBudget').checked = p.offBudget === true;
       draftOps = (p.operations || []).map(o => ({...o}));
       draftEndActions = Array.isArray(p.endActions)
         ? p.endActions.map(a => ({...a}))
@@ -230,6 +286,10 @@ const ProductEditor = (() => {
       if ($('f_end')) $('f_end').value = '';
       if ($('f_limit')) $('f_limit').value = 0;
       if ($('f_gracePeriodEnd')) $('f_gracePeriodEnd').value = '';
+      if ($('f_rented')) $('f_rented').checked = false;
+      if ($('f_rentPrice')) $('f_rentPrice').value = '';
+      if ($('f_upkeepRate')) $('f_upkeepRate').value = '';
+      if ($('f_offBudget')) $('f_offBudget').checked = false;
     }
 
     updateVisibility();
@@ -633,11 +693,14 @@ const ProductEditor = (() => {
     e.preventDefault();
     const id = $('f_id').value || uid();
     const type = $('f_type').value;
+    const isApartment = type === 'apartment';
+    let rate = parseFloat($('f_rate').value);
+    if (!Number.isFinite(rate)) rate = isApartment ? 8 : 0; // квартира по умолчанию растёт на 8%/год
     const product = {
       id, type,
       name: $('f_name').value.trim(),
       amount: parseFloat($('f_amount').value) || 0,
-      rate: parseFloat($('f_rate').value) || 0,
+      rate,
       startDate: $('f_start').value || null,
       endDate: $('f_end').value || null,
       comment: $('f_comment').value.trim(),
@@ -647,6 +710,15 @@ const ProductEditor = (() => {
     if (type === 'credit_card') {
       product.limit = parseFloat($('f_limit').value) || 0;
       product.gracePeriodEndDate = $('f_gracePeriodEnd').value || null;
+    }
+    if (isApartment) {
+      product.rented = $('f_rented') ? $('f_rented').checked : false;
+      product.rentPrice = parseFloat($('f_rentPrice')?.value) || 0;
+      let upkeep = parseFloat($('f_upkeepRate')?.value);
+      product.upkeepRate = Number.isFinite(upkeep) ? upkeep : 2; // ремонт по умолчанию 2%/год
+    }
+    if (type === 'debit_card' || type === 'investment' || isApartment) {
+      product.offBudget = $('f_offBudget') ? $('f_offBudget').checked === true : false;
     }
     if (type === 'investment'){
       product.assets = draftAssets.slice();
@@ -673,3 +745,4 @@ const ProductEditor = (() => {
 
   return { init, open, close, updateVisibility };
 })();
+

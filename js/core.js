@@ -10,6 +10,7 @@ const Config = (() => {
     debit_card:  {label:'Дебетовая карта',  icon:'💳', liability:false, hasEnd:false},
     credit_card: {label:'Кредитная карта',  icon:'💳', liability:true,  hasEnd:false},
     loan:        {label:'Кредит',           icon:'🏠', liability:true,  hasEnd:true},
+    apartment:   {label:'Квартира',         icon:'🏢', liability:false, hasEnd:false},
     expense:     {label:'Обязательный расход', icon:'📌', liability:true, hasEnd:false, mandatory:true },
   };
   const FREQUENCIES = {

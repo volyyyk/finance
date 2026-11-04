@@ -132,6 +132,21 @@
       ]
     },
     {
+      id: 'demo-apartment',
+      type: 'apartment',
+      name: 'Квартира (2-комнатная)',
+      amount: 12000000,
+      rate: 8,
+      rented: true,
+      rentPrice: 60000,
+      upkeepRate: 2,
+      startDate: daysFromNow(-730),
+      endDate: null,
+      comment: 'Рост стоимости ~8%/год, ремонт ~2%/год',
+      operations: [],
+      endActions: []
+    },
+    {
       id: 'demo-expense',
       type: 'expense',
       name: 'Аренда квартиры',
@@ -149,4 +164,5 @@
   // если своей цели ещё нет.
   window.SEED_GOAL = { name: 'Финансовая независимость', amount: 1000000 };
 })();
+
 

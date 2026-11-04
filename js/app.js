@@ -108,6 +108,46 @@ const App = (() => {
     URL.revokeObjectURL(url);
   }
 
+  // ===== Экспорт в Excel (CSV с BOM и «;» — открывается в Excel) =====
+  // Таблица продуктов для отчётности и анализа: один продукт — одна строка.
+  function exportExcel(){
+    const BOM = '\uFEFF'; // кириллица корректно открывается в Excel
+    const esc = v => {
+      if (v == null) return '';
+      const s = String(v).replace(/"/g, '""');
+      return /[";\n]/.test(s) ? `"${s}"` : s;
+    };
+    const rows = [];
+    rows.push(['Тип','Название','Сумма ₽','Ставка % годовых','Начало','Окончание',
+      'Комментарий','Сдаётся','Аренда ₽/мес','Ремонт %/год','Вне бюджета',
+      'Операций','Активов'].join(';'));
+    const typeLabels = (typeof Config !== 'undefined' && Config.TYPES) || {};
+    Storage.all().forEach(p => {
+      rows.push([
+        typeLabels[p.type]?.label || p.type,
+        p.name, p.amount, p.rate,
+        p.startDate || '', p.endDate || '',
+        p.comment || '',
+        p.type === 'apartment' ? (p.rented ? 'да' : 'нет') : '',
+        p.type === 'apartment' ? (p.rentPrice || 0) : '',
+        p.type === 'apartment' ? (p.upkeepRate ?? '') : '',
+        p.offBudget ? 'да' : 'нет',
+        (p.operations || []).length,
+        (p.assets || []).length,
+      ].map(esc).join(';'));
+    });
+    const csv = BOM + rows.join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `finance-export-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function importData(file){
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -168,6 +208,7 @@ const App = (() => {
     $('calPrev').onclick = () => Dashboard.prevMonth();
     $('calNext').onclick = () => Dashboard.nextMonth();
     $('exportBtn').onclick = exportData;
+    $('exportExcelBtn').onclick = exportExcel;
     $('resetBtn').onclick  = resetToSeed;
     $('resetZeroBtn').onclick = resetToZero;
     $('createGoalBtn').onclick = () => GoalBar.createOrEdit();
@@ -295,3 +336,4 @@ const App = (() => {
 
 document.addEventListener('DOMContentLoaded', () => App.init());
 window.addEventListener('load', () => App.refresh());
+

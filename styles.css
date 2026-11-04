@@ -50,7 +50,7 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
 .stat-sub{font-size:11px;color:var(--muted)}
 .green{color:var(--green)} .red{color:var(--red)}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.charts-row{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.charts-row{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
 .chart-card{background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--border)}
 .chart-card h3{margin:0 0 8px;font-size:12px;color:var(--muted);font-weight:600;
   text-transform:uppercase;letter-spacing:.05em}
@@ -382,3 +382,52 @@ html[data-theme="dark"] .goal-fill{background:linear-gradient(90deg,#2f7a52,#5fd
   margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .events-pager .btn{min-width:38px;min-height:38px;padding:5px 10px}
 .events-pager-info{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* События и дни календаря кликабельны — открывают карточку продукта */
+.event.clickable{cursor:pointer}
+.cal-cell.clickable{cursor:pointer}
+.cal-day-info{margin-top:10px;border-top:1px dashed var(--border);padding-top:8px}
+.cal-day-title{font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+
+/* Группы одинаковых типов продуктов (вклады, карты, инвестиции…) */
+.product-group{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;
+  background:var(--bg)}
+.product-group>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
+  padding:10px 12px;min-height:44px;user-select:none;font-weight:600;flex-wrap:wrap}
+.product-group>summary::-webkit-details-marker{display:none}
+.product-group>summary::before{content:'▸';font-size:11px;color:var(--muted);transition:transform .15s}
+.product-group[open]>summary::before{transform:rotate(90deg)}
+.pg-icon{font-size:16px}
+.pg-count{font-size:11px;color:var(--muted)}
+.pg-sum{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.pg-body{padding:0 10px 10px}
+.pg-body .product-row:last-child{border-bottom:none}
+
+/* Архив закрытых продуктов: серая свёрнутая вкладка в конце списка */
+.product-archive{border:1px dashed var(--border);border-radius:10px;margin-top:12px;
+  background:var(--bg);opacity:.72}
+.product-archive>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+  padding:9px 12px;min-height:44px;user-select:none;font-size:12px;color:var(--muted);
+  font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.product-archive>summary::-webkit-details-marker{display:none}
+.product-archive[open]{opacity:1}
+.product-archive .pg-body{padding:0 10px 10px}
+.product-archive .amount-val{color:var(--muted)}
+
+/* Кешбэк: категории в 2 столбика + тонкая подсветка по размеру кешбэка */
+.cb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cb-group{margin-bottom:0;border-radius:11px;padding:2px}
+.cb-group.cb-l-low{border:1px solid rgba(185,28,28,.22);background:rgba(185,28,28,.04)}
+.cb-group.cb-l-mid{border:1px solid rgba(202,138,4,.28);background:rgba(202,138,4,.05)}
+.cb-group.cb-l-high{border:1px solid rgba(21,128,61,.30);background:rgba(21,128,61,.05)}
+html[data-theme="dark"] .cb-group.cb-l-low{border-color:rgba(240,140,140,.3);background:rgba(240,140,140,.06)}
+html[data-theme="dark"] .cb-group.cb-l-mid{border-color:rgba(250,204,21,.28);background:rgba(250,204,21,.06)}
+html[data-theme="dark"] .cb-group.cb-l-high{border-color:rgba(95,211,138,.32);background:rgba(95,211,138,.07)}
+#cbAllBody{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+#cbAllBody .cb-all-bank,#cbAllBody .cb-all-cat{grid-column:1/-1;margin:6px 0 2px}
+@media(max-width:600px){
+  .cb-grid{grid-template-columns:1fr 1fr;gap:6px}
+  .pg-sum{margin-left:0;white-space:normal}
+}
+

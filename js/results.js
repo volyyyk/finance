@@ -144,3 +144,4 @@ const Results = (() => {
 
   return { init, render, add };
 })();
+

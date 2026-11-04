@@ -78,6 +78,7 @@ const Simulator = (() => {
     const isExpense = product.type === 'expense';
     const isInvest = product.type === 'investment';
     const isCredit = product.type === 'credit_card';
+    const isApartment = product.type === 'apartment';
     const noEvents = opts && opts.noEvents === true;
 
     const now = new Date(); now.setHours(0,0,0,0);
@@ -163,6 +164,14 @@ const Simulator = (() => {
           cumIncome += interest + coupon + fundGrowth;
         } else if (isCredit) {
           // Кредитная карта: проценты на остаток долга не начисляются
+        } else if (isApartment) {
+          // Квартира: стоимость растёт на заданный процент в год,
+          // аренда (если сдаётся) идёт в доход, ремонт — в расход.
+          const interest = value * rate / 100 / 12;
+          value += interest;
+          cumIncome += Math.max(0, interest);
+          if (product.rented) cumIncome += product.rentPrice || 0;
+          cumExpense += value * (product.upkeepRate || 0) / 100 / 12;
         } else {
           const interest = value * rate / 100 / 12;
           value += interest;
@@ -342,13 +351,23 @@ const Stats = (() => {
     let assets = 0, debts = 0, inc = 0, exp = 0;
     const list = Storage.all();
     list.forEach(p => {
+      // offBudget: продукт не участвует в текущем балансе (активах/долгах),
+      // но его доходы и расходы по-прежнему влияют на статистику.
+      const off = p.offBudget === true;
       if (p.type === 'expense'){
         exp += (p.amount || 0) * 12;
         return;
       }
+      if (p.type === 'apartment'){
+        const v = p.amount || 0;
+        if (!off) assets += v;
+        inc += v * (p.rate || 0) / 100 + (p.rented ? (p.rentPrice || 0) * 12 : 0);
+        exp += v * (p.upkeepRate || 0) / 100;
+        return;
+      }
       if (p.type === 'investment'){
         const v = Simulator.portfolioValue(p);
-        assets += v;
+        if (!off) assets += v;
         const cash = p.amount || 0;
         const stocks = (p.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
         const couponAnnual = (p.assets || [])
@@ -364,15 +383,15 @@ const Stats = (() => {
         return;
       }
       if (p.type === 'credit_card'){
-        debts += p.amount || 0;
+        if (!off) debts += p.amount || 0;
         // На долг кредитной карты проценты автоматически не начисляем
         return;
       }
       if (Config.TYPES[p.type].liability){
-        debts += p.amount || 0;
+        if (!off) debts += p.amount || 0;
         exp += (p.amount || 0) * (p.rate || 0) / 100;
       } else {
-        assets += p.amount || 0;
+        if (!off) assets += p.amount || 0;
         inc += (p.amount || 0) * (p.rate || 0) / 100;
       }
     });
@@ -399,3 +418,4 @@ const Stats = (() => {
   }
   return { aggregate };
 })();
+

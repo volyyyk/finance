@@ -115,12 +115,83 @@ const ProductList = (() => {
     const list = Storage.all();
     if (!list.length){
       el.innerHTML = '<div class="empty">Пока нет продуктов. Добавьте первый!</div>';
-    } else {
-      el.innerHTML = list.map(p=>{
+      updateDeleteBtn();
+      return;
+    }
+    // Архив: продукты с датой окончания в прошлом — свёрнутая серая
+    // вкладка в самом конце, чтобы не мешалась в основном списке.
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const isArchived = p => {
+      if (!p.endDate) return false;
+      const d = parseDate(p.endDate);
+      return d && d < todayStart;
+    };
+    const active = list.filter(p => !isArchived(p));
+    const archived = list.filter(isArchived);
+
+    // Одинаковые типы (вклады, дебетовые карты, инвестиции…) сворачиваются
+    // в раскрывающийся список с итогом; одиночный продукт виден сразу.
+    const groups = new Map();
+    active.forEach(p => {
+      if (!groups.has(p.type)) groups.set(p.type, []);
+      groups.get(p.type).push(p);
+    });
+    let html = '';
+    for (const [type, items] of groups){
+      if (items.length > 1){
+        const t = Config.TYPES[type];
+        const sum = items.reduce((s,p) => {
+          const v = p.type === 'investment' ? Simulator.portfolioValue(p) : (p.amount || 0);
+          return s + (t.liability ? -v : v);
+        }, 0);
+        html += `<details class="product-group">
+          <summary>
+            <span class="pg-icon">${t.icon}</span>
+            <span class="pg-name">${t.label}</span>
+            <span class="pg-count">${items.length} шт.</span>
+            <span class="pg-sum">${t.liability ? 'долг ' : ''}${fmtMoney(sum)}</span>
+          </summary>
+          <div class="pg-body">${items.map(rowHtml).join('')}</div>
+        </details>`;
+      } else {
+        html += rowHtml(items[0]);
+      }
+    }
+    if (archived.length){
+      html += `<details class="product-archive">
+        <summary>🗄 Архив · ${archived.length}</summary>
+        <div class="pg-body">${archived.map(rowHtml).join('')}</div>
+      </details>`;
+    }
+    el.innerHTML = html;
+    updateDeleteBtn();
+
+    el.querySelectorAll('[data-edit]').forEach(b=>{
+      b.onclick = () => onEdit(b.dataset.edit);
+    });
+    el.querySelectorAll('[data-refresh]').forEach(b=>{
+      b.onclick = async () => {
+        b.disabled = true;
+        b.textContent = '…';
+        await refreshProductPrices(b.dataset.refresh);
+        b.disabled = false;
+        b.textContent = '⟳';
+      };
+    });
+    el.querySelectorAll('input[type=checkbox][data-id]').forEach(cb=>{
+      cb.onchange = () => {
+        if (cb.checked) selected.add(cb.dataset.id); else selected.delete(cb.dataset.id);
+        updateDeleteBtn();
+      };
+    });
+  }
+
+  function rowHtml(p){
         const t = Config.TYPES[p.type];
         const isInvest = p.type === 'investment';
         const isExpense = p.type === 'expense';
         const isCredit = p.type === 'credit_card';
+        const isApartment = p.type === 'apartment';
 
         const value = isInvest ? Simulator.portfolioValue(p) : (p.amount || 0);
         const fundAnnual = isInvest
@@ -136,6 +207,10 @@ const ProductList = (() => {
             ? (p.assets || []).reduce((s,a)=> s+Simulator.annualCouponForAsset(a), 0)
               + (p.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + a.qty * Bonds.price(a), 0) * (p.rate || 0) / 100
               + fundAnnual
+            : isApartment
+              ? value * (p.rate || 0) / 100
+                + (p.rented ? (p.rentPrice || 0) * 12 : 0)
+                - value * (p.upkeepRate || 0) / 100
             : value * (p.rate || 0) / 100;
         const sign = (t.liability || isExpense) ? '−' : '+';
 
@@ -146,7 +221,17 @@ const ProductList = (() => {
                          : p.endAction ? 1 : 0;
 
         const subParts = [];
-        if (!isInvest && !isExpense && !isCredit && p.rate) subParts.push(`${p.rate}% годовых`);
+        if (!isInvest && !isExpense && !isCredit && !isApartment && p.rate) subParts.push(`${p.rate}% годовых`);
+        if (isApartment){
+          subParts.push(`рост ${p.rate ?? 8}%/год`);
+          if (p.rented && p.rentPrice){
+            subParts.push(`аренда ${fmtMoney(p.rentPrice)}/мес`);
+            if (value > 0) subParts.push(`доходность аренды ${((p.rentPrice * 12 / value) * 100).toFixed(1)}%/год`);
+          } else {
+            subParts.push('не сдаётся');
+          }
+          subParts.push(`ремонт ${p.upkeepRate ?? 2}%/год`);
+        }
         if (isExpense) subParts.push(`${fmtMoney(p.amount)}/мес`);
         if (isInvest && assetsCount) subParts.push(`портфель: ${assetsCount} актив.`);
         if (isInvest && !assetsCount) subParts.push('без активов');
@@ -190,28 +275,6 @@ const ProductList = (() => {
                           aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">⟳</button>` : ''}
           <button class="btn small" data-edit="${p.id}">Открыть</button>
         </div>`;
-      }).join('');
-    }
-    updateDeleteBtn();
-
-    el.querySelectorAll('[data-edit]').forEach(b=>{
-      b.onclick = () => onEdit(b.dataset.edit);
-    });
-    el.querySelectorAll('[data-refresh]').forEach(b=>{
-      b.onclick = async () => {
-        b.disabled = true;
-        b.textContent = '…';
-        await refreshProductPrices(b.dataset.refresh);
-        b.disabled = false;
-        b.textContent = '⟳';
-      };
-    });
-    el.querySelectorAll('input[type=checkbox][data-id]').forEach(cb=>{
-      cb.onchange = () => {
-        if (cb.checked) selected.add(cb.dataset.id); else selected.delete(cb.dataset.id);
-        updateDeleteBtn();
-      };
-    });
   }
 
   async function refreshProductPrices(id){
@@ -467,7 +530,7 @@ const Dashboard = (() => {
     const rows = evs.map(e=>{
       const days = Math.round((e.date - now)/86400000);
       const dtxt = days===0?'сегодня':days===1?'завтра':`через ${days} дн.`;
-      return `<div class="event ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}">
+      return `<div class="event clickable ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}" data-evprod="${e.product ? e.product.id : ''}">
         <div class="event-icon">${e.icon}</div>
         <div class="event-body">
           <div class="event-title">${escapeHtml(e.title)}</div>
@@ -488,6 +551,13 @@ const Dashboard = (() => {
     el.querySelectorAll('[data-evpage]').forEach(b=>{
       b.onclick = () => setEventsPage(eventsPage + (b.dataset.evpage === 'next' ? 1 : -1));
     });
+    // Тап по событию открывает карточку соответствующего продукта
+    el.querySelectorAll('[data-evprod]').forEach(row=>{
+      row.onclick = () => {
+        const id = row.dataset.evprod;
+        if (id && typeof ProductEditor !== 'undefined') ProductEditor.open(id);
+      };
+    });
   }
 
   function setEventsPage(page){
@@ -498,6 +568,8 @@ const Dashboard = (() => {
   }
 
   function renderCalendar(){
+    const dayPanel = $('calDayInfo');
+    if (dayPanel){ dayPanel.hidden = true; dayPanel.innerHTML = ''; }
     const y = calDate.getFullYear(), m = calDate.getMonth();
     $('calTitle').textContent = calDate.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
     const evMap = {};
@@ -519,11 +591,41 @@ const Dashboard = (() => {
       const evs = evMap[key] || [];
       const isToday = isThisMonth && today.getDate()===d;
       const title = evs.map(e=>e.title).join(' · ');
-      html += `<div class="cal-cell${isToday?' today':''}${evs.length?' has-events':''}" title="${escapeHtml(title)}">
+      html += `<div class="cal-cell${isToday?' today':''}${evs.length?' has-events clickable':''}"${evs.length?` data-caldate="${key}"`:''} title="${escapeHtml(title)}">
         ${d}${evs.length?'<span class="cal-dot"></span>':''}</div>`;
     }
     html += '</div>';
     $('calendar').innerHTML = html;
+    // Кликабельный календарь: тап по дате с событиями показывает их
+    // на панели под календарём; пустые даты не реагируют.
+    $('calendar').querySelectorAll('[data-caldate]').forEach(cell=>{
+      cell.onclick = () => showDay(cell.dataset.caldate);
+    });
+  }
+
+  // Панель событий выбранного дня (под календарём)
+  function showDay(key){
+    const panel = $('calDayInfo');
+    if (!panel) return;
+    const evs = Events.all().filter(e => dateKey(e.date) === key);
+    if (!evs.length){ panel.hidden = true; panel.innerHTML = ''; return; }
+    const rows = evs.map(e=>`
+      <div class="event ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}" data-evprod="${e.product ? e.product.id : ''}">
+        <div class="event-icon">${e.icon}</div>
+        <div class="event-body">
+          <div class="event-title">${escapeHtml(e.title)}</div>
+          <div class="event-meta">${fmtDate(e.date)}</div>
+        </div>
+        <div class="event-amount">${e.amount ? (e.direction === 'out' ? '−' : e.direction === 'in' ? '+' : '') + fmtMoney(e.amount) : ''}</div>
+      </div>`).join('');
+    panel.hidden = false;
+    panel.innerHTML = `<div class="cal-day-title">📅 ${fmtDate(key)}</div>` + rows;
+    panel.querySelectorAll('[data-evprod]').forEach(row=>{
+      row.onclick = () => {
+        const id = row.dataset.evprod;
+        if (id && typeof ProductEditor !== 'undefined') ProductEditor.open(id);
+      };
+    });
   }
 
   function renderCharts(){
@@ -532,7 +634,7 @@ const Dashboard = (() => {
     const sim = Simulator.simulateAll(120);
     const ids = Object.keys(sim);
     if (!ids.length){
-      ['chartBalance','chartIncome','chartExpense'].forEach(id=>{
+      ['chartBalance','chartIncome'].forEach(id=>{
         const c = $(id);
         const ctx = c.getContext('2d');
         const r = c.getBoundingClientRect();
@@ -551,7 +653,9 @@ const Dashboard = (() => {
         const h = sim[p.id].history[m];
         if (!h) return;
         const isL = Config.TYPES[p.type].liability;
-        net += isL ? -h.value : h.value;
+        // «Вне бюджета» не участвует в балансе, но доходы и расходы
+        // по-прежнему идут в общий зачёт.
+        if (p.offBudget !== true) net += isL ? -h.value : h.value;
         inc += h.cumIncome;
         exp += h.cumExpense;
       });
@@ -570,7 +674,6 @@ const Dashboard = (() => {
     const monthLabel = i => i === 0 ? 'сейчас' : i + ' мес';
     Charts.draw($('chartBalance'), [{color:'#2563eb', data:balance}], {xTicks, pointLabel: monthLabel});
     Charts.draw($('chartIncome'),  [{color:'#16a34a', data:income}], {xTicks, pointLabel: monthLabel});
-    Charts.draw($('chartExpense'), [{color:'#dc2626', data:expense}], {xTicks, pointLabel: monthLabel});
   }
 
   function renderForecast(){
@@ -582,13 +685,15 @@ const Dashboard = (() => {
     const sim = Simulator.simulateAll(120);
     const simNoEvents = Simulator.simulateAll(120, { noEvents: true });
     const list = Storage.all();
+    // Прогноз капитала: продукты «вне бюджета» исключаются из баланса
+    const onBudget = list.filter(p => p.offBudget !== true);
     const valueAt = (map, p, m) => {
       const r = map[p.id];
       return (r && r.history[m] && r.history[m].value) || 0;
     };
     const now0 = (() => {
       let net = 0;
-      list.forEach(p=>{
+      onBudget.forEach(p=>{
         const isL = Config.TYPES[p.type].liability;
         const v = p.type === 'investment'
           ? Simulator.portfolioValue(p) : (p.amount || 0);
@@ -596,7 +701,7 @@ const Dashboard = (() => {
       });
       return net;
     })();
-    const assets0 = list.reduce(
+    const assets0 = onBudget.reduce(
       (s,p) => Config.TYPES[p.type].liability ? s
         : s + (p.type === 'investment' ? Simulator.portfolioValue(p) : (p.amount||0)),
       0
@@ -609,7 +714,7 @@ const Dashboard = (() => {
     function col(map){
       return periods.map(per=>{
         let net = 0;
-        list.forEach(p=>{
+        onBudget.forEach(p=>{
           const isL = Config.TYPES[p.type].liability;
           net += isL ? -valueAt(map, p, per.m) : valueAt(map, p, per.m);
         });
@@ -627,12 +732,13 @@ const Dashboard = (() => {
     $('fc2').innerHTML = col(sim);
   }
 
-  function prevMonth(){ calDate.setMonth(calDate.getMonth()-1); renderCalendar(); }
-  function nextMonth(){ calDate.setMonth(calDate.getMonth()+1); renderCalendar(); }
+  function prevMonth(){ calDate.setMonth(calDate.getMonth()-1); const p = $('calDayInfo'); if (p){ p.hidden = true; p.innerHTML=''; } renderCalendar(); }
+  function nextMonth(){ calDate.setMonth(calDate.getMonth()+1); const p = $('calDayInfo'); if (p){ p.hidden = true; p.innerHTML=''; } renderCalendar(); }
   function renderAll(){
     GoalBar.render();
     renderStats(); renderEvents(); renderCalendar(); renderCharts(); renderForecast();
     SinceVisit.render();
   }
-  return { renderAll, renderCharts, renderEvents, setEventsPage, prevMonth, nextMonth };
+  return { renderAll, renderCharts, renderEvents, setEventsPage, showDay, prevMonth, nextMonth };
 })();
+

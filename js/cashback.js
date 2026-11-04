@@ -118,9 +118,18 @@ const CbLogic = (() => {
     return d;
   }
 
+  // Уровень кешбэка для подсветки категории: слабый (красный) до 3%,
+  // средний (жёлтый) 3–5%, высокий (зелёный) от 5%.
+  function level(value){
+    const v = Number(value) || 0;
+    if (v >= 5) return 'high';
+    if (v >= 3) return 'mid';
+    return 'low';
+  }
+
   return {
     monthKey, normalize, entriesAll, groupByCategory, allByBank, allByCategory,
-    normalizeDict, dictAdd, dictRemove
+    normalizeDict, dictAdd, dictRemove, level
   };
 })();
 if (typeof module !== 'undefined') module.exports = CbLogic;
@@ -213,6 +222,10 @@ const Cashback = typeof document !== 'undefined' ? (() => {
 
     const groups = CbLogic.groupByCategory(data.banks);
     const groupHtml = groups.map(g => {
+      // Подсветка категории по размеру лучшего кешбэка
+      const bestVal = Math.max(0,
+        ...((g.top ? [g.top.value] : []).concat(g.subs || []).map(e => e.value || 0)));
+      const lvl = CbLogic.level(bestVal);
       const top = g.top ? `
         <div class="cb-row">
           <div class="cb-cat">${escapeHtml(g.name)}</div>
@@ -228,7 +241,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
           <span class="cb-sub-txt">${escapeHtml(s.bankName)} · ${escapeHtml(s.sub)} — <b>${s.value}%</b></span>
           <button class="op-del" data-bank="${s.bankId}" data-cat="${s.catId}" title="Убрать этот кешбэк">×</button>
         </div>`).join('');
-      return `<div class="cb-group">${top}${subs ? `<div class="cb-subs">${subs}</div>` : ''}</div>`;
+      return `<div class="cb-group cb-l-${lvl}">${top}${subs ? `<div class="cb-subs">${subs}</div>` : ''}</div>`;
     }).join('');
 
     const bankOpts = data.banks.map(b =>
@@ -236,7 +249,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
 
     el.innerHTML = `
       <h3>Лучшие кешбэки по категориям</h3>
-      <div class="cb-list">${groupHtml}</div>
+      <div class="cb-list cb-grid">${groupHtml}</div>
       ${datalist('cbCatList', catNames(data, dict))}
       <div class="cb-quick">
         <div class="op-meta">Добавить кешбэк за ${monthTitle(data.month)}</div>
@@ -461,3 +474,4 @@ const Cashback = typeof document !== 'undefined' ? (() => {
   return { init, render, openDict };
 })() : null;
 if (typeof window !== 'undefined') window.Cashback = Cashback;
+
