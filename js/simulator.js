@@ -100,6 +100,11 @@ const Simulator = (() => {
     const resetInvest = () => { cash = 0; stocks = 0; funds = 0; metals = 0; bonds = 0; fundItems.forEach(f => f.value = 0); };
     let previousDate = Utils.dateKey(now);
     const principalPaid = new Map();
+    // Выплаты облигаций считаются один раз на весь прогноз, а не для
+    // каждого месяца заново (график выплат не меняется в рамках расчёта).
+    const bondList = isInvest ? (product.assets || [])
+      .filter(a => a.kind === 'bond' && !a.redeemed)
+      .map(a => ({ a, pays: Bonds.payments(a) })) : [];
 
     for (let m=1; m<=months; m++){
       const monthDate = new Date(now);
@@ -129,9 +134,9 @@ const Simulator = (() => {
           funds += fundGrowth;
           let coupon = 0;
           const through = Utils.dateKey(monthDate);
-          for (const a of product.assets || []) {
-            if (a.kind !== 'bond' || a.redeemed) continue;
-            for (const pay of Bonds.futurePayments(a, previousDate, through)) {
+          for (const { a, pays } of bondList){
+            for (const pay of pays){
+              if (pay.date <= previousDate || pay.date > through || pay.value == null || a.paidEvents?.[pay.key]) continue;
               const amount = pay.value * (a.qty || 0);
               cash += amount;
               if (pay.type === 'coupon') coupon += amount;
@@ -235,7 +240,14 @@ const Simulator = (() => {
     return (d.getFullYear()-now.getFullYear())*12 + (d.getMonth()-now.getMonth());
   }
 
-  function simulateAll(months){
+  // Версия данных (ключ кэша). null — если Storage не поддерживает
+  // version() (например, упрощённая подстановка в тестах): кэш выключен.
+  function dataVersion(){
+    return (typeof Storage !== 'undefined' && typeof Storage.version === 'function')
+      ? Storage.version() : null;
+  }
+
+  function simulateAllRaw(months){
     const list = Storage.all();
     const pass1 = {};
     list.forEach(p => { pass1[p.id] = simulateProduct(p, months, []); });
@@ -266,11 +278,46 @@ const Simulator = (() => {
     return result;
   }
 
+  // Кэш тяжёлой симуляции: один расчёт на самую длинную глубину
+  // обслуживает и все более короткие горизонты (срез истории),
+  // пока версия данных не изменилась. Прогностическая таблица и
+  // графики запрашивают 1/12/24/60/120 месяцев — без кэша это
+  // пять полных прогонов симуляции на каждую перерисовку.
+  let simMemo = { version: null, months: 0, results: null };
+  function simulateAll(months){
+    const v = dataVersion();
+    if (v !== null && simMemo.results && v === simMemo.version && months <= simMemo.months){
+      const out = {};
+      for (const id of Object.keys(simMemo.results)){
+        const r = simMemo.results[id];
+        out[id] = { history: r.history.slice(0, months + 1), endValue: r.history[months].value };
+      }
+      return out;
+    }
+    const results = simulateAllRaw(months);
+    if (v !== null) simMemo = { version: v, months, results };
+    return results;
+  }
+
   return { simulateProduct, simulateAll, portfolioValue, annualCouponForAsset };
 })();
 
 const Stats = (() => {
+  // Сводка считается один раз на версию данных: GoalBar, карточки
+  // статистики и результаты используют один и тот же aggregate().
+  let aggMemo = { version: null, value: null };
+  function dataVersion(){
+    return (typeof Storage !== 'undefined' && typeof Storage.version === 'function')
+      ? Storage.version() : null;
+  }
   function aggregate(){
+    const v = dataVersion();
+    if (v !== null && aggMemo.value && v === aggMemo.version) return aggMemo.value;
+    const result = aggregateRaw();
+    if (v !== null) aggMemo = { version: v, value: result };
+    return result;
+  }
+  function aggregateRaw(){
     let assets = 0, debts = 0, inc = 0, exp = 0;
     const list = Storage.all();
     list.forEach(p => {

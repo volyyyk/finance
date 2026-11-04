@@ -6,13 +6,18 @@
    ============================================================ */
 
 const Charts = (() => {
-  // Цвет из CSS-переменной (учитывает тёмную тему)
+  // Кэш цветов из CSS-переменных: getComputedStyle не должен вызываться
+  // на каждую отрисовку. Сбрасывается при смене темы (resetThemeCache).
+  let cssCache = new Map();
   function cssVar(name, fallback){
+    if (cssCache.has(name)) return cssCache.get(name);
     try {
-      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-      return v || fallback;
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+      cssCache.set(name, v);
+      return v;
     } catch { return fallback; }
   }
+  function resetThemeCache(){ cssCache = new Map(); }
 
   function shortNum(v){
     const a = Math.abs(v);
@@ -90,5 +95,6 @@ const Charts = (() => {
     });
   }
 
-  return { draw, cssVar };
+  return { draw, cssVar, resetThemeCache };
 })();
+if (typeof module !== 'undefined') module.exports = Charts;

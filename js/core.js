@@ -24,7 +24,7 @@ const Config = (() => {
 const Utils = (() => {
   const uid = () => Math.random().toString(36).slice(2,10);
   const $ = id => document.getElementById(id);
-  function parseDate(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+  function parseDate(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); const dt=new Date(y,m-1,d); return isNaN(dt)?null:dt; }
   function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
   function fmtMoney(n){ return new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n); }
   function fmtPct(n){ return (n>=0?'+':'') + n.toFixed(2) + '%'; }
@@ -68,6 +68,7 @@ const Storage = (() => {
       initialized = true;
       if (!dirty) {
         cache = remote.products;
+        generation++; // данные изменились извне — кэши расчётов сбрасываются
         localStorage.setItem(Config.STORAGE_KEY, JSON.stringify(cache));
         localStorage.setItem('fin_revision', String(revision));
         window.dispatchEvent(new Event('remoteData'));
@@ -99,6 +100,7 @@ const Storage = (() => {
       const remote = await response.json();
       if (currentGeneration !== generation) { status('Во время загрузки появились изменения. Повторите действие'); return; }
       cache = remote.products; revision = remote.revision; dirty = false; initialized = true;
+      generation++; // данные изменились извне — кэши расчётов сбрасываются
       localStorage.setItem(Config.STORAGE_KEY, JSON.stringify(cache));
       localStorage.setItem('fin_revision', String(revision));
       localStorage.removeItem('fin_pending');
@@ -144,5 +146,8 @@ const Storage = (() => {
     }
     return false;
   }
-  return { all, get, upsert, remove, hasData, clear, replaceAll, loadFromSeed, save, sync, useRemote };
+  // Версия данных: растёт при каждом изменении списка продуктов.
+  // Используется как ключ кэша тяжёлых расчётов (Stats, Simulator, Events).
+  function version(){ return generation; }
+  return { all, get, upsert, remove, hasData, clear, replaceAll, loadFromSeed, save, sync, useRemote, version };
 })();

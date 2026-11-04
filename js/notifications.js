@@ -34,13 +34,28 @@ const Notify = (() => {
     });
   }
 
+  // Абсолютный путь к иконке: Android требует корректный URL иконки,
+  // badge — маленькая монохромная метка в строке статуса.
+  const ICON_URL = new URL('icons/icon-192.png', location.href).toString();
+  const APP_URL = new URL('./', location.href).toString();
+
   async function show(title, body, tag){
     if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+    const options = {
+      body, tag,
+      icon: ICON_URL,                       // крупная иконка (слева)
+      badge: ICON_URL,                      // мелкая метка в статус-баре Android
+      data: { url: APP_URL }                // открытие приложения по тапу (см. notificationclick в sw.js)
+    };
     try {
-      const reg = await navigator.serviceWorker?.getRegistration();
-      const options = { body, tag, icon: 'icons/icon-192.png' };
-      if (reg) await reg.showNotification(title, options);
-      else new Notification(title, options);
+      // На Android Chrome уведомление показывается ТОЛЬКО через service
+      // worker: конструктор new Notification() там выбрасывает ошибку.
+      if (navigator.serviceWorker){
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification(title, options);
+      } else {
+        new Notification(title, options);   // резервный путь для десктопа без SW
+      }
       return true;
     } catch (e){ return false; }
   }
@@ -98,7 +113,9 @@ const Notify = (() => {
   async function syncMeta(){
     try {
       const reg = await navigator.serviceWorker?.ready;
-      reg?.active?.postMessage({
+      // active может быть null во время обновления SW — подстраховываемся
+      const sw = reg?.active || reg?.waiting || reg?.installing;
+      sw?.postMessage({
         type: 'fin-meta',
         lastVisit: Number(localStorage.getItem('fin_lastVisit') || Date.now()),
         lastWeeklyTs: Number(localStorage.getItem('fin_lastWeeklyTs') || 0),

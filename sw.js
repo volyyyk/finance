@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v9';
+const CACHE_NAME = 'finance-cache-v10';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
@@ -66,7 +66,7 @@ self.addEventListener('periodicsync', event => {
     if (nowDate.getDay() === checkDay && now - (meta.lastWeeklyTs || 0) >= 20 * 3600 * 1000){
       await self.registration.showNotification('Пора свериться с расходами', {
         body: 'Сегодня день сверки расходов. Откройте приложение и проверьте траты за неделю.',
-        tag: 'fin-weekly', icon: ICON_URL
+        tag: 'fin-weekly', icon: ICON_URL, badge: ICON_URL, data: { url: BASE.toString() }
       });
       meta.lastWeeklyTs = now;
     }
@@ -78,7 +78,7 @@ self.addEventListener('periodicsync', event => {
       await self.registration.showNotification('Скорое списание', {
         body: `${p.title}${p.amount ? ': ' + p.amount.toLocaleString('ru-RU') + ' ₽' : ''} — ` +
               (days === 0 ? 'сегодня' : days === 1 ? 'завтра' : `через ${days} дн.`),
-        tag: p.key, icon: ICON_URL
+        tag: p.key, icon: ICON_URL, badge: ICON_URL, data: { url: BASE.toString() }
       });
       meta.sent.push(p.key);
     }
@@ -88,6 +88,20 @@ self.addEventListener('periodicsync', event => {
     const live = (meta.payments || []).filter(p => p.ts >= weekAgo).map(p => p.key);
     meta.sent = meta.sent.filter(k => live.includes(k));
     await writeMeta(meta);
+  })());
+});
+
+// Тап по уведомлению открывает или активирует приложение.
+// Без этого обработчика на Android тап по уведомлению просто
+// закрывал его, не открывая PWA.
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clientList){
+      if ('focus' in client) return client.focus();
+    }
+    return self.clients.openWindow(BASE.toString());
   })());
 });
 

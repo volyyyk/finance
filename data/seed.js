@@ -44,6 +44,7 @@
         { id: uid(), secid: 'SU26238RMFS4', shortname: 'ОФЗ 26238',
           kind: 'bond', board: 'TQOB', qty: 50, avgPrice: 950, lastPrice: 970,
           couponType: 'floater', spread: 1.5, nominal: 1000, couponFreq: 2,
+          maturityDate: daysFromNow(720),
           coupons: [
             { date: daysFromNow(30), value: 45 },
             { date: daysFromNow(210), value: 45 }
@@ -51,6 +52,7 @@
         { id: uid(), secid: 'RU000A105SD4', shortname: 'Корпоративная облигация',
           kind: 'bond', board: 'TQCB', qty: 30, avgPrice: 990, lastPrice: 1002,
           couponType: 'fixed', nominal: 1000, couponFreq: 4,
+          maturityDate: daysFromNow(200),
           coupons: [
             { date: daysFromNow(20), value: 28 },
             { date: daysFromNow(110), value: 28 },

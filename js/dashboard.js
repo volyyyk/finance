@@ -19,7 +19,19 @@ const Events = (() => {
     return d;
   }
 
+  // Кэш списка событий на версию данных: список нужен сводке,
+  // календарю и уведомлениям одновременно, сканировать продукты
+  // для каждого использования заново не нужно.
+  let memo = { version: null, list: null };
   function all(){
+    const v = (typeof Storage.version === 'function') ? Storage.version() : null;
+    if (v !== null && memo.list && v === memo.version) return memo.list;
+    const list = computeAll();
+    if (v !== null) memo = { version: v, list };
+    return list;
+  }
+
+  function computeAll(){
     const list = [];
     const today = new Date(); today.setHours(0,0,0,0);
 
@@ -477,7 +489,9 @@ const Dashboard = (() => {
   }
 
   function renderCharts(){
-    const sim = Simulator.simulateAll(24);
+    // Одна симуляция на 2 года: кэш Simulator отдаёт срезы истории
+    // и для прогноза, и для графиков, пока данные не изменились.
+    const sim = Simulator.simulateAll(120);
     const ids = Object.keys(sim);
     if (!ids.length){
       ['chartBalance','chartIncome','chartExpense'].forEach(id=>{
@@ -520,21 +534,17 @@ const Dashboard = (() => {
   }
 
   function renderForecast(){
-    const total = (months, withEvents) => {
-      const sim = Simulator.simulateAll(months);
-      let net = 0;
-      Storage.all().forEach(p=>{
-        const isL = Config.TYPES[p.type].liability;
-        const v = withEvents
-          ? sim[p.id].endValue
-          : sim[p.id].history[sim[p.id].history.length-1].value;
-        net += isL ? -v : v;
-      });
-      return net;
+    // Один расчёт на все горизонты: срезы истории симуляции за
+    // 1/12/60/120 месяцев из одного прогона (кэшируется по версии данных).
+    const sim = Simulator.simulateAll(120);
+    const list = Storage.all();
+    const valueAt = (p, m) => {
+      const r = sim[p.id];
+      return (r && r.history[m] && r.history[m].value) || 0;
     };
     const now0 = (() => {
       let net = 0;
-      Storage.all().forEach(p=>{
+      list.forEach(p=>{
         const isL = Config.TYPES[p.type].liability;
         const v = p.type === 'investment'
           ? Simulator.portfolioValue(p) : (p.amount || 0);
@@ -542,7 +552,7 @@ const Dashboard = (() => {
       });
       return net;
     })();
-    const assets0 = Storage.all().reduce(
+    const assets0 = list.reduce(
       (s,p) => Config.TYPES[p.type].liability ? s
         : s + (p.type === 'investment' ? Simulator.portfolioValue(p) : (p.amount||0)),
       0
@@ -554,12 +564,16 @@ const Dashboard = (() => {
     ];
     function col(withEvents){
       return periods.map(per=>{
-        const val = total(per.m, withEvents);
-        const gain = val - now0;
+        let net = 0;
+        list.forEach(p=>{
+          const isL = Config.TYPES[p.type].liability;
+          net += isL ? -valueAt(p, per.m) : valueAt(p, per.m);
+        });
+        const gain = net - now0;
         const pct = gain / base0 * 100;
         return `<div class="fc-row">
           <div class="fc-label">${per.label}</div>
-          <div class="fc-value">${fmtMoney(val)}</div>
+          <div class="fc-value">${fmtMoney(net)}</div>
           <div class="fc-gain ${gain>=0?'green':'red'}">
             ${gain>=0?'+':''}${fmtMoney(gain)} (${pct.toFixed(1)}%)</div>
         </div>`;

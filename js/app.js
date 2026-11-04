@@ -57,6 +57,8 @@ const App = (() => {
     if (btn) btn.textContent = theme === 'dark' ? '☀️ Светлая тема' : '🌙 Тёмная тема';
   }
   function afterThemeChange(){
+    // Цвета графиков кэшируются по CSS-переменным — при смене темы кэш сбрасывается
+    if (typeof Charts !== 'undefined' && Charts.resetThemeCache) Charts.resetThemeCache();
     Dashboard.renderCharts();
     const rd = $('resultsDetails');
     if (rd && rd.open && typeof Results !== 'undefined') Results.render();
