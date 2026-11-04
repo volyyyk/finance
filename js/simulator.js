@@ -87,10 +87,17 @@ const Simulator = (() => {
     let cumIncome = 0, cumExpense = 0;
     const history = [{ month:0, value, cumIncome:0, cumExpense:0 }];
 
-    // Разделяем кэш и акции для инвестиций
+    // Разделяем кэш, акции, фонды, металлы и облигации для инвестиций.
+    // Фонды растут по своей доходности за полгода (sixMonthPct),
+    // металлы в прогнозе не растут — только справочно показывают изменение.
     let cash = isInvest ? (product.amount || 0) : 0;
-    let stocks = isInvest ? (product.assets || []).filter(a => a.kind !== 'bond').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0) : 0;
-    let bonds = isInvest ? value - cash - stocks : 0;
+    let stocks = isInvest ? (product.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0) : 0;
+    let metals = isInvest ? (product.assets || []).filter(a => a.kind === 'metal').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0) : 0;
+    const fundItems = isInvest ? (product.assets || []).filter(a => a.kind === 'fund')
+      .map(a => ({ a, value: (a.qty || 0) * Bonds.price(a) })) : [];
+    let funds = fundItems.reduce((s,f) => s + f.value, 0);
+    let bonds = isInvest ? value - cash - stocks - funds - metals : 0;
+    const resetInvest = () => { cash = 0; stocks = 0; funds = 0; metals = 0; bonds = 0; fundItems.forEach(f => f.value = 0); };
     let previousDate = Utils.dateKey(now);
     const principalPaid = new Map();
 
@@ -109,6 +116,17 @@ const Simulator = (() => {
           // Проценты капают ТОЛЬКО на акции
           const interest = stocks * rate / 100 / 12;
           stocks += interest;
+          // Фонды растут по своей доходности за полгода:
+          // месячный множитель = (1 + доходность/100)^(1/6)
+          let fundGrowth = 0;
+          for (const f of fundItems){
+            const pct = f.a.sixMonthPct;
+            if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) continue;
+            const newValue = f.value * Math.pow(1 + pct/100, 1/6);
+            fundGrowth += newValue - f.value;
+            f.value = newValue;
+          }
+          funds += fundGrowth;
           let coupon = 0;
           const through = Utils.dateKey(monthDate);
           for (const a of product.assets || []) {
@@ -128,8 +146,8 @@ const Simulator = (() => {
             }
           }
           previousDate = through;
-          value = cash + stocks + bonds;
-          cumIncome += interest + coupon;
+          value = cash + stocks + funds + bonds + metals;
+          cumIncome += interest + coupon + fundGrowth;
         } else if (isCredit) {
           // Кредитная карта: проценты на остаток долга не начисляются
         } else {
@@ -195,11 +213,13 @@ const Simulator = (() => {
             rate = act.newRate ?? rate;
             currentEnd = act.newEndDate ? parseDate(act.newEndDate) : null;
           } else if (act.type === 'close' || act.type === 'transfer'){
-            value = 0; cash = 0; stocks = 0; bonds = 0;
+            resetInvest();
+            value = 0;
             currentEnd = null;
           }
         } else {
-          value = 0; cash = 0; stocks = 0; bonds = 0;
+          resetInvest();
+          value = 0;
           currentEnd = null;
         }
       }
@@ -262,11 +282,17 @@ const Stats = (() => {
         const v = Simulator.portfolioValue(p);
         assets += v;
         const cash = p.amount || 0;
-        const stocks = (p.assets || []).filter(a => a.kind !== 'bond').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
+        const stocks = (p.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
         const couponAnnual = (p.assets || [])
           .reduce((s,a) => s + Simulator.annualCouponForAsset(a), 0);
-        // Доход считаем только с акций и купонов. На кэш проценты не капают.
-        inc += couponAnnual + stocks * (p.rate || 0) / 100;
+        // Доход считаем с акций, купонов и фондов. На кэш и металлы
+        // проценты не капают: металлы показывают изменение справочно.
+        const fundAnnual = (p.assets || []).filter(a => a.kind === 'fund').reduce((s,a) => {
+          const pct = a.sixMonthPct;
+          if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) return s;
+          return s + (a.qty || 0) * Bonds.price(a) * (Math.pow(1 + pct/100, 2) - 1);
+        }, 0);
+        inc += couponAnnual + stocks * (p.rate || 0) / 100 + fundAnnual;
         return;
       }
       if (p.type === 'credit_card'){

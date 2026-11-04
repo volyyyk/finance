@@ -111,11 +111,19 @@ const ProductList = (() => {
         const isCredit = p.type === 'credit_card';
 
         const value = isInvest ? Simulator.portfolioValue(p) : (p.amount || 0);
+        const fundAnnual = isInvest
+          ? (p.assets || []).filter(a => a.kind === 'fund').reduce((s,a) => {
+              const pct = a.sixMonthPct;
+              if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) return s;
+              return s + a.qty * Bonds.price(a) * (Math.pow(1 + pct/100, 2) - 1);
+            }, 0)
+          : 0;
         const annual = isExpense
           ? (p.amount || 0) * 12
           : isInvest
             ? (p.assets || []).reduce((s,a)=> s+Simulator.annualCouponForAsset(a), 0)
-              + (p.assets || []).filter(a => a.kind !== 'bond').reduce((s,a) => s + a.qty * Bonds.price(a), 0) * (p.rate || 0) / 100
+              + (p.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + a.qty * Bonds.price(a), 0) * (p.rate || 0) / 100
+              + fundAnnual
             : value * (p.rate || 0) / 100;
         const sign = (t.liability || isExpense) ? '−' : '+';
 
@@ -131,6 +139,11 @@ const ProductList = (() => {
         if (isInvest && assetsCount) subParts.push(`портфель: ${assetsCount} актив.`);
         if (isInvest && !assetsCount) subParts.push('без активов');
         if (isInvest) subParts.push(`свободно: ${fmtMoney(p.amount || 0)}`);
+        // Доходность фондов (учтена в прогнозе) и металлов (справочно) за полгода
+        (p.assets || []).forEach(a => {
+          if ((a.kind === 'fund' || a.kind === 'metal') && a.sixMonthPct != null)
+            subParts.push(`${a.shortname || a.secid} ${Utils.fmtPct(a.sixMonthPct)}/6 мес`);
+        });
         
         if (isCredit) {
           const limit = p.limit || 0;
@@ -399,7 +412,7 @@ const Dashboard = (() => {
         const dpr = window.devicePixelRatio||1;
         c.width = r.width*dpr; c.height = r.height*dpr;
         ctx.scale(dpr,dpr);
-        ctx.fillStyle = '#94a3b8'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+        ctx.fillStyle = Charts.cssVar('--chart-text', '#94a3b8'); ctx.font='11px sans-serif'; ctx.textAlign='center';
         ctx.fillText('Нет данных', r.width/2, r.height/2);
       });
       return;

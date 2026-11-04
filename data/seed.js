@@ -45,7 +45,13 @@
           coupons: [
             { date: daysFromNow(30), value: 45 },
             { date: daysFromNow(210), value: 45 }
-          ] }
+          ] },
+        { id: uid(), secid: 'TGLD', shortname: 'Тинькофф iHolding (золото)',
+          kind: 'fund', board: 'TQTF', qty: 120, avgPrice: 8.4, lastPrice: 9.1,
+          sixMonthPct: 8.3 },
+        { id: uid(), secid: 'GLDRUB_TOM', shortname: 'Золото (грамм)',
+          kind: 'metal', board: '', qty: 15.5, avgPrice: 7200, lastPrice: 7450,
+          unit: 'gram', ouncePrice: 231820, sixMonthPct: 3.5 }
       ]
     },
     {

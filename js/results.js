@@ -93,7 +93,7 @@ const Results = (() => {
       canvas.width = Math.max(1, rect.width); canvas.height = Math.max(1, rect.height);
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, rect.width, rect.height);
-      ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = Charts.cssVar('--chart-text', '#94a3b8'); ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Зафиксируйте первый результат', rect.width/2, rect.height/2);
       return;
     }

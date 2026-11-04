@@ -6,6 +6,14 @@
    ============================================================ */
 
 const Charts = (() => {
+  // Цвет из CSS-переменной (учитывает тёмную тему)
+  function cssVar(name, fallback){
+    try {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
+    } catch { return fallback; }
+  }
+
   function shortNum(v){
     const a = Math.abs(v);
     if (a >= 1e6) return (v/1e6).toFixed(1) + 'М';
@@ -38,8 +46,10 @@ const Charts = (() => {
     const xOf = (i, n) => pad.left + plotW * (n <= 1 ? 0 : i / (n - 1));
 
     // Сетка и подписи по оси Y
-    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
-    ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    const gridColor = cssVar('--chart-grid', '#e2e8f0');
+    const textColor = cssVar('--chart-text', '#94a3b8');
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+    ctx.fillStyle = textColor; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
     for (let i=0; i<=3; i++){
       const v = min + (max-min) * i/3;
       const y = yOf(v);
@@ -49,7 +59,7 @@ const Charts = (() => {
 
     // Отметки по оси X
     if (opts.xTicks?.length){
-      ctx.strokeStyle = '#e2e8f0'; ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
+      ctx.strokeStyle = gridColor; ctx.fillStyle = textColor; ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
       opts.xTicks.forEach(t => {
         const x = pad.left + plotW * Math.max(0, Math.min(1, Number(t.x) || 0));
@@ -80,5 +90,5 @@ const Charts = (() => {
     });
   }
 
-  return { draw };
+  return { draw, cssVar };
 })();

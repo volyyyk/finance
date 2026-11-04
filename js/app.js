@@ -32,6 +32,53 @@ const App = (() => {
     }
   }
 
+  // ===== Тёмная тема =====
+  function currentTheme(){
+    const saved = localStorage.getItem('fin_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  function applyTheme(theme){
+    document.documentElement.dataset.theme = theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b1424' : '#2563eb');
+    const btn = $('themeToggle');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️ Светлая тема' : '🌙 Тёмная тема';
+  }
+  function afterThemeChange(){
+    Dashboard.renderCharts();
+    const rd = $('resultsDetails');
+    if (rd && rd.open && typeof Results !== 'undefined') Results.render();
+  }
+  function setTheme(theme){
+    localStorage.setItem('fin_theme', theme);
+    applyTheme(theme);
+    afterThemeChange();
+  }
+
+  // ===== Ежемесячное обновление доходности фондов и металлов =====
+  // Изменение цены за полгода пересчитывается не чаще 1 раза в месяц:
+  // если в этом месяце обновления не было — обновляем, если было — не трогаем.
+  async function refreshMonthlyYields(){
+    if (typeof MoexAPI === 'undefined' || !navigator.onLine) return;
+    const month = MoexAPI.monthKey();
+    let changed = false;
+    for (const p of Storage.all()){
+      if (p.type !== 'investment' || !Array.isArray(p.assets)) continue;
+      for (const a of p.assets){
+        if (a.redeemed) continue;
+        if ((a.kind === 'fund' || a.kind === 'metal') && a.yieldMonth !== month){
+          try { await MoexAPI.refreshSixMonth(a); changed = true; }
+          catch { /* Нет сети или данных MOEX — обновим при следующем заходе */ }
+        }
+      }
+    }
+    if (changed && !$('modalBg').classList.contains('show')){
+      Storage.save(Storage.all());
+      refresh();
+    }
+  }
+
   // ===== Экспорт / Импорт / Сброс =====
   function exportData(){
     const data = JSON.stringify(Storage.all(), null, 2);
@@ -73,6 +120,17 @@ const App = (() => {
   }
 
   function init(){
+    // 0. Тема: светлая или тёмная (плашка настроек)
+    applyTheme(currentTheme());
+    $('themeToggle').onclick = () =>
+      setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    if (window.matchMedia){
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      (mq.addEventListener ? mq.addEventListener.bind(mq) : mq.addListener.bind(mq))('change', () => {
+        if (!localStorage.getItem('fin_theme')){ applyTheme(currentTheme()); afterThemeChange(); }
+      });
+    }
+
     // 1. Сначала вешаем обработчики, чтобы кнопки работали в любом случае
     $('addBtn').onclick  = () => ProductEditor.open(null, App.refresh);
     $('addBtn2').onclick = () => ProductEditor.open(null, App.refresh);
@@ -146,8 +204,8 @@ const App = (() => {
       }
       refresh();
     }
-    Storage.sync().then(() => { refresh(); refreshMoex(); });
-    window.addEventListener('online', () => Storage.sync().then(refreshMoex));
+    Storage.sync().then(() => { refresh(); refreshMoex(); refreshMonthlyYields(); });
+    window.addEventListener('online', () => Storage.sync().then(() => { refreshMoex(); refreshMonthlyYields(); }));
     window.addEventListener('remoteData', refresh);
     setInterval(() => {
       if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); Storage.sync(); }

@@ -1,7 +1,25 @@
 :root{
   --bg:#f4f6fa; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
   --green:#15803d; --red:#b91c1c; --blue:#2563eb;
+  --chart-grid:#e2e8f0; --chart-text:#94a3b8;
 }
+/* Тёмная тема: глубокий тёмно-синий фон, пастельные акценты */
+html[data-theme="dark"]{
+  --bg:#0b1424; --card:#121e33; --text:#e6ecf5; --muted:#93a6c4; --border:#243654;
+  --green:#5fd38a; --red:#f08c8c; --blue:#7aa5f8;
+  --chart-grid:#243654; --chart-text:#93a6c4;
+}
+html[data-theme="dark"] .event-in{background:rgba(95,211,138,.09);border-color:rgba(95,211,138,.25)}
+html[data-theme="dark"] .event-out{background:rgba(240,140,140,.09);border-color:rgba(240,140,140,.25)}
+html[data-theme="dark"] .event-in .event-amount{color:var(--green)}
+html[data-theme="dark"] .event-out .event-amount{color:var(--red)}
+html[data-theme="dark"] .modal-bg{background:rgba(3,7,18,.74)}
+html[data-theme="dark"] .settings-panel{box-shadow:0 12px 32px rgba(0,0,0,.55)}
+html[data-theme="dark"] .btn.primary:hover{background:#6699ee}
+html[data-theme="dark"] .btn.danger:hover{background:#c76a6a}
+html[data-theme="dark"] .cal-cell.today{background:var(--blue);color:#0b1424}
+html[data-theme="dark"] .cal-cell.today.has-events .cal-dot{background:#0b1424}
+html[data-theme="dark"] .install-content,html[data-theme="dark"] .install-guide summary span{color:var(--muted)}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
@@ -255,3 +273,45 @@ body.editor-open{overflow:hidden}
 .settings-field>span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .settings-field select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--card);color:var(--text);font-size:13px}
+
+/* Кешбэк: группы категорий с подкатегориями */
+.cb-group{margin-bottom:10px}
+.cb-group>.cb-row{margin-bottom:0}
+.cb-subs{margin:4px 0 6px 10px;display:flex;flex-direction:column;gap:2px;
+  border-left:2px solid var(--border);padding-left:10px}
+.cb-sub{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+  padding:3px 0;min-height:0}
+.cb-sub .cb-sub-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-sub b{color:var(--text);font-weight:600}
+.cb-sub .op-del{font-size:13px;min-height:28px;min-width:28px}
+.cb-sub-empty{font-size:12px;color:var(--muted);font-style:italic}
+/* Общий список */
+.cb-all{margin-top:16px}
+.cb-all>summary{cursor:pointer;color:var(--muted);font-size:13px;user-select:none;min-height:44px;
+  display:flex;align-items:center}
+.cb-all[open]>summary{margin-bottom:8px}
+.cb-all-sort{display:flex;gap:6px;margin-bottom:10px}
+.cb-all-sort .btn{flex:1}
+.cb-all-sort .btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.cb-all-bank{font-weight:600;font-size:12px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.04em;margin:10px 0 6px}
+.cb-all-cat{font-weight:600;font-size:12px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.04em;margin:10px 0 6px}
+.cb-all-row{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;margin-bottom:4px;font-size:13px}
+.cb-all-row .cb-all-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-all-row b{color:var(--green)}
+/* Глобальные настройки раздела: постоянные банки и категории */
+.cb-dict-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:16px 0 8px}
+.cb-dict-head h3{margin:0}
+.cb-dict-list{display:flex;flex-direction:column;gap:4px}
+.cb-dict-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;font-size:13px}
+.cb-dict-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-dict-add{display:flex;gap:6px;margin-top:8px}
+.cb-dict-add input{flex:1;min-width:0}
+/* Галочка «есть подкатегория» и поле подкатегории */
+.cb-check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+  white-space:nowrap;user-select:none;cursor:pointer}
+.cb-check input[type=checkbox]{min-height:20px;min-width:20px;accent-color:var(--blue)}
+.cb-add .cb-sub-input{min-width:90px}

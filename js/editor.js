@@ -21,6 +21,8 @@ const ProductEditor = (() => {
       $('addAssetBtn').disabled = true;
       $('searchResults').textContent = '';
       $('bondExtra').style.display = 'none';
+      $('assetQty').step = $('assetKind').value === 'metal' ? '0.01' : '1';
+      $('assetQty').placeholder = $('assetKind').value === 'metal' ? 'Граммы' : 'Кол-во';
     });
 
     const typeSel = $('f_type');
@@ -121,6 +123,8 @@ const ProductEditor = (() => {
                 <select id="assetKind">
                   <option value="stock">Акция</option>
                   <option value="bond">Облигация</option>
+                  <option value="fund">Фонд</option>
+                  <option value="metal">Металл</option>
                 </select>
                 <button type="button" class="btn small" id="searchAssetBtn">Найти</button>
               </div>
@@ -392,8 +396,34 @@ const ProductEditor = (() => {
       const filtered = rows.filter(r => {
         const t = (r.type || '').toLowerCase();
         if (kind === 'stock') return t.includes('share') || t.includes('depositary_receipt');
+        if (kind === 'fund') return t.includes('fund') || t.includes('etf');
+        if (kind === 'metal') return /^(GLD|SLVR|PLD|PDD)RUB/.test(r.secid || '');
         return t.includes('bond');
       });
+
+      if (kind === 'metal'){
+        searchResults = filtered;
+        const quick = `<div class="op-meta" style="margin-bottom:6px">Драгметаллы MOEX (цена — за грамм):</div>` +
+          [['GLDRUB_TOM','Золото'],['SLVRUB_TOM','Серебро'],['PLDRUB_TOM','Платина'],['PDDRUB_TOM','Палладий']]
+          .map(([secid,label]) => `<button type="button" class="btn small" data-metal="${secid}" style="margin:0 4px 4px 0">${label} · ${secid}</button>`)
+          .join('');
+        box.innerHTML = quick + (filtered.length
+          ? filtered.map((r, i) =>
+            `<div class="op-row" data-pick="${i}" style="cursor:pointer">
+               <div class="op-body">
+                 <div><b>${escapeHtml(r.shortname)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
+                 <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}</div>
+               </div>
+             </div>`).join('')
+          : '<div class="op-meta">Можно добавить металл кнопкой выше или найти по тикеру (например, GLD)</div>');
+        box.querySelectorAll('[data-metal]').forEach(btn => {
+          btn.onclick = () => pickAsset({ secid: btn.dataset.metal, shortname: btn.dataset.metal, kind:'metal' });
+        });
+        box.querySelectorAll('[data-pick]').forEach(el => {
+          el.onclick = () => pickAsset({ ...searchResults[Number(el.dataset.pick)], kind:'metal' });
+        });
+        return;
+      }
 
       if (!filtered.length){
         box.innerHTML = '<div class="op-meta">Нет подходящих бумаг этого типа</div>';
@@ -408,35 +438,45 @@ const ProductEditor = (() => {
            </div>
          </div>`).join('');
       box.querySelectorAll('[data-pick]').forEach(el=>{
-        el.onclick = async () => {
-          pendingAsset = searchResults[Number(el.dataset.pick)];
-          $('addAssetBtn').disabled = true;
-          const picked = pendingAsset;
-          box.innerHTML = `<div class="op-row"><div class="op-body">
-            <b>Выбрано:</b> ${escapeHtml(pendingAsset.shortname)} (${escapeHtml(pendingAsset.secid)})
-          </div></div>`;
-          if ($('bondExtra')) $('bondExtra').style.display = $('assetKind').value === 'bond' ? '' : 'none';
-          $('assetPurchaseDate').value = Bonds.today();
-          $('bondPreview').textContent = 'Загрузка данных MOEX…';
-          try {
-            const kind = $('assetKind').value;
-            const asset = { ...picked, board:picked.primary_boardid || (kind === 'bond' ? 'TQOB' : 'TQBR'), kind };
-            await MoexAPI.refreshAsset(asset);
-            if (pendingAsset !== picked) return;
-            pendingAsset = asset;
-            if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
-            $('bondPreview').textContent = kind === 'bond'
-              ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}` : '';
-            $('addAssetBtn').disabled = false;
-          } catch (e) {
-            if (pendingAsset !== picked) return;
-            $('bondPreview').textContent = 'Не удалось загрузить данные: ' + e.message + '. Повторите поиск.';
-            if ($('assetKind').value !== 'bond') $('addAssetBtn').disabled = false;
-          }
-        };
+        el.onclick = () => pickAsset({ ...searchResults[Number(el.dataset.pick)], kind: $('assetKind').value });
       });
     } catch(e){
       box.innerHTML = `<div class="op-meta red">Ошибка: ${e.message}. Проверьте интернет.</div>`;
+    }
+  }
+
+  let pickSeq = 0;
+  async function pickAsset(picked){
+    const kind = picked.kind || $('assetKind').value;
+    const myPick = ++pickSeq;
+    pendingAsset = null;
+    $('addAssetBtn').disabled = true;
+    const box = $('searchResults');
+    box.innerHTML = `<div class="op-row"><div class="op-body">
+      <b>Выбрано:</b> ${escapeHtml(picked.shortname || picked.secid)} (${escapeHtml(picked.secid)})
+    </div></div>`;
+    if ($('bondExtra')) $('bondExtra').style.display = kind === 'bond' ? '' : 'none';
+    $('assetPurchaseDate').value = Bonds.today();
+    $('bondPreview').textContent = 'Загрузка данных MOEX…';
+    try {
+      const asset = { ...picked, board: picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR'), kind };
+      await MoexAPI.refreshAsset(asset);
+      if (myPick !== pickSeq) return;
+      pendingAsset = asset;
+      if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
+      $('bondPreview').textContent =
+        kind === 'bond'
+          ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}`
+          : kind === 'fund'
+          ? `Цена пая: ${fmtMoney(asset.lastPrice || 0)} · данные MOEX`
+          : kind === 'metal'
+          ? `Цена за грамм: ${fmtMoney(asset.lastPrice || 0)} · унция: ${fmtMoney(asset.ouncePrice || 0)} · данные MOEX`
+          : '';
+      $('addAssetBtn').disabled = false;
+    } catch (e) {
+      if (myPick !== pickSeq) return;
+      $('bondPreview').textContent = 'Не удалось загрузить данные: ' + e.message + '. Повторите поиск.';
+      if (kind !== 'bond') $('addAssetBtn').disabled = false;
     }
   }
 
@@ -445,8 +485,10 @@ const ProductEditor = (() => {
     const qty = Number($('assetQty').value);
     const avgPrice = Number($('assetAvgPrice').value);
     const kind = pendingAsset.kind || $('assetKind').value;
-    if (!Number.isInteger(qty) || qty <= 0 || !Number.isFinite(avgPrice) || avgPrice <= 0) {
-      alert('Укажите целое положительное количество и цену покупки в рублях'); return;
+    if (!(qty > 0) || (kind !== 'metal' && !Number.isInteger(qty)) || !Number.isFinite(avgPrice) || avgPrice <= 0) {
+      alert(kind === 'metal'
+        ? 'Укажите вес в граммах (можно дробный) и цену покупки в рублях за грамм'
+        : 'Укажите целое положительное количество и цену покупки в рублях'); return;
     }
     const purchaseDate = $('assetPurchaseDate').value || Bonds.today();
     if (kind === 'bond' && (purchaseDate > Bonds.today() || (pendingAsset.maturityDate && purchaseDate >= pendingAsset.maturityDate))) {
@@ -479,6 +521,13 @@ const ProductEditor = (() => {
       const total = (a.qty || 0) * price;
       const nextCoupon = (a.coupons || []).find(c => c.date >= Bonds.today());
       const paid = Object.values(a.paidEvents || {}).reduce((s,p) => s + p.amount, 0);
+      const kindLabel = {stock:'акция', bond:'облигация', fund:'фонд', metal:'металл'}[a.kind] || a.kind;
+      const qtyTxt = a.kind === 'metal'
+        ? `${a.qty} г × ${fmtMoney(price)}/г`
+        : `${a.qty} шт × ${fmtMoney(price)}`;
+      // Доходность фондов (учтена в прогнозе) и металлов (справочно) за полгода
+      const yieldTxt = ((a.kind === 'fund' || a.kind === 'metal') && a.sixMonthPct != null)
+        ? `<div class="op-meta">Изменение за полгода: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b>${a.kind === 'fund' ? ' · учтено в прогнозе' : ' · справочно'}</div>` : '';
       const couponTxt = a.kind === 'bond' ? `
         <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
         · купон ${a.couponAmount == null ? 'не объявлен' : fmtMoney(a.couponAmount)}
@@ -493,11 +542,11 @@ const ProductEditor = (() => {
       return `<div class="op-row">
         <div class="op-body">
           <div><b>${escapeHtml(a.shortname || a.secid)}</b>
-            <span class="badge">${a.kind === 'bond' ? 'облигация' : 'акция'}</span>
+            <span class="badge">${kindLabel}</span>
             <span class="badge">${escapeHtml(a.secid)}</span></div>
-          <div class="op-meta">${a.qty} шт × ${fmtMoney(price)}
+          <div class="op-meta">${qtyTxt}
             = ${fmtMoney(total)}
-            ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${couponTxt}
+            ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${couponTxt}
         </div>
         <button type="button" class="op-del" data-asset-del="${a.id}">×</button>
       </div>`;
