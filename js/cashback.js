@@ -226,15 +226,21 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       const bestVal = Math.max(0,
         ...((g.top ? [g.top.value] : []).concat(g.subs || []).map(e => e.value || 0)));
       const lvl = CbLogic.level(bestVal);
+      // Компактная строка: категория и % — сверху, банк — под ней
+      // (муниципальное имя банка больше не растягивает блок по ширине)
       const top = g.top ? `
         <div class="cb-row">
-          <div class="cb-cat">${escapeHtml(g.name)}</div>
-          <div class="cb-best"><b>${g.top.value}%</b> · ${escapeHtml(g.top.bankName)}</div>
+          <div class="cb-txt">
+            <div class="cb-line"><span class="cb-cat">${escapeHtml(g.name)}</span><b class="cb-val">${g.top.value}%</b></div>
+            <div class="cb-bank">${escapeHtml(g.top.bankName)}</div>
+          </div>
           <button class="op-del" data-bank="${g.top.bankId}" data-cat="${g.top.catId}" title="Убрать этот кешбэк">×</button>
         </div>` : `
         <div class="cb-row">
-          <div class="cb-cat">${escapeHtml(g.name)}</div>
-          <div class="cb-best">только подкатегории</div>
+          <div class="cb-txt">
+            <div class="cb-line"><span class="cb-cat">${escapeHtml(g.name)}</span></div>
+            <div class="cb-bank">только подкатегории</div>
+          </div>
         </div>`;
       const subs = (g.subs || []).map(s => `
         <div class="cb-sub">

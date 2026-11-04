@@ -1384,6 +1384,11 @@ test('app.js: смена темы сбрасывает кэш цветов гр�
   assert.ok(app.includes('Charts.resetThemeCache'), 'кэш CSS-переменных сбрасывается при смене темы');
   assert.ok(app.includes('exportExcel'), 'экспорт в Excel присутствует');
   assert.ok(app.includes('\\uFEFF'), 'BOM для корректной кириллицы в Excel');
+  // Экспорт в Excel: таблица .xls с итогами — общий баланс, долг, чистый капитал
+  assert.ok(app.includes('Общий баланс'), 'в экспорте есть общий баланс (активы)');
+  assert.ok(app.includes('Общий долг'), 'в экспорте есть общий долг');
+  assert.ok(app.includes('Чистый капитал'), 'в экспорте есть чистый капитал');
+  assert.ok(app.includes('application/vnd.ms-excel'), 'файл .xls для Excel');
 });
 
 test('package.json: прогон тестов охватывает все файлы tests/', () => {

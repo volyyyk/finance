@@ -108,40 +108,84 @@ const App = (() => {
     URL.revokeObjectURL(url);
   }
 
-  // ===== Экспорт в Excel (CSV с BOM и «;» — открывается в Excel) =====
-  // Таблица продуктов для отчётности и анализа: один продукт — одна строка.
+  // ===== Экспорт в Excel (.xls на основе HTML-таблицы) =====
+  // Настоящая таблица с колонками и форматированием: открывается в Excel
+  // на ПК и телефоне без настройки разделителей (в отличие от CSV).
+  // Сверху — итоги: общий баланс, общий долг и чистый капитал.
   function exportExcel(){
-    const BOM = '\uFEFF'; // кириллица корректно открывается в Excel
-    const esc = v => {
-      if (v == null) return '';
-      const s = String(v).replace(/"/g, '""');
-      return /[";\n]/.test(s) ? `"${s}"` : s;
-    };
-    const rows = [];
-    rows.push(['Тип','Название','Сумма ₽','Ставка % годовых','Начало','Окончание',
-      'Комментарий','Сдаётся','Аренда ₽/мес','Ремонт %/год','Вне бюджета',
-      'Операций','Активов'].join(';'));
+    const esc = v => String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const stamp = new Date().toISOString().slice(0, 10);
+    const list = Storage.all();
+    // Итоги берём из статистики: активы, долги и чистый капитал
+    // (продукты «вне бюджета» в баланс не входят — как на дашборде)
+    let assets = 0, debts = 0, net = 0;
+    if (typeof Stats !== 'undefined'){
+      const s = Stats.aggregate();
+      assets = s.assets; debts = s.debts; net = s.net;
+    } else {
+      const isL = t => t === 'credit_card' || t === 'loan';
+      list.forEach(p => {
+        if (p.offBudget || p.type === 'expense') return;
+        if (isL(p.type)) debts += Number(p.amount) || 0;
+        else assets += Number(p.amount) || 0;
+      });
+      net = assets - debts;
+    }
+
+    const num = v => `<td class="num" style="mso-number-format:'#,##0.00'">${Number(v) || 0}</td>`;
+    const totalRow = (label, value) =>
+      `<tr><td class="lbl">${label}</td>${num(value)}</tr>`;
+
+    const cols = ['Тип','Название','Сумма ₽','Ставка % годовых','Начало','Окончание','Комментарий',
+      'Сдаётся','Аренда ₽/мес','Ремонт %/год','Вне бюджета','Операций','Активов'];
     const typeLabels = (typeof Config !== 'undefined' && Config.TYPES) || {};
-    Storage.all().forEach(p => {
-      rows.push([
-        typeLabels[p.type]?.label || p.type,
-        p.name, p.amount, p.rate,
-        p.startDate || '', p.endDate || '',
-        p.comment || '',
-        p.type === 'apartment' ? (p.rented ? 'да' : 'нет') : '',
-        p.type === 'apartment' ? (p.rentPrice || 0) : '',
-        p.type === 'apartment' ? (p.upkeepRate ?? '') : '',
-        p.offBudget ? 'да' : 'нет',
-        (p.operations || []).length,
-        (p.assets || []).length,
-      ].map(esc).join(';'));
-    });
-    const csv = BOM + rows.join('\r\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const rows = list.map(p => `<tr>` +
+      `<td>${esc(typeLabels[p.type]?.label || p.type)}</td>` +
+      `<td>${esc(p.name)}</td>` +
+      num(p.amount) +
+      num(p.rate) +
+      `<td>${esc(p.startDate || '')}</td>` +
+      `<td>${esc(p.endDate || '')}</td>` +
+      `<td>${esc(p.comment || '')}</td>` +
+      `<td>${p.type === 'apartment' ? (p.rented ? 'да' : 'нет') : ''}</td>` +
+      `<td>${p.type === 'apartment' ? (Number(p.rentPrice) || 0) : ''}</td>` +
+      `<td>${p.type === 'apartment' ? (Number(p.upkeepRate) || 0) : ''}</td>` +
+      `<td>${p.offBudget ? 'да' : 'нет'}</td>` +
+      `<td class="num">${(p.operations || []).length}</td>` +
+      `<td class="num">${(p.assets || []).length}</td>` +
+      `</tr>`).join('');
+
+    const html = '\uFEFF' +
+`<!DOCTYPE html><html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">
+<style>
+table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px}
+th{background:#2563eb;color:#fff;font-weight:700;padding:6px 10px;border:1px solid #b6c4d8;text-align:center}
+td{border:1px solid #d5dce6;padding:5px 10px;vertical-align:top}
+td.num{text-align:right}
+td.lbl{font-weight:700;background:#eef2f8}
+td.tot{font-weight:700}
+h2{font-family:Calibri,Arial,sans-serif;margin:0 0 10px}
+h3{font-family:Calibri,Arial,sans-serif;margin:14px 0 6px;font-size:14px}
+</style></head><body>
+<h2>Финансы — экспорт от ${stamp}</h2>
+<table>
+${totalRow('Общий баланс (активы), ₽', assets)}
+${totalRow('Общий долг, ₽', debts)}
+${totalRow('Чистый капитал (баланс − долг), ₽', net)}
+</table>
+<h3>Продукты (${list.length})</h3>
+<table>
+<tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
+${rows}
+</table>
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `finance-export-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `finance-export-${stamp}.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
