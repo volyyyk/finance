@@ -50,6 +50,7 @@
     <button class="btn ghost" id="loadCloudBtn">Открыть облачную версию</button>
     <button class="btn ghost" id="importBtn" title="Загрузить из JSON">⤒ Импорт</button>
     <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js">↺ Сброс к seed</button>
+    <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления">🗑 Сбросить всё (до нуля)</button>
           <details class="card install-guide" id="installGuide">
     <summary>Установка на телефон · <span id="offlineStatus" role="status">Подготовка автономного режима…</span></summary>
     <div class="install-content">
@@ -64,6 +65,7 @@
       </div>
     </details>
     <button class="btn primary" id="addBtn">+ Добавить продукт</button>
+    <button class="btn banks" id="cbBanksBtn" hidden title="Постоянные банки и категории кешбэка">♾️ Банки</button>
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
 </header>
@@ -76,6 +78,7 @@
   <span id="alertsMessage"></span>
 </aside>
 <main id="modeMain">
+  <section class="card goal-card" id="goalCard" hidden></section>
   <section class="stats" id="stats"></section>
 
   <section class="card" id="sinceVisitCard" hidden></section>
@@ -137,6 +140,10 @@
       </div>
     </details>
   </section>
+
+  <div class="actions-bar goal-create-bar">
+    <button class="btn" id="createGoalBtn">🎯 Создать цель</button>
+  </div>
 </main>
 
 <main id="modeCashback" hidden>

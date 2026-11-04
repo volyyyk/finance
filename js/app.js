@@ -24,11 +24,22 @@ const App = (() => {
     refresh();
   }
 
+  // Демо-цель из seed.js ставится, только если своей цели ещё нет
+  function applySeedGoal(){
+    if (window.SEED_GOAL && window.SEED_GOAL.amount > 0 && !localStorage.getItem('fin_goal')){
+      localStorage.setItem('fin_goal', JSON.stringify({
+        amount: window.SEED_GOAL.amount, createdAt: new Date().toISOString()
+      }));
+    }
+  }
+
   function bootstrapData(){
     if (Storage.hasData()) return;
     if (!Storage.loadFromSeed()){
       console.warn('Данные не найдены и seed.js пуст — начинаем с пустого списка');
       Storage.save([]);
+    } else {
+      applySeedGoal();
     }
   }
 
@@ -110,12 +121,28 @@ const App = (() => {
     reader.readAsText(file);
   }
 
+  // Оба сброса защищены тремя последовательными предупреждениями,
+  // чтобы случайно не удалить данные.
   function resetToSeed(){
-    if (!confirm('Очистить все текущие данные и загрузить из data/seed.js?')) return;
+    if (!confirm('Сброс к демо-данным (seed) — шаг 1 из 3\n\nВсе текущие данные будут удалены и заменены демо-примерами. Продолжить?')) return;
+    if (!confirm('Сброс к демо-данным — шаг 2 из 3\n\nЕсли данные нужны, сначала сделайте экспорт (Настройки → Экспорт). Удалить всё и загрузить seed?')) return;
+    if (!confirm('Сброс к демо-данным — шаг 3 из 3\n\nПоследнее предупреждение: заменить все данные демо-примерами?')) return;
     Storage.clear();
+    localStorage.removeItem('fin_goal');
     if (!Storage.loadFromSeed()){
       alert('В data/seed.js нет данных (window.SEED_DATA пуст или отсутствует)');
+    } else {
+      applySeedGoal();
     }
+    refresh();
+  }
+
+  function resetToZero(){
+    if (!confirm('Полный сброс — шаг 1 из 3\n\nБудут удалены ВСЕ данные, включая цель. Продолжить?')) return;
+    if (!confirm('Полный сброс — шаг 2 из 3\n\nЭто действие нельзя отменить. Если данные нужны, сначала сделайте экспорт. Удалить всё?')) return;
+    if (!confirm('Полный сброс — шаг 3 из 3\n\nПоследнее предупреждение: удалить все данные без возможности восстановления?')) return;
+    localStorage.removeItem('fin_goal');
+    Storage.clear();
     refresh();
   }
 
@@ -139,6 +166,9 @@ const App = (() => {
     $('calNext').onclick = () => Dashboard.nextMonth();
     $('exportBtn').onclick = exportData;
     $('resetBtn').onclick  = resetToSeed;
+    $('resetZeroBtn').onclick = resetToZero;
+    $('createGoalBtn').onclick = () => GoalBar.createOrEdit();
+    $('cbBanksBtn').onclick = () => { if (window.Cashback) window.Cashback.openDict(); };
     $('loadCloudBtn').onclick = () => Storage.useRemote();
     $('importBtn').onclick = () => $('importFile').click();
     $('importFile').addEventListener('change', (e)=>{
@@ -174,6 +204,7 @@ const App = (() => {
         $('tabMain').classList.toggle('active', !isCb);
         $('tabCashback').classList.toggle('active', isCb);
         $('addBtn').hidden = isCb;
+        $('cbBanksBtn').hidden = !isCb;
         if (isCb){ if (window.Cashback) window.Cashback.render(); }
         else App.refresh();
       };

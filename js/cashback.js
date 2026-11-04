@@ -206,10 +206,8 @@ const Cashback = typeof document !== 'undefined' ? (() => {
         <div class="empty">В ${monthTitle(data.month)} кешбэки ещё не добавлены.<br>Добавьте банки и категории кешбэка на этот месяц.</div>
         <div class="actions-bar">
           <button class="btn primary" id="cbStartBtn">+ Добавить кешбэк</button>
-          <button class="btn" id="cbDictBtn">⚙ Банки и категории</button>
         </div>`;
       $('cbStartBtn').onclick = () => { mode = 'edit'; render(); };
-      $('cbDictBtn').onclick = () => { mode = 'dict'; render(); };
       return;
     }
 
@@ -251,7 +249,6 @@ const Cashback = typeof document !== 'undefined' ? (() => {
           <button class="btn small" id="cbQAdd">+ Добавить кешбэк</button>
         </div>
         <div class="actions-bar">
-          <button class="btn" id="cbDictBtn">⚙ Банки и категории</button>
           <button class="btn" id="cbEditBtn">✎ Редактировать</button>
         </div>
       </div>
@@ -281,9 +278,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       remember('cat', name);
       render();
     };
-    $('cbDictBtn').onclick = () => { mode = 'dict'; render(); };
-    $('cbEditBtn').onclick = () => { mode = 'edit'; render(); };
-    el.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => {
+    $('cbEditBtn').onclick = () => { mode = 'edit'; render(); };    el.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => {
       allSort = b.dataset.sort;
       $('cbAllBody').innerHTML = allListHtml(data);
       el.querySelectorAll('[data-sort]').forEach(x =>
@@ -348,7 +343,6 @@ const Cashback = typeof document !== 'undefined' ? (() => {
         <button class="btn small" id="cbAddBank">+ Добавить банк</button>
       </div>
       <div class="actions-bar">
-        <button class="btn" id="cbDictBtn2">⚙ Банки и категории</button>
         <button class="btn primary" id="cbDone">✓ Готово</button>
       </div>`;
 
@@ -400,7 +394,6 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       remember('bank', name);
       render();
     };
-    $('cbDictBtn2').onclick = () => { mode = 'dict'; render(); };
     $('cbDone').onclick = () => { mode = 'view'; render(); };
   }
 
@@ -459,6 +452,12 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     render();
   }
 
-  return { init, render };
+  // Открыть глобальные настройки раздела (кнопка «♾️ Банки» в шапке)
+  function openDict(){
+    mode = 'dict';
+    render();
+  }
+
+  return { init, render, openDict };
 })() : null;
 if (typeof window !== 'undefined') window.Cashback = Cashback;

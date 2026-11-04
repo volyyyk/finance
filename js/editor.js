@@ -509,6 +509,87 @@ const ProductEditor = (() => {
     renderAssets();
   }
 
+  // Отдельная запись актива: вся подробная информация (как раньше)
+  function assetDetailsHtml(a){
+    const price = Bonds.price(a);
+    const total = (a.qty || 0) * price;
+    const nextCoupon = (a.coupons || []).find(c => c.date >= Bonds.today());
+    const paid = Object.values(a.paidEvents || {}).reduce((s,p) => s + p.amount, 0);
+    const kindLabel = {stock:'акция', bond:'облигация', fund:'фонд', metal:'металл'}[a.kind] || a.kind;
+    const qtyTxt = a.kind === 'metal'
+      ? `${a.qty} г × ${fmtMoney(price)}/г`
+      : `${a.qty} шт × ${fmtMoney(price)}`;
+    // Доходность фондов (учтена в прогнозе) и металлов (справочно) за полгода
+    const yieldTxt = ((a.kind === 'fund' || a.kind === 'metal') && a.sixMonthPct != null)
+      ? `<div class="op-meta">Изменение за полгода: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b>${a.kind === 'fund' ? ' · учтено в прогнозе' : ' · справочно'}</div>` : '';
+    const couponTxt = a.kind === 'bond' ? `
+      <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
+      · купон ${a.couponAmount == null ? 'не объявлен' : fmtMoney(a.couponAmount)}
+      ${a.couponRate != null ? ` (${a.couponRate}% годовых)` : ''}</div>
+      <div class="op-meta">Ближайший купон: ${fmtDate(nextCoupon?.date || a.nextCouponDate)}
+      · погашение: ${fmtDate(a.maturityDate)}${a.redeemed ? ' · погашена' : ''}
+      · зачислено: ${fmtMoney(paid)}</div>
+      <div class="op-meta">Покупка: ${fmtMoney(a.avgPrice || 0)} / шт · НКД сейчас: ${fmtMoney(a.accruedInterest || 0)}
+      · обновлено: ${a.moexUpdatedAt ? new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет свежих данных'}</div>
+      <details><summary>График выплат</summary><div class="bond-schedule">${Bonds.payments(a).map(c =>
+        `<div>${fmtDate(c.date)} · ${c.type === 'coupon' ? 'Купон' : 'Основной долг'} · ${c.value == null ? 'сумма не объявлена' : fmtMoney(c.value * (a.qty || 0))}${a.paidEvents?.[c.key] ? ' · зачислено' : ''}</div>`).join('') || 'График пока недоступен'}</div></details>` : '';
+    return `<div class="op-row">
+      <div class="op-body">
+        <div><b>${escapeHtml(a.shortname || a.secid)}</b>
+          <span class="badge">${kindLabel}</span>
+          <span class="badge">${escapeHtml(a.secid)}</span></div>
+        <div class="op-meta">${qtyTxt}
+          = ${fmtMoney(total)}
+          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${couponTxt}
+      </div>
+      <button type="button" class="op-del" data-asset-del="${a.id}">×</button>
+    </div>`;
+  }
+
+  // Шапка группы бумаг одного названия: количество, стоимость и краткие данные.
+  // Для облигаций — ближайший купон и сумма купонов в этот день (красным,
+  // если в этот же день облигация погашается). Для фондов — доходность.
+  function assetNameGroupHtml(kind, grp){
+    const first = grp[0];
+    const name = first.shortname || first.secid;
+    const qtyTotal = grp.reduce((s,a) => s + (a.qty || 0), 0);
+    const costTotal = grp.reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
+    const qtyTxt = kind === 'metal' ? `${qtyTotal} г` : `${qtyTotal} шт`;
+    let extra = '';
+    if (kind === 'bond'){
+      const today = Bonds.today();
+      const dates = new Set();
+      grp.forEach(a => (a.coupons || []).forEach(c => {
+        if (c.date >= today && !a.paidEvents?.[`coupon:${c.date}`]) dates.add(c.date);
+      }));
+      const nextDate = dates.size ? [...dates].sort()[0] : null;
+      const closesThatDay = nextDate != null && grp.some(a => a.maturityDate === nextDate);
+      const couponSum = nextDate
+        ? grp.reduce((s,a) => s + (a.coupons || [])
+            .filter(c => c.date === nextDate && !a.paidEvents?.[`coupon:${c.date}`])
+            .reduce((x,c) => x + (c.value || 0) * (a.qty || 0), 0), 0)
+        : 0;
+      extra = nextDate
+        ? `<span class="ag-extra${closesThatDay ? ' red' : ''}">📅 ${fmtDate(nextDate)} · ${fmtMoney(couponSum)}${closesThatDay ? ' · погашение в этот день' : ''}</span>`
+        : grp.every(a => a.redeemed) ? '<span class="ag-extra">погашена</span>' : '';
+    } else if (kind === 'fund'){
+      const pct = grp.map(a => a.sixMonthPct).find(p => p != null && Number.isFinite(p));
+      extra = pct != null
+        ? `<span class="ag-extra ${pct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(pct)}/6 мес</span>`
+        : '';
+    }
+    return `<details class="asset-item">
+      <summary>
+        <span class="ai-name"><b>${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.secid || '')}</span></span>
+        <span class="ai-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
+        ${extra}
+      </summary>
+      <div class="ai-body">${grp.map(assetDetailsHtml).join('')}</div>
+    </details>`;
+  }
+
+  // Активы портфеля: раскрывающиеся списки по видам (акции, облигации,
+  // фонды, металлы) с итогами в шапке, внутри — группы по названию бумаги.
   function renderAssets(){
     const el = $('assetsList');
     if (!el) return;
@@ -516,40 +597,28 @@ const ProductEditor = (() => {
       el.innerHTML = '<div class="empty" style="padding:10px">Активов нет</div>';
       return;
     }
-    el.innerHTML = draftAssets.map(a=>{
-      const price = Bonds.price(a);
-      const total = (a.qty || 0) * price;
-      const nextCoupon = (a.coupons || []).find(c => c.date >= Bonds.today());
-      const paid = Object.values(a.paidEvents || {}).reduce((s,p) => s + p.amount, 0);
-      const kindLabel = {stock:'акция', bond:'облигация', fund:'фонд', metal:'металл'}[a.kind] || a.kind;
-      const qtyTxt = a.kind === 'metal'
-        ? `${a.qty} г × ${fmtMoney(price)}/г`
-        : `${a.qty} шт × ${fmtMoney(price)}`;
-      // Доходность фондов (учтена в прогнозе) и металлов (справочно) за полгода
-      const yieldTxt = ((a.kind === 'fund' || a.kind === 'metal') && a.sixMonthPct != null)
-        ? `<div class="op-meta">Изменение за полгода: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b>${a.kind === 'fund' ? ' · учтено в прогнозе' : ' · справочно'}</div>` : '';
-      const couponTxt = a.kind === 'bond' ? `
-        <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
-        · купон ${a.couponAmount == null ? 'не объявлен' : fmtMoney(a.couponAmount)}
-        ${a.couponRate != null ? ` (${a.couponRate}% годовых)` : ''}</div>
-        <div class="op-meta">Ближайший купон: ${fmtDate(nextCoupon?.date || a.nextCouponDate)}
-        · погашение: ${fmtDate(a.maturityDate)}${a.redeemed ? ' · погашена' : ''}
-        · зачислено: ${fmtMoney(paid)}</div>
-        <div class="op-meta">Покупка: ${fmtMoney(a.avgPrice || 0)} / шт · НКД сейчас: ${fmtMoney(a.accruedInterest || 0)}
-        · обновлено: ${a.moexUpdatedAt ? new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет свежих данных'}</div>
-        <details><summary>График выплат</summary><div class="bond-schedule">${Bonds.payments(a).map(c =>
-          `<div>${fmtDate(c.date)} · ${c.type === 'coupon' ? 'Купон' : 'Основной долг'} · ${c.value == null ? 'сумма не объявлена' : fmtMoney(c.value * (a.qty || 0))}${a.paidEvents?.[c.key] ? ' · зачислено' : ''}</div>`).join('') || 'График пока недоступен'}</div></details>` : '';
-      return `<div class="op-row">
-        <div class="op-body">
-          <div><b>${escapeHtml(a.shortname || a.secid)}</b>
-            <span class="badge">${kindLabel}</span>
-            <span class="badge">${escapeHtml(a.secid)}</span></div>
-          <div class="op-meta">${qtyTxt}
-            = ${fmtMoney(total)}
-            ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${couponTxt}
-        </div>
-        <button type="button" class="op-del" data-asset-del="${a.id}">×</button>
-      </div>`;
+    const KINDS = [
+      ['stock', 'Акции'], ['bond', 'Облигации'], ['fund', 'Фонды'], ['metal', 'Металлы']
+    ];
+    el.innerHTML = KINDS.map(([kind, label]) => {
+      const items = draftAssets.filter(a => a.kind === kind);
+      if (!items.length) return '';
+      const groups = new Map();
+      items.forEach(a => {
+        const key = a.secid || a.shortname || a.id;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(a);
+      });
+      const qtyTotal = items.reduce((s,a) => s + (a.qty || 0), 0);
+      const costTotal = items.reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
+      const qtyTxt = kind === 'metal' ? `${qtyTotal} г` : `${qtyTotal} шт`;
+      return `<details class="asset-group">
+        <summary>
+          <span class="ag-name">${label}</span>
+          <span class="ag-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
+        </summary>
+        <div class="ag-body">${[...groups.values()].map(grp => assetNameGroupHtml(kind, grp)).join('')}</div>
+      </details>`;
     }).join('');
     el.querySelectorAll('[data-asset-del]').forEach(b=>{
       b.onclick = () => {

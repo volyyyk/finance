@@ -1,14 +1,25 @@
 :root{
   --bg:#f4f6fa; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
   --green:#15803d; --red:#b91c1c; --blue:#2563eb;
-  --chart-grid:#e2e8f0; --chart-text:#94a3b8;
+  --chart-grid:#e2e8f0; --chart-text:#94a3b8; --input:#ffffff;
+  color-scheme:light;
 }
-/* Тёмная тема: глубокий тёмно-синий фон, пастельные акценты */
+/* Тёмная тема: глубокий тёмно-синий фон, пастельные акценты.
+   color-scheme:dark делает нативные контролы (чекбоксы, календари,
+   выпадающие списки, скроллбары) тёмными без белых пятен. */
 html[data-theme="dark"]{
   --bg:#0b1424; --card:#121e33; --text:#e6ecf5; --muted:#93a6c4; --border:#243654;
   --green:#5fd38a; --red:#f08c8c; --blue:#7aa5f8;
   --chart-grid:#243654; --chart-text:#93a6c4;
+  --input:#1a2a47;
+  color-scheme:dark;
 }
+/* Поля ввода и списки чуть светлее окружающего фона (не белые),
+   чекбоксы и радио — в цвет акцента */
+input:not([type=checkbox]):not([type=radio]),select,textarea{
+  background:var(--input);color:var(--text);border-color:var(--border);
+}
+input[type=checkbox],input[type=radio]{accent-color:var(--blue)}
 html[data-theme="dark"] .event-in{background:rgba(95,211,138,.09);border-color:rgba(95,211,138,.25)}
 html[data-theme="dark"] .event-out{background:rgba(240,140,140,.09);border-color:rgba(240,140,140,.25)}
 html[data-theme="dark"] .event-in .event-amount{color:var(--green)}
@@ -109,7 +120,7 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
 .field{margin-bottom:12px}
 .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:500}
 .field input,.field select{width:100%;padding:7px 9px;border-radius:7px;
-  border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--card);color:var(--text)}
+  border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--input);color:var(--text)}
 .field input:focus,.field select:focus{outline:none;border-color:var(--blue)}
 .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
@@ -140,6 +151,7 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
   .modal { padding: 15px; }
   .row-2, .row-3 { grid-template-columns: 1fr; }
   .header-actions { width: 100%; justify-content: space-between; margin-top: 10px; }
+  .header-actions #addBtn,.header-actions #cbBanksBtn { flex: 1; }
 }
 [hidden]{display:none!important}
 .pwa-notice{max-width:1240px;margin:16px auto 0;padding:12px 16px;
@@ -171,7 +183,7 @@ body.editor-open{overflow:hidden}
 @media(max-width:600px){
   header{position:relative;gap:8px}
   .header-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:0}
-  .header-actions #addBtn{grid-column:1/-1}
+  .header-actions #addBtn,.header-actions #cbBanksBtn{grid-column:1/-1}
   main{padding:12px;gap:12px}
   .card{padding:14px}
   .stats{gap:8px}
@@ -209,7 +221,7 @@ body.editor-open{overflow:hidden}
 .event-out .event-amount{color:#a43c3c}
 .bond-schedule{max-height:200px;overflow:auto;font-size:12px;line-height:1.9;margin-top:6px}
 #bondExtra label{font-size:12px;display:block;margin-bottom:6px}
-@media(max-width:600px){.header-actions{display:flex;justify-content:flex-end}.header-actions #addBtn{flex:1}.settings-panel{position:fixed;top:120px;right:16px}}
+@media(max-width:600px){.header-actions{display:flex;justify-content:flex-end}.header-actions #addBtn,.header-actions #cbBanksBtn{flex:1}.settings-panel{position:fixed;top:120px;right:16px}}
 .cal-dows,.cal-grid{grid-template-columns:repeat(7,minmax(0,1fr))}
 .cal-cell.empty{padding:0;min-width:0}
 
@@ -272,7 +284,7 @@ body.editor-open{overflow:hidden}
 .settings-field{display:flex;flex-direction:column;gap:6px;margin:14px 0}
 .settings-field>span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .settings-field select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;
-  background:var(--card);color:var(--text);font-size:13px}
+  background:var(--input);color:var(--text);font-size:13px}
 
 /* Кешбэк: группы категорий с подкатегориями */
 .cb-group{margin-bottom:10px}
@@ -315,3 +327,52 @@ body.editor-open{overflow:hidden}
   white-space:nowrap;user-select:none;cursor:pointer}
 .cb-check input[type=checkbox]{min-height:20px;min-width:20px;accent-color:var(--blue)}
 .cb-add .cb-sub-input{min-width:90px}
+
+/* Кнопка «♾️ Банки» в шапке режима «Кешбэк» — пастельный салатовый */
+.btn.banks{background:#b8f0c9;border-color:#93e2ab;color:#0d6b33}
+.btn.banks:hover{background:#a5e9bb}
+html[data-theme="dark"] .btn.banks{background:#20492f;border-color:#31714d;color:#8fe8ab}
+html[data-theme="dark"] .btn.banks:hover{background:#2a5c3d}
+
+/* Цель: узкий горизонтальный блок с градиентной шкалой вверху раздела */
+.goal-card{padding:12px 16px}
+.goal-top{display:flex;align-items:center;gap:10px}
+.goal-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goal-eta{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.goal-actions{display:flex;gap:2px;flex-shrink:0}
+.goal-actions .op-del{font-size:13px;min-height:30px;min-width:30px}
+.goal-bar{position:relative;height:14px;border-radius:7px;margin:7px 0 4px;
+  background:linear-gradient(90deg,#e9eff7,#d7e3f3);overflow:hidden}
+.goal-fill{height:100%;border-radius:7px;background:linear-gradient(90deg,#93e2ae,#37a56a);
+  transition:width .3s;min-width:0}
+.goal-marks{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted)}
+.goal-marks .goal-cur{color:var(--text);font-weight:600}
+html[data-theme="dark"] .goal-bar{background:linear-gradient(90deg,#101d31,#20345a)}
+html[data-theme="dark"] .goal-fill{background:linear-gradient(90deg,#2f7a52,#5fd38a)}
+.goal-create-bar{justify-content:center}
+
+/* Активы портфеля: раскрывающиеся списки по видам и названиям */
+.asset-group{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg)}
+.asset-group>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
+  padding:10px 12px;min-height:44px;user-select:none;font-weight:600;flex-wrap:wrap}
+.asset-group>summary::-webkit-details-marker{display:none}
+.asset-group>summary::before{content:'▸';font-size:11px;color:var(--muted);transition:transform .15s}
+.asset-group[open]>summary::before{transform:rotate(90deg)}
+.ag-name{font-size:13px}
+.ag-meta{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.ag-body{padding:0 10px 10px}
+.asset-item{border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--card)}
+.asset-item>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+  padding:8px 10px;flex-wrap:wrap;min-height:44px}
+.asset-item>summary::-webkit-details-marker{display:none}
+.asset-item>summary::before{content:'▸';font-size:10px;color:var(--muted);transition:transform .15s}
+.asset-item[open]>summary::before{transform:rotate(90deg)}
+.ai-name{font-size:13px;font-weight:500;min-width:0;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-meta{font-size:12px;color:var(--muted);white-space:nowrap}
+.ag-extra{font-size:12px;white-space:nowrap;margin-left:auto}
+.asset-item .ai-body{padding:2px 8px 8px}
+@media(max-width:600px){
+  .ai-meta,.ag-extra{margin-left:0;white-space:normal}
+  .ag-extra{margin-left:auto}
+}

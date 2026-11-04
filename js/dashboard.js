@@ -324,6 +324,81 @@ const SinceVisit = (() => {
   return { render };
 })();
 
+/* Цель: узкий горизонтальный блок с градиентной шкалой прогресса
+   в самом верху раздела «Учёт». Прогресс считается по чистому
+   балансу (активы минус долги). */
+const GoalBar = (() => {
+  const { $, fmtMoney } = Utils;
+  const LS = 'fin_goal';
+
+  function load(){
+    try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch { return null; }
+  }
+  function save(g){ localStorage.setItem(LS, JSON.stringify(g)); }
+
+  // Примерный срок до цели по текущему чистому темпу в месяц
+  function etaText(net, goal, netMonthly){
+    if (net >= goal) return '🎉 цель достигнута';
+    if (!(netMonthly > 0)) return '≈ —';
+    const months = Math.ceil((goal - net) / netMonthly);
+    if (months > 1200) return '≈ —';
+    const y = Math.floor(months / 12), m = months % 12;
+    const yearsTxt = y ? (y === 1 ? '1 год' : y < 5 ? `${y} года` : `${y} лет`) : '';
+    const monthsTxt = m ? (m === 1 ? '1 мес' : `${m} мес`) : '';
+    const txt = [yearsTxt, monthsTxt].filter(Boolean).join(' ') || 'меньше месяца';
+    return `≈ ${txt}`;
+  }
+
+  function createOrEdit(){
+    const g = load();
+    const input = prompt('Финальная сумма цели (₽).\nТекущий баланс с учётом долгов отмечается на шкале.',
+      g ? String(g.amount) : '');
+    if (input === null) return;
+    const amount = Number(String(input).replace(/\s/g, '').replace(',', '.'));
+    if (!(amount > 0) || !Number.isFinite(amount)){ alert('Укажите положительную сумму цели'); return; }
+    save({ amount, createdAt: (g && g.createdAt) || new Date().toISOString() });
+    Dashboard.renderAll();
+  }
+
+  function remove(){
+    if (!confirm('Удалить цель?')) return;
+    localStorage.removeItem(LS);
+    Dashboard.renderAll();
+  }
+
+  function render(){
+    const card = $('goalCard');
+    if (!card) return;
+    const g = load();
+    const btn = $('createGoalBtn');
+    if (btn) btn.textContent = g ? '🎯 Изменить цель' : '🎯 Создать цель';
+    if (!g){ card.hidden = true; card.innerHTML = ''; return; }
+    const s = Stats.aggregate();
+    const net = s.net;  // активы минус долги
+    const pct = Math.max(0, Math.min(100, net / g.amount * 100));
+    card.hidden = false;
+    card.innerHTML = `
+      <div class="goal-top">
+        <span class="goal-title">🎯 Цель · ${fmtMoney(g.amount)}</span>
+        <span class="goal-eta">${etaText(net, g.amount, s.netMonthly)}</span>
+        <span class="goal-actions">
+          <button class="op-del" id="goalEdit" title="Изменить цель">✎</button>
+          <button class="op-del" id="goalDel" title="Удалить цель">×</button>
+        </span>
+      </div>
+      <div class="goal-bar"><div class="goal-fill" style="width:${pct}%"></div></div>
+      <div class="goal-marks">
+        <span>0 ₽</span>
+        <span class="goal-cur">${fmtMoney(net)} · ${pct.toFixed(0)}%</span>
+        <span>${fmtMoney(g.amount)}</span>
+      </div>`;
+    $('goalEdit').onclick = createOrEdit;
+    $('goalDel').onclick = remove;
+  }
+
+  return { render, createOrEdit };
+})();
+
 const Dashboard = (() => {
   const { $, fmtMoney, fmtPct, fmtDate, escapeHtml, dateKey } = Utils;
   let calDate = new Date();
@@ -497,6 +572,7 @@ const Dashboard = (() => {
   function prevMonth(){ calDate.setMonth(calDate.getMonth()-1); renderCalendar(); }
   function nextMonth(){ calDate.setMonth(calDate.getMonth()+1); renderCalendar(); }
   function renderAll(){
+    GoalBar.render();
     renderStats(); renderEvents(); renderCalendar(); renderCharts(); renderForecast();
     SinceVisit.render();
   }
