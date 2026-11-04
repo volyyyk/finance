@@ -97,7 +97,9 @@ const Results = (() => {
       ctx.fillText('Зафиксируйте первый результат', rect.width/2, rect.height/2);
       return;
     }
-    Charts.draw(canvas, [{ color: '#2563eb', data: list.map(s => s.net) }], { xTicks: timeTicks(list) });
+    // Подпись точки подсказки — дата зафиксированного результата
+    Charts.draw(canvas, [{ color: '#2563eb', data: list.map(s => s.net) }],
+      { xTicks: timeTicks(list), pointLabel: i => fmtDate(new Date(list[i].ts)) });
   }
 
   function render(){

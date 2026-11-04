@@ -32,14 +32,15 @@ function opOccurrencesInYear(op){
 const Simulator = (() => {
   const { parseDate } = Utils;
 
-  function opOccursInMonth(op, monthDate, opStartDate){
+  // noEndLimit — режим «без событий»: операции не имеют даты окончания
+  function opOccursInMonth(op, monthDate, opStartDate, noEndLimit){
     if (!opStartDate) return false;
     if (op.frequency === 'once'){
       const d = parseDate(op.date);
       return d && d.getFullYear()===monthDate.getFullYear() && d.getMonth()===monthDate.getMonth();
     }
     if (monthDate < opStartDate) return false;
-    if (op.endDate && monthDate > parseDate(op.endDate)) return false;
+    if (!noEndLimit && op.endDate && monthDate > parseDate(op.endDate)) return false;
     if (op.frequency === 'monthly') return true;
     if (op.frequency === 'yearly')  return monthDate.getMonth() === opStartDate.getMonth();
     if (op.frequency === 'weekly')  return true;
@@ -67,22 +68,28 @@ const Simulator = (() => {
       .filter(c => c.type === 'coupon').reduce((s,c) => s + c.value * (a.qty || 0), 0);
   }
 
-  function simulateProduct(product, months, extraInflows){
+  // opts.noEvents — прогноз «без учёта событий»: даты окончания, лимиты
+  // операций и действия при окончании не применяются — вклады продолжают
+  // действовать с прежней ставкой, пополнения идут до конца горизонта.
+  // Облигации в этом режиме не погашаются: купоны капают по графику,
+  // тело облигации остаётся в портфеле.
+  function simulateProduct(product, months, extraInflows, opts = {}){
     const isLiab = Config.TYPES[product.type].liability;
     const isExpense = product.type === 'expense';
     const isInvest = product.type === 'investment';
     const isCredit = product.type === 'credit_card';
+    const noEvents = opts && opts.noEvents === true;
 
     const now = new Date(); now.setHours(0,0,0,0);
-    const endDate = product.endDate ? parseDate(product.endDate) : null;
+    const endDate = (!noEvents && product.endDate) ? parseDate(product.endDate) : null;
 
     let value = isInvest ? portfolioValue(product) : (product.amount || 0);
     let rate = product.rate || 0;
     let currentEnd = endDate;
     let actionIndex = 0;
-    const actions = Array.isArray(product.endActions)
+    const actions = noEvents ? [] : (Array.isArray(product.endActions)
       ? product.endActions
-      : (product.endAction ? [product.endAction] : []);
+      : (product.endAction ? [product.endAction] : []));
 
     let cumIncome = 0, cumExpense = 0;
     const history = [{ month:0, value, cumIncome:0, cumExpense:0 }];
@@ -138,6 +145,7 @@ const Simulator = (() => {
             for (const pay of pays){
               if (pay.date <= previousDate || pay.date > through || pay.value == null || a.paidEvents?.[pay.key]) continue;
               const amount = pay.value * (a.qty || 0);
+              if (pay.type !== 'coupon' && noEvents) continue; // без событий долг облигации не возвращается
               cash += amount;
               if (pay.type === 'coupon') coupon += amount;
               else {
@@ -163,10 +171,11 @@ const Simulator = (() => {
         }
       }
 
-      // Операции (пополнения/снятия)
+      // Операции (пополнения/снятия). В режиме «без событий» операции
+      // продолжаются до конца горизонта — их дата окончания не учитывается.
       product.operations?.forEach(op => {
         const opStart = parseDate(op.date);
-        if (!opOccursInMonth(op, monthDate, opStart)) return;
+        if (!opOccursInMonth(op, monthDate, opStart, noEvents)) return;
 
         let amount = op.amount;
         if (op.frequency === 'weekly') amount = op.amount * 52 / 12;
@@ -209,7 +218,7 @@ const Simulator = (() => {
         }
       });
 
-      // Обработка окончания срока
+      // Обработка окончания срока (не применяется в режиме «без событий»)
       if (currentEnd && monthDate > currentEnd){
         const act = actions[actionIndex];
         if (act){
@@ -247,34 +256,39 @@ const Simulator = (() => {
       ? Storage.version() : null;
   }
 
-  function simulateAllRaw(months){
+  function simulateAllRaw(months, opts){
+    const noEvents = opts && opts.noEvents === true;
     const list = Storage.all();
     const pass1 = {};
-    list.forEach(p => { pass1[p.id] = simulateProduct(p, months, []); });
+    list.forEach(p => { pass1[p.id] = simulateProduct(p, months, [], opts); });
 
+    // Переводы между продуктами — часть цепочки событий, в режиме
+    // «без событий» они не выполняются.
     const boosts = {};
-    list.forEach(p => {
-      const chain = Array.isArray(p.endActions) ? p.endActions
-                  : (p.endAction ? [p.endAction] : []);
-      let mEnd = p.endDate ? monthIndexOfDate(p.endDate) : -1;
-      for (const act of chain){
-        if (mEnd > 0 && act.type === 'transfer' && act.targetId){
-          const amount = pass1[p.id].history[mEnd]?.value || 0;
-          if (amount > 0){
-            (boosts[act.targetId] ??= []).push({ month: mEnd, amount });
+    if (!noEvents){
+      list.forEach(p => {
+        const chain = Array.isArray(p.endActions) ? p.endActions
+                    : (p.endAction ? [p.endAction] : []);
+        let mEnd = p.endDate ? monthIndexOfDate(p.endDate) : -1;
+        for (const act of chain){
+          if (mEnd > 0 && act.type === 'transfer' && act.targetId){
+            const amount = pass1[p.id].history[mEnd]?.value || 0;
+            if (amount > 0){
+              (boosts[act.targetId] ??= []).push({ month: mEnd, amount });
+            }
+            break;
           }
-          break;
+          if (act.type === 'change' && act.newEndDate){
+            mEnd = monthIndexOfDate(act.newEndDate);
+          } else {
+            break;
+          }
         }
-        if (act.type === 'change' && act.newEndDate){
-          mEnd = monthIndexOfDate(act.newEndDate);
-        } else {
-          break;
-        }
-      }
-    });
+      });
+    }
 
     const result = {};
-    list.forEach(p => { result[p.id] = simulateProduct(p, months, boosts[p.id] || []); });
+    list.forEach(p => { result[p.id] = simulateProduct(p, months, boosts[p.id] || [], opts); });
     return result;
   }
 
@@ -283,19 +297,26 @@ const Simulator = (() => {
   // пока версия данных не изменилась. Прогностическая таблица и
   // графики запрашивают 1/12/24/60/120 месяцев — без кэша это
   // пять полных прогонов симуляции на каждую перерисовку.
+  // Прогноз «без событий» кэшируется отдельно от прогноза «с событиями».
   let simMemo = { version: null, months: 0, results: null };
-  function simulateAll(months){
+  let simMemoNoEvents = { version: null, months: 0, results: null };
+  function simulateAll(months, opts){
+    const noEvents = opts && opts.noEvents === true;
+    let memo = noEvents ? simMemoNoEvents : simMemo;
     const v = dataVersion();
-    if (v !== null && simMemo.results && v === simMemo.version && months <= simMemo.months){
+    if (v !== null && memo.results && v === memo.version && months <= memo.months){
       const out = {};
-      for (const id of Object.keys(simMemo.results)){
-        const r = simMemo.results[id];
+      for (const id of Object.keys(memo.results)){
+        const r = memo.results[id];
         out[id] = { history: r.history.slice(0, months + 1), endValue: r.history[months].value };
       }
       return out;
     }
-    const results = simulateAllRaw(months);
-    if (v !== null) simMemo = { version: v, months, results };
+    const results = simulateAllRaw(months, opts);
+    if (v !== null){
+      memo = { version: v, months, results };
+      if (noEvents) simMemoNoEvents = memo; else simMemo = memo;
+    }
     return results;
   }
 

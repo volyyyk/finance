@@ -28,6 +28,7 @@ const App = (() => {
   function applySeedGoal(){
     if (window.SEED_GOAL && window.SEED_GOAL.amount > 0 && !localStorage.getItem('fin_goal')){
       localStorage.setItem('fin_goal', JSON.stringify({
+        name: window.SEED_GOAL.name || '',
         amount: window.SEED_GOAL.amount, createdAt: new Date().toISOString()
       }));
     }

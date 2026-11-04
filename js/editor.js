@@ -590,6 +590,8 @@ const ProductEditor = (() => {
 
   // Активы портфеля: раскрывающиеся списки по видам (акции, облигации,
   // фонды, металлы) с итогами в шапке, внутри — группы по названию бумаги.
+  // В шапке вида — число наименований бумаг, а не суммарное количество
+  // штук: 200 акций Сбера + 500 акций ВТБ = 2 наименования.
   function renderAssets(){
     const el = $('assetsList');
     if (!el) return;
@@ -609,9 +611,8 @@ const ProductEditor = (() => {
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(a);
       });
-      const qtyTotal = items.reduce((s,a) => s + (a.qty || 0), 0);
       const costTotal = items.reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
-      const qtyTxt = kind === 'metal' ? `${qtyTotal} г` : `${qtyTotal} шт`;
+      const qtyTxt = `${groups.size} наимен.`;
       return `<details class="asset-group">
         <summary>
           <span class="ag-name">${label}</span>

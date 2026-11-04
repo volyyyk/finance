@@ -338,9 +338,10 @@ const SinceVisit = (() => {
 
 /* Цель: узкий горизонтальный блок с градиентной шкалой прогресса
    в самом верху раздела «Учёт». Прогресс считается по чистому
-   балансу (активы минус долги). */
+   балансу (активы минус долги). У цели есть имя (например,
+   «Квартира») и финальная сумма. */
 const GoalBar = (() => {
-  const { $, fmtMoney } = Utils;
+  const { $, fmtMoney, escapeHtml } = Utils;
   const LS = 'fin_goal';
 
   function load(){
@@ -363,12 +364,16 @@ const GoalBar = (() => {
 
   function createOrEdit(){
     const g = load();
+    const name = prompt(
+      'Название цели — например, «Квартира», «Подушка», «Отпуск».\nМожно оставить пустым.',
+      g && g.name ? g.name : '');
+    if (name === null) return;
     const input = prompt('Финальная сумма цели (₽).\nТекущий баланс с учётом долгов отмечается на шкале.',
       g ? String(g.amount) : '');
     if (input === null) return;
     const amount = Number(String(input).replace(/\s/g, '').replace(',', '.'));
     if (!(amount > 0) || !Number.isFinite(amount)){ alert('Укажите положительную сумму цели'); return; }
-    save({ amount, createdAt: (g && g.createdAt) || new Date().toISOString() });
+    save({ name: name.trim(), amount, createdAt: (g && g.createdAt) || new Date().toISOString() });
     Dashboard.renderAll();
   }
 
@@ -391,7 +396,7 @@ const GoalBar = (() => {
     card.hidden = false;
     card.innerHTML = `
       <div class="goal-top">
-        <span class="goal-title">🎯 Цель · ${fmtMoney(g.amount)}</span>
+        <span class="goal-title">🎯 ${g.name ? escapeHtml(g.name) + ' · ' : ''}${fmtMoney(g.amount)}</span>
         <span class="goal-eta">${etaText(net, g.amount, s.netMonthly)}</span>
         <span class="goal-actions">
           <button class="op-del" id="goalEdit" title="Изменить цель">✎</button>
@@ -414,6 +419,12 @@ const GoalBar = (() => {
 const Dashboard = (() => {
   const { $, fmtMoney, fmtPct, fmtDate, escapeHtml, dateKey } = Utils;
   let calDate = new Date();
+
+  // Ближайшие события: страницы по 6 (1–6, 7–12, 13–18, 19–24).
+  // Дальше календарь — там видны все события месяца.
+  let eventsPage = 0;
+  const EVENTS_PER_PAGE = 6;
+  const EVENTS_MAX_PAGES = 4;
 
   function renderStats(){
     const s = Stats.aggregate();
@@ -441,11 +452,19 @@ const Dashboard = (() => {
   }
 
   function renderEvents(){
-    const evs = Events.all().slice(0,6);
+    const all = Events.all();
     const el = $('eventsList');
-    if (!evs.length){ el.innerHTML = '<div class="empty">Нет предстоящих событий</div>'; return; }
+    if (!all.length){
+      eventsPage = 0;
+      el.innerHTML = '<div class="empty">Нет предстоящих событий</div>';
+      return;
+    }
+    const totalPages = Math.max(1, Math.min(EVENTS_MAX_PAGES, Math.ceil(all.length / EVENTS_PER_PAGE)));
+    if (eventsPage > totalPages - 1) eventsPage = totalPages - 1;
+    const start = eventsPage * EVENTS_PER_PAGE;
+    const evs = all.slice(start, start + EVENTS_PER_PAGE);
     const now = new Date(); now.setHours(0,0,0,0);
-    el.innerHTML = evs.map(e=>{
+    const rows = evs.map(e=>{
       const days = Math.round((e.date - now)/86400000);
       const dtxt = days===0?'сегодня':days===1?'завтра':`через ${days} дн.`;
       return `<div class="event ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}">
@@ -457,6 +476,25 @@ const Dashboard = (() => {
         <div class="event-amount">${e.amount ? (e.direction === 'out' ? '−' : e.direction === 'in' ? '+' : '') + fmtMoney(e.amount) : ''}</div>
       </div>`;
     }).join('');
+    const from = start + 1;
+    const to = Math.min(all.length, start + EVENTS_PER_PAGE);
+    const pager = totalPages > 1 ? `
+      <div class="events-pager">
+        <button class="btn small" data-evpage="prev" ${eventsPage === 0 ? 'disabled' : ''} aria-label="Предыдущая страница событий">‹</button>
+        <span class="events-pager-info">${from}–${to} из ${all.length}</span>
+        <button class="btn small" data-evpage="next" ${eventsPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Следующая страница событий">›</button>
+      </div>` : '';
+    el.innerHTML = rows + pager;
+    el.querySelectorAll('[data-evpage]').forEach(b=>{
+      b.onclick = () => setEventsPage(eventsPage + (b.dataset.evpage === 'next' ? 1 : -1));
+    });
+  }
+
+  function setEventsPage(page){
+    const all = Events.all();
+    const totalPages = Math.max(1, Math.min(EVENTS_MAX_PAGES, Math.ceil(all.length / EVENTS_PER_PAGE)));
+    eventsPage = Math.max(0, Math.min(totalPages - 1, page));
+    renderEvents();
   }
 
   function renderCalendar(){
@@ -528,18 +566,24 @@ const Dashboard = (() => {
       {x: 18/24, label: '1.5 года'},
       {x: 1, label: '2 года'}
     ];
-    Charts.draw($('chartBalance'), [{color:'#2563eb', data:balance}], {xTicks});
-    Charts.draw($('chartIncome'),  [{color:'#16a34a', data:income}], {xTicks});
-    Charts.draw($('chartExpense'), [{color:'#dc2626', data:expense}], {xTicks});
+    // Подпись точки подсказки: сколько месяцев от сегодня
+    const monthLabel = i => i === 0 ? 'сейчас' : i + ' мес';
+    Charts.draw($('chartBalance'), [{color:'#2563eb', data:balance}], {xTicks, pointLabel: monthLabel});
+    Charts.draw($('chartIncome'),  [{color:'#16a34a', data:income}], {xTicks, pointLabel: monthLabel});
+    Charts.draw($('chartExpense'), [{color:'#dc2626', data:expense}], {xTicks, pointLabel: monthLabel});
   }
 
   function renderForecast(){
     // Один расчёт на все горизонты: срезы истории симуляции за
     // 1/12/60/120 месяцев из одного прогона (кэшируется по версии данных).
+    // «Без учёта событий» — отдельный прогон: окончания сроков, лимиты
+    // регулярных операций и действия при окончании не применяются,
+    // доходность сохраняется до конца горизонта (вклады не «закрываются»).
     const sim = Simulator.simulateAll(120);
+    const simNoEvents = Simulator.simulateAll(120, { noEvents: true });
     const list = Storage.all();
-    const valueAt = (p, m) => {
-      const r = sim[p.id];
+    const valueAt = (map, p, m) => {
+      const r = map[p.id];
       return (r && r.history[m] && r.history[m].value) || 0;
     };
     const now0 = (() => {
@@ -562,12 +606,12 @@ const Dashboard = (() => {
     const periods = [
       {label:'1 мес', m:1},{label:'1 год', m:12},{label:'5 лет', m:60},{label:'10 лет',m:120},
     ];
-    function col(withEvents){
+    function col(map){
       return periods.map(per=>{
         let net = 0;
         list.forEach(p=>{
           const isL = Config.TYPES[p.type].liability;
-          net += isL ? -valueAt(p, per.m) : valueAt(p, per.m);
+          net += isL ? -valueAt(map, p, per.m) : valueAt(map, p, per.m);
         });
         const gain = net - now0;
         const pct = gain / base0 * 100;
@@ -579,8 +623,8 @@ const Dashboard = (() => {
         </div>`;
       }).join('');
     }
-    $('fc1').innerHTML = col(false);
-    $('fc2').innerHTML = col(true);
+    $('fc1').innerHTML = col(simNoEvents);
+    $('fc2').innerHTML = col(sim);
   }
 
   function prevMonth(){ calDate.setMonth(calDate.getMonth()-1); renderCalendar(); }
@@ -590,5 +634,5 @@ const Dashboard = (() => {
     renderStats(); renderEvents(); renderCalendar(); renderCharts(); renderForecast();
     SinceVisit.render();
   }
-  return { renderAll, renderCharts, prevMonth, nextMonth };
+  return { renderAll, renderCharts, renderEvents, setEventsPage, prevMonth, nextMonth };
 })();

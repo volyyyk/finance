@@ -818,7 +818,7 @@ function dashboardSandbox(over){
   const sb = makeSandbox(over);
   const mods = loadInto(sb,
     ['js/core.js','js/bonds.js','js/simulator.js','js/charts.js','js/dashboard.js'],
-    '{Storage, Stats, Events, Dashboard, GoalBar, Utils}');
+    '{Storage, Stats, Events, Dashboard, GoalBar, Simulator, Utils}');
   return { sb, mods };
 }
 
@@ -862,15 +862,27 @@ test('GoalBar: достигнутая цель, отсутствие темпа 
   assert.equal(sb.document.getElementById('createGoalBtn').textContent, '🎯 Создать цель');
 });
 
-test('GoalBar.createOrEdit: сохраняет цель из prompt и перерисовывает', () => {
-  const { sb, mods } = dashboardSandbox({ prompt: () => '500000' });
+test('GoalBar.createOrEdit: имя и сумма из двух prompt сохраняются и рисуются', () => {
+  const answers = ['Квартира', '500000'];
+  const { sb, mods } = dashboardSandbox({ prompt: () => answers.shift() });
   setStorage(sb, deposit400k());
   mods.GoalBar.createOrEdit();
   const saved = JSON.parse(sb.localStorage.getItem('fin_goal'));
+  assert.equal(saved.name, 'Квартира', 'имя цели сохранено');
   assert.equal(saved.amount, 500000);
   assert.ok(saved.createdAt, 'дата создания цели сохранена');
-  assert.equal(sb.document.getElementById('goalCard').hidden, false);
-  assert.ok(sb.document.getElementById('goalCard').innerHTML.includes('goal-fill'));
+  const card = sb.document.getElementById('goalCard');
+  assert.equal(card.hidden, false);
+  assert.ok(card.innerHTML.includes('Квартира'), 'имя видно на карточке');
+  assert.ok(card.innerHTML.includes('goal-fill'));
+
+  // Отмена первого prompt ничего не ломает — цель не перезаписывается
+  const before = sb.localStorage.getItem('fin_goal');
+  const cancel = dashboardSandbox({ prompt: () => null });
+  setStorage(cancel.sb, deposit400k());
+  cancel.sb.localStorage.setItem('fin_goal', before);
+  cancel.mods.GoalBar.createOrEdit();
+  assert.equal(cancel.sb.localStorage.getItem('fin_goal'), before, 'отмена ввода — цель без изменений');
 });
 
 test('Dashboard.renderAll: сводка, события и прогноз рисуются без ошибок', () => {
@@ -899,6 +911,55 @@ test('Dashboard: прогноз «без событий» и «с события
   // старт от текущего баланса: 400 000 + один месяц под 75% годовых = 425 000
   assert.ok(/425[\s\u00A0\u202F]?000/.test(fc1), 'старт от текущего баланса: ' + fc1.slice(0, 120));
   assert.ok(fc1.length > 0 && fc2.length > 0);
+});
+
+test('Dashboard: события постранично — 6 на страницу с пейджером', () => {
+  const { sb, mods } = dashboardSandbox();
+  const products = [];
+  for (let i = 1; i <= 8; i++){
+    products.push({ id: 'd'+i, type: 'deposit', name: 'Вклад '+i, amount: 100000*i, rate: 10,
+      operations: [], endDate: dayFromNow(i) });
+  }
+  setStorage(sb, products);
+  mods.Dashboard.renderAll();
+  const el = sb.document.getElementById('eventsList');
+  const count = html => (html.match(/class="event[ "]/g) || []).length;
+  assert.equal(count(el.innerHTML), 6, 'первая страница — 6 событий');
+  assert.ok(el.innerHTML.includes('events-pager'), 'пейджер виден');
+  assert.ok(el.innerHTML.includes('1–6 из 8'), 'счётчик первой страницы');
+  mods.Dashboard.setEventsPage(1);
+  assert.equal(count(el.innerHTML), 2, 'вторая страница — 2 события');
+  assert.ok(el.innerHTML.includes('7–8 из 8'), 'счётчик второй страницы');
+  mods.Dashboard.setEventsPage(2); // дальше второй страницы листаться нельзя
+  assert.ok(el.innerHTML.includes('7–8 из 8'), 'страница не ушла за пределы');
+  mods.Dashboard.setEventsPage(-5); // назад за пределы тоже нельзя
+  assert.ok(el.innerHTML.includes('1–6 из 8'), 'возврат на первую страницу');
+});
+
+test('Dashboard: прогноз «без учёта событий» не закрывает вклады', () => {
+  const { sb, mods } = dashboardSandbox();
+  // Вклад закрывается через месяц: с событиями баланс уходит в ноль,
+  // без событий — продолжает расти под ставку.
+  setStorage(sb, [
+    { id: 'd1', type: 'deposit', name: 'Вклад', amount: 100000, rate: 12,
+      startDate: dayFromNow(-30), endDate: dayFromNow(30),
+      operations: [], endActions: [{ type: 'close' }] },
+  ]);
+  mods.Dashboard.renderAll();
+  const fc1 = sb.document.getElementById('fc1').innerHTML;
+  const fc2 = sb.document.getElementById('fc2').innerHTML;
+  const values = html => [...html.matchAll(/class="fc-value">([^<]+)</g)].map(m => m[1]);
+  const zero = new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(0);
+  // fc2 (с событиями): срок вклада истекает в первый месяц, к горизонту
+  // «1 год» вклад закрыт — чистый баланс на всех дальних горизонтах ноль
+  assert.ok(values(fc2).slice(1).every(v => v === zero), 'с событиями вклад закрылся: ' + fc2.slice(0, 200));
+  // fc1 (без событий): вклад жив и растёт на всех горизонтах
+  assert.ok(values(fc1).every(v => v !== zero), 'без событий вклад не закрывается');
+  assert.notEqual(fc1, fc2, 'прогнозы различаются');
+  assert.ok(values(fc1)[3].length > 0, 'горизонт 10 лет посчитан без событий');
+  // прямой прогон симулятора согласован с колонкой fc1
+  const sim = mods.Simulator.simulateAll(120, { noEvents: true });
+  assert.ok(sim['d1'].history[120].value > 100000, 'вклад без событий вырос за 10 лет');
 });
 
 // ============================================================================
@@ -931,6 +992,11 @@ test('ProductEditor.open: активы группируются по видам 
   // Группировка по названиям: две лот-позиции SBER свернулись в одну
   assert.equal((html.match(/asset-item/g) || []).length, 4, 'группы по бумагам: SBER один раз');
   assert.ok(html.includes('5 шт'), '2+3 = 5 шт в заголовке группы SBER');
+  // В шапке вида — число наименований бумаг, а не сумма штук:
+  // 200 акций Сбера + 500 акций ВТБ = 2 наименования, не 700 шт
+  assert.equal((html.match(/наимен\./g) || []).length, 4, 'счётчик наименований у каждого из 4 видов');
+  assert.equal((html.match(/1 наимен\./g) || []).length, 4, 'в каждом виде по одному наименованию');
+  assert.ok(!html.includes('7 шт'), 'сумма штук не показывается в шапке вида');
   // Ближайший купон облигации с суммой на дату
   assert.ok(html.includes(couponDate.split('-').reverse().join('.')) || html.match(/\d{2}\.\d{2}\.\d{4}/), 'дата купона в заголовке');
   assert.ok(html.includes('200') || /200&nbsp;|200\s/.test(html), 'сумма купонов 5×40');
@@ -956,6 +1022,7 @@ test('ProductEditor.open: пустой портфель и одинаковые 
   const html = sb.document.getElementById('assetsList').innerHTML;
   assert.equal((html.match(/asset-item/g) || []).length, 2, 'два разных металла — две группы');
   assert.ok(html.includes('Золото') && html.includes('Серебро'));
+  assert.ok(html.includes('2 наимен.'), 'в шапке вида — число наименований, не штук');
 });
 
 // ============================================================================
@@ -1122,6 +1189,7 @@ test('Seed: кредитная карта с лимитом и грейсом, �
   assert.ok(cc.gracePeriodEndDate, 'грейс задан');
   assert.ok(mods.SEED.some(p => p.type === 'expense'), 'есть обязательный расход');
   assert.ok(mods.GOAL && mods.GOAL.amount > 0, 'демо-цель задана');
+  assert.ok(typeof mods.GOAL.name === 'string' && mods.GOAL.name.length > 0, 'у демо-цели есть имя');
 });
 
 test('Seed: купоны облигаций дают непустой график будущих выплат', () => {
@@ -1252,3 +1320,4 @@ test('Charts.draw: крошечный canvas не падает и не рису�
   // rect.width = 0 → рисование остановилось до изменения размеров
   assert.equal(canvas.width, 0);
 });
+
