@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v13';
+const CACHE_NAME = 'finance-cache-v14';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
@@ -69,6 +69,22 @@ self.addEventListener('periodicsync', event => {
         tag: 'fin-weekly', icon: ICON_URL, badge: ICON_URL, data: { url: BASE.toString() }
       });
       meta.lastWeeklyTs = now;
+    }
+
+    // Начало месяца: напоминание внести категории кешбэка.
+    // Месяц отмечается обработанным, чтобы повторно не дублировать;
+    // если приложение открыто раньше — оно само ставит отметку
+    // и передаёт её сюда через fin-meta (meta.cbMonth).
+    const monthNow = new Date();
+    const monthKey = `${monthNow.getFullYear()}-${String(monthNow.getMonth() + 1).padStart(2, '0')}`;
+    if ((meta.cbMonth || '') !== monthKey){
+      meta.cbMonth = monthKey;
+      const MONTH_NAMES = ['январь','февраль','март','апрель','май','июнь',
+        'июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+      await self.registration.showNotification('Кешбэк за новый месяц', {
+        body: `Начался ${MONTH_NAMES[monthNow.getMonth()]} — добавьте категории кешбэка за месяц`,
+        tag: 'fin-cb-month', icon: ICON_URL, badge: ICON_URL, data: { url: BASE.toString() }
+      });
     }
 
     // Предупреждения за 3 дня до списаний

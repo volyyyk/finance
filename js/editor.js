@@ -602,7 +602,7 @@ const ProductEditor = (() => {
           = ${fmtMoney(total)}
           ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${couponTxt}
       </div>
-      <button type="button" class="op-del" data-asset-del="${a.id}">×</button>
+      <button type="button" class="op-del" data-asset-del="${a.id}" title="Убрать этот актив из портфеля">Убрать</button>
     </div>`;
   }
 

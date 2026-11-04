@@ -71,6 +71,34 @@ const Notify = (() => {
     return 'Сегодня день сверки расходов — проверьте траты за неделю';
   }
 
+  // Начало месяца: напоминание внести категории кешбэка за новый месяц.
+  // Срабатывает один раз за месяц при первой проверке; если категории
+  // уже внесены (в хранилище есть записи) — молча отмечаем месяц
+  // обработанным. Ключ месяца совпадает с форматом CbLogic.monthKey.
+  const MONTH_NAMES = ['январь','февраль','март','апрель','май','июнь',
+    'июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+  function cbMonthKey(d = new Date()){
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  // Есть ли уже категории кешбэка за текущий месяц
+  function cashbackHasEntries(){
+    try {
+      const data = JSON.parse(localStorage.getItem('fin_cashback') || 'null');
+      return !!(data && Array.isArray(data.banks) &&
+        data.banks.some(b => Array.isArray(b.cats) && b.cats.length));
+    } catch { return false; }
+  }
+  function checkCashbackMonth(){
+    const now = new Date();
+    const key = cbMonthKey(now);
+    if (localStorage.getItem('fin_cbMonthNotified') === key) return null;
+    localStorage.setItem('fin_cbMonthNotified', key); // один раз за месяц
+    if (cashbackHasEntries()) return null;           // категории уже внесены
+    const text = `Начался ${MONTH_NAMES[now.getMonth()]} — добавьте категории кешбэка за новый месяц`;
+    show('Кешбэк за новый месяц', text, 'fin-cb-month');
+    return text;
+  }
+
   function dayText(days){
     return days <= 0 ? 'сегодня' : days === 1 ? 'завтра' : `через ${days} дн.`;
   }
@@ -96,13 +124,15 @@ const Notify = (() => {
     });
     localStorage.setItem(LS_ALERTS, JSON.stringify(alerted));
 
-    // Плашка под заголовком: скорые списания и день сверки
+    // Плашка под заголовком: скорые списания, день сверки и кешбэк нового месяца
     const aside = $('alertsNotice');
     const message = $('alertsMessage');
     if (message){
       const texts = [];
       const weekly = checkWeekly();
       if (weekly) texts.push(weekly);
+      const cbMonth = checkCashbackMonth();
+      if (cbMonth) texts.push(cbMonth);
       texts.push(...paymentTexts);
       if (texts.length){ message.textContent = texts.join(' · '); if (aside) aside.hidden = false; }
       else if (aside) aside.hidden = true;
@@ -120,6 +150,7 @@ const Notify = (() => {
         lastVisit: Number(localStorage.getItem('fin_lastVisit') || Date.now()),
         lastWeeklyTs: Number(localStorage.getItem('fin_lastWeeklyTs') || 0),
         checkDay: getCheckDay(),
+        cbMonth: localStorage.getItem('fin_cbMonthNotified') || null,
         payments: payments(10).map(e => ({
           key: `${e.product.id}:${dateKey(e.date)}`,
           title: e.title,

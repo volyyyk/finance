@@ -242,9 +242,13 @@ const Cashback = typeof document !== 'undefined' ? (() => {
             <div class="cb-bank">только подкатегории</div>
           </div>
         </div>`;
+      // Подкатегории: процент вынесен в отдельный несжимаемый элемент —
+      // он виден всегда, даже когда «банк · подкатегория» не влезает
+      // и обрезается многоточием.
       const subs = (g.subs || []).map(s => `
-        <div class="cb-sub">
-          <span class="cb-sub-txt">${escapeHtml(s.bankName)} · ${escapeHtml(s.sub)} — <b>${s.value}%</b></span>
+        <div class="cb-sub cb-l-${CbLogic.level(s.value)}">
+          <span class="cb-sub-txt">${escapeHtml(s.bankName)} · ${escapeHtml(s.sub)}</span>
+          <b class="cb-sub-val">${s.value}%</b>
           <button class="op-del" data-bank="${s.bankId}" data-cat="${s.catId}" title="Убрать этот кешбэк">×</button>
         </div>`).join('');
       return `<div class="cb-group cb-l-${lvl}">${top}${subs ? `<div class="cb-subs">${subs}</div>` : ''}</div>`;

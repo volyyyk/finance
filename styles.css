@@ -294,8 +294,15 @@ body.editor-open{overflow:hidden}
 .cb-sub{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
   padding:3px 0;min-height:0}
 .cb-sub .cb-sub-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cb-sub b{color:var(--text);font-weight:600}
-.cb-sub .op-del{font-size:13px;min-height:28px;min-width:28px}
+/* Процент подкатегории не сжимается и не обрезается — виден всегда */
+.cb-sub .cb-sub-val{flex-shrink:0;white-space:nowrap;font-weight:700;font-size:12px}
+.cb-sub .op-del{font-size:13px;min-height:28px;min-width:28px;flex-shrink:0}
+.cb-sub.cb-l-low .cb-sub-val{color:#b91c1c}
+.cb-sub.cb-l-mid .cb-sub-val{color:#a16207}
+.cb-sub.cb-l-high .cb-sub-val{color:#15803d}
+html[data-theme="dark"] .cb-sub.cb-l-low .cb-sub-val{color:#f87171}
+html[data-theme="dark"] .cb-sub.cb-l-mid .cb-sub-val{color:#facc15}
+html[data-theme="dark"] .cb-sub.cb-l-high .cb-sub-val{color:#4ade80}
 .cb-sub-empty{font-size:12px;color:var(--muted);font-style:italic}
 /* Общий список */
 .cb-all{margin-top:16px}

@@ -1144,6 +1144,10 @@ function notifySandbox(over){
     navigator: { onLine: true, serviceWorker: { ready: Promise.resolve(reg) } },
     ...over,
   });
+  // Месячное напоминание о кешбэке уже показано в этом месяце —
+  // старые тесты проверяют только платежи и сверку
+  sb.localStorage.setItem('fin_cbMonthNotified',
+    `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
   sb.__recorded = recorded;
   sb.__constructed = () => constructed;
   sb.__reg = reg;
@@ -1185,6 +1189,36 @@ test('Notify.checkPayments: повторный вызов не дублируе�
   await new Promise(r => setTimeout(r));
   assert.equal(sb.__recorded.filter(r => r.title).length, 1, 'второй вызов — из списка уже отправленных');
   assert.ok(sb.localStorage.getItem('fin_alertedEvents'), 'ключ зачитан в localStorage');
+});
+
+test('Notify: в начале месяца напоминает добавить категории кешбэка', async () => {
+  const sb = notifySandbox();
+  sb.localStorage.removeItem('fin_cbMonthNotified');
+  sb.__mods.Notify.checkPayments();
+  await new Promise(r => setTimeout(r));
+  const cbShown = sb.__recorded.filter(r => r.title === 'Кешбэк за новый месяц');
+  assert.equal(cbShown.length, 1, 'напоминание о кешбэке показано');
+  assert.ok(cbShown[0].opts.body.includes('категории кешбэка'), 'текст про категории: ' + cbShown[0].opts.body);
+  assert.equal(cbShown[0].opts.tag, 'fin-cb-month', 'тег — без дублей');
+  assert.ok(sb.localStorage.getItem('fin_cbMonthNotified'), 'месяц отмечен обработанным');
+  assert.ok(sb.document.getElementById('alertsMessage').textContent.includes('кешбэк'),
+    'плашка подсказывает про кешбэк');
+  // Повторный вызов в том же месяце не дублирует
+  sb.__mods.Notify.checkPayments();
+  await new Promise(r => setTimeout(r));
+  assert.equal(sb.__recorded.filter(r => r.title === 'Кешбэк за новый месяц').length, 1, 'второй вызов — без повтора');
+
+  // Категории уже внесены за месяц — напоминание не приходит
+  const filled = notifySandbox();
+  filled.localStorage.removeItem('fin_cbMonthNotified');
+  filled.localStorage.setItem('fin_cashback', JSON.stringify({
+    month: 'x', banks: [{ id: 'b', name: 'Банк', cats: [{ id: 'c', name: 'Кафе', value: 5 }] }],
+  }));
+  filled.__mods.Notify.checkPayments();
+  await new Promise(r => setTimeout(r));
+  assert.equal(filled.__recorded.filter(r => r.title === 'Кешбэк за новый месяц').length, 0,
+    'кешбэк уже внесён — напоминание не нужно');
+  assert.ok(filled.localStorage.getItem('fin_cbMonthNotified'), 'месяц всё равно отмечен');
 });
 
 test('Notify: без разрешения уведомления не отправляются', async () => {
@@ -1355,6 +1389,8 @@ test('SW: фоновые уведомления с badge и data (Android-ста
   assert.ok(sw.includes('periodicsync'), 'фоновая проверка');
   assert.ok(sw.includes("'finance-check'"), 'тег периодической проверки');
   assert.ok(/showNotification[^]*badge: ICON_URL/.test(sw), 'badge передаётся');
+  assert.ok(sw.includes("'fin-cb-month'"), 'фоновое напоминание о кешбэке нового месяца');
+  assert.ok(sw.includes('категории кешбэка'), 'текст напоминания о категориях');
 });
 
 test('Уведомления: путь Android через navigator.serviceWorker.ready', () => {
