@@ -343,7 +343,10 @@ html[data-theme="dark"] .cb-sub.cb-l-high .cb-sub-val{color:#4ade80}
 /* Галочка «есть подкатегория» и поле подкатегории */
 .cb-check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
   white-space:nowrap;user-select:none;cursor:pointer}
-.cb-check input[type=checkbox]{min-height:20px;min-width:20px;accent-color:var(--blue)}
+.cb-check input[type=checkbox]{min-height:20px;min-width:20px;accent-color:var(--blue);flex-shrink:0}
+/* Подпись «Не считать в текущем бюджете» в редакторе переносится
+   на несколько строк, а не уезжает за край экрана на телефоне */
+#offBudgetBlock .cb-check{white-space:normal;flex-wrap:wrap;align-items:flex-start;gap:2px 8px}
 .cb-add .cb-sub-input{min-width:90px}
 
 /* Кнопка «♾️ Банки» в шапке режима «Кешбэк» — пастельный салатовый */
