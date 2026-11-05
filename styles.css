@@ -122,18 +122,22 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
 .field input,.field select{width:100%;padding:7px 9px;border-radius:7px;
   border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--input);color:var(--text)}
 .field input:focus,.field select:focus{outline:none;border-color:var(--blue)}
-.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.row-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.row-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;
   padding-top:14px;border-top:1px solid var(--border)}
 .ops-section{border-top:1px solid var(--border);margin-top:16px;padding-top:14px}
 .ops-section h4{margin:0 0 10px;font-size:12px;color:var(--muted);font-weight:600;
   text-transform:uppercase;letter-spacing:.05em}
-.op-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);
+.op-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);
   border-radius:6px;margin-bottom:6px;font-size:12px}
 .op-dir{font-weight:600;min-width:56px}
 .op-dir.in{color:var(--green)} .op-dir.out{color:var(--red)}
-.op-body{flex:1}
+.op-body{flex:1;min-width:0}
+/* Кнопка в строке никогда не уезжает за экран: на узких экранах она
+   переносится на отдельную строку и прижимается вправо. */
+.op-row>.op-del{flex-shrink:0;margin-left:auto}
+.ai-body .op-del{font-size:13px}
 .op-meta{font-size:11px;color:var(--muted)}
 .op-amount{font-weight:600}
 .op-del{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;
@@ -304,6 +308,13 @@ html[data-theme="dark"] .cb-sub.cb-l-low .cb-sub-val{color:#f87171}
 html[data-theme="dark"] .cb-sub.cb-l-mid .cb-sub-val{color:#facc15}
 html[data-theme="dark"] .cb-sub.cb-l-high .cb-sub-val{color:#4ade80}
 .cb-sub-empty{font-size:12px;color:var(--muted);font-style:italic}
+/* Бегущая строка: длинный «банк · подкатегория» плавно едет по кругу */
+.cb-sub-txt.cb-marquee{text-overflow:clip}
+.cb-sub-txt .cb-track{display:inline-block;white-space:nowrap;
+  animation:cb-slide var(--cb-dur,6s) linear infinite}
+.cb-sub-txt .cb-part{display:inline-block;padding-right:24px}
+@keyframes cb-slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.cb-sub-txt .cb-track{animation:none}}
 /* Общий список */
 .cb-all{margin-top:16px}
 .cb-all>summary{cursor:pointer;color:var(--muted);font-size:13px;user-select:none;min-height:44px;

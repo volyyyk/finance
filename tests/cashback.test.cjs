@@ -139,6 +139,21 @@ test('level: подсветка категории по размеру кешб�
   assert.equal(CbLogic.level('7'), 'high');
 });
 
+test('groupLevel: цвет категории зависит от процента основной строки', () => {
+  const g = (top, subs) => ({ top, subs: subs || [] });
+  assert.equal(CbLogic.groupLevel(g({ value: 3 }, [{ value: 12 }])), 'mid',
+    'основная 3% — жёлтый, подкатегории не перекрашивают');
+  assert.equal(CbLogic.groupLevel(g({ value: 10 })), 'high',
+    '10% без подкатегорий — зелёный');
+  assert.equal(CbLogic.groupLevel(g({ value: 1 }, [{ value: 15 }])), 'low',
+    'основная 1% — красный, даже если подкатегория даёт 15%');
+  assert.equal(CbLogic.groupLevel(g(null, [{ value: 4 }])), 'mid',
+    'без основной строки — лучшая подкатегория');
+  assert.equal(CbLogic.groupLevel(g(null, [{ value: 7 }, { value: 2 }])), 'high');
+  assert.equal(CbLogic.groupLevel(g(null, [])), 'low');
+  assert.equal(CbLogic.groupLevel({}), 'low');
+});
+
 test('dict stores banks and categories independently', () => {
   let dict = CbLogic.normalizeDict(null);
   dict = CbLogic.dictAdd(dict, 'bank', 'Т-Банк');

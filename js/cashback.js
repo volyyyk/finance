@@ -127,9 +127,18 @@ const CbLogic = (() => {
     return 'low';
   }
 
+  // Цвет всей категории: определяется процентом основной категории
+  // (подкатегории на него не влияют); если основной записи нет
+  // (только подкатегории) — лучшей из подкатегорий.
+  function groupLevel(g){
+    const main = g && g.top ? Number(g.top.value) || 0
+      : (g && g.subs ? g.subs : []).reduce((m, e) => Math.max(m, Number(e.value) || 0), 0);
+    return level(main);
+  }
+
   return {
     monthKey, normalize, entriesAll, groupByCategory, allByBank, allByCategory,
-    normalizeDict, dictAdd, dictRemove, level
+    normalizeDict, dictAdd, dictRemove, level, groupLevel
   };
 })();
 if (typeof module !== 'undefined') module.exports = CbLogic;
@@ -205,6 +214,35 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     else { $('cbView').innerHTML = ''; renderDict(data); }
   }
 
+  // Длинные подписи «банк · подкатегория» плавно прокручиваются по кругу:
+  // текст дублируется в трек, и анимация сдвигает его ровно на одну копию —
+  // движение бесшовное, весь текст можно прочитать без обрезки.
+  function marqueeSubs(root){
+    try {
+      if (!root || typeof root.querySelectorAll !== 'function') return;
+      root.querySelectorAll('.cb-sub-txt').forEach(el => {
+        const cw = el.clientWidth, sw = el.scrollWidth;
+        if (!(cw > 0) || sw <= cw + 1) return; // влезает — не крутим
+        if (el.classList.contains('cb-marquee')) return;
+        const raw = el.textContent;
+        el.classList.add('cb-marquee');
+        el.textContent = '';
+        const track = document.createElement('span');
+        track.className = 'cb-track';
+        for (let i = 0; i < 2; i++){
+          const part = document.createElement('span');
+          part.className = 'cb-part';
+          part.textContent = raw;      // textContent — без HTML, экранировать не нужно
+          track.appendChild(part);
+        }
+        el.appendChild(track);
+        // Одна копия текста с зазором; скорость прокрутки ~25px/с
+        const one = (track.firstChild && track.firstChild.offsetWidth) || sw;
+        el.style.setProperty('--cb-dur', Math.min(20, Math.max(4, Math.round(one / 25))) + 's');
+      });
+    } catch (e) { /* DOM недоступен (тестовая песочница) — просто пропускаем */ }
+  }
+
   // Основной вид: лучшие кешбэки по категориям
   function renderView(data){
     const el = $('cbView');
@@ -222,10 +260,10 @@ const Cashback = typeof document !== 'undefined' ? (() => {
 
     const groups = CbLogic.groupByCategory(data.banks);
     const groupHtml = groups.map(g => {
-      // Подсветка категории по размеру лучшего кешбэка
-      const bestVal = Math.max(0,
-        ...((g.top ? [g.top.value] : []).concat(g.subs || []).map(e => e.value || 0)));
-      const lvl = CbLogic.level(bestVal);
+      // Подсветка категории: цвет зависит от процента основной строки
+      // (подкатегории на него не влияют); если основной строки нет —
+      // берётся лучшая из подкатегорий.
+      const lvl = CbLogic.groupLevel(g);
       // Компактная строка: категория и % — сверху, банк — под ней
       // (муниципальное имя банка больше не растягивает блок по ширине)
       const top = g.top ? `
@@ -285,6 +323,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       </details>`;
 
     wireDelete(el);
+    marqueeSubs(el);
     $('cbQSubOn').onchange = () => { $('cbQSub').hidden = !$('cbQSubOn').checked; };
     $('cbQAdd').onclick = () => {
       const name = $('cbQCat').value.trim();
