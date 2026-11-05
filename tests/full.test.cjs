@@ -445,6 +445,58 @@ test('Simulator: перевод (transfer) в конце срока добавл
   assert.ok(bump && bump.month >= 1, 'получатель получил перевод в течение 3 месяцев');
 });
 
+test('Simulator: операция «платёж по долгу» уменьшает долг кредитки, а не баланс', () => {
+  // Раньше такой платёж списывался с дебетовой карты, а долг кредитки
+  // оставался прежним — деньги «списывались» дважды.
+  const { mods } = simMods([
+    { id: 'dbt', type: 'debit_card', name: 'Дебетовая', amount: 50000, rate: 0, operations: [
+      { id: 'o1', direction: 'out', amount: 10000, frequency: 'monthly',
+        date: dayFromNow(-5), endDate: null, debtTargetId: 'cc' } ] },
+    { id: 'cc', type: 'credit_card', name: 'Кредитка', amount: 100000, rate: 0,
+      limit: 205000, gracePeriodEndDate: dayFromNow(20), operations: [] },
+  ]);
+  const res = mods.Simulator.simulateAll(12);
+  // деньги уходят с дебетовой карты…
+  assert.ok(Math.abs(res.dbt.history[1].value - 40000) < 1e-9,
+    'с дебетовой списано 10 000: ' + res.dbt.history[1].value);
+  // …и ровно на столько же уменьшается долг кредитки
+  assert.ok(Math.abs(res.cc.history[1].value - 90000) < 1e-9,
+    'долг кредитки уменьшился до 90 000: ' + res.cc.history[1].value);
+  // чистый баланс в месяц платежа не меняется — перевода хватит один раз
+  const net0 = 50000 - 100000;
+  const net1 = res.dbt.history[1].value - res.cc.history[1].value;
+  assert.ok(Math.abs(net1 - net0) < 1e-9, 'двойного списания нет: ' + net0 + ' → ' + net1);
+  // платёж — не расход: в сводку расходов он не попадает
+  assert.equal(res.dbt.history[1].cumExpense, 0, 'платёж по долгу не считается расходом');
+  // через 10 месяцев долг закрыт и в минус не уходит
+  assert.equal(res.cc.history[10].value, 0, 'долг выплачен за 10 месяцев');
+  assert.equal(res.cc.history[12].value, 0, 'дальше долг не уходит в минус');
+  // без пометки (обычное снятие) долг кредитки не меняется
+  const plain = simMods([
+    { id: 'dbt', type: 'debit_card', name: 'Дебетовая', amount: 50000, rate: 0, operations: [
+      { id: 'o1', direction: 'out', amount: 10000, frequency: 'monthly', date: dayFromNow(-5) } ] },
+    { id: 'cc', type: 'credit_card', name: 'Кредитка', amount: 100000, rate: 0, operations: [] },
+  ]);
+  const res2 = plain.mods.Simulator.simulateAll(12);
+  assert.equal(res2.cc.history[12].value, 100000, 'без пометки долг не уменьшается');
+  assert.ok(res2.dbt.history[1].cumExpense > 0, 'обычное снятие — расход');
+});
+
+test('Stats: операция «платёж по долгу» — перевод, не расход и не доход', () => {
+  const { mods } = simMods([
+    { id: 'dbt', type: 'debit_card', name: 'Дебетовая', amount: 50000, rate: 0, operations: [
+      { id: 'o1', direction: 'out', amount: 10000, frequency: 'monthly',
+        date: dayFromNow(-5), debtTargetId: 'cc' } ] },
+    { id: 'cc', type: 'credit_card', name: 'Кредитка', amount: 100000, rate: 0, operations: [] },
+  ]);
+  const s = mods.Stats.aggregate();
+  assert.equal(s.exp, 0, 'платёж по долгу не увеличивает годовой расход');
+  assert.equal(s.inc, 0, 'и не считается доходом');
+  assert.equal(s.assets, 50000);
+  assert.equal(s.debts, 100000);
+  assert.equal(s.net, -50000);
+});
+
 // ============================================================================
 // 5. Вариабельные тесты: генеративные портфели с фиксированным зерном
 // ============================================================================
@@ -745,16 +797,36 @@ test('MoexAPI: повторный запрос цены берётся из кэ
   assert.equal(p2.last, 100);
 });
 
-test('MoexAPI.refreshAsset: металл пересчитывается из унции в граммы', async () => {
+test('MoexAPI.refreshAsset: котировка металла — руб. за грамм, без пересчёта из унции', async () => {
   const sb = moexSandbox(async () => ({ ok: true, json: async () => ({
-    marketdata: { columns: ['LAST'], data: [[62207]] },
+    marketdata: { columns: ['LAST'], data: [[10903]] },
     securities: { columns: ['FACEVALUE'], data: [[null]] },
   }) }));
   const asset = { kind: 'metal', secid: 'GLDRUB_TOM', board: 'SGLT' };
   await sb.api.refreshAsset(asset);
-  assert.equal(asset.ouncePrice, 62207);
-  assert.ok(Math.abs(asset.lastPrice - 62207 / 31.1034768) < 1e-9, 'цена за грамм');
+  assert.equal(asset.lastPrice, 10903, 'котировка MOEX уже за грамм — делить на унцию нельзя');
+  assert.ok(Math.abs(asset.ouncePrice - 10903 * 31.1034768) < 1e-6, 'унция — справочная цена');
   assert.equal(asset.unit, 'gram');
+});
+
+test('MoexAPI.refreshSixMonth: доходность металла без искажения унцией', async () => {
+  const sb = moexSandbox(async (url) => {
+    if (url.includes('/history/')){
+      return { ok: true, json: async () => ({
+        history: { columns: ['TRADEDATE','CLOSE'], data: [['2026-05-30', 9800]] },
+      }) };
+    }
+    return { ok: true, json: async () => ({
+      marketdata: { columns: ['LAST'], data: [[10903]] },
+      securities: { columns: ['FACEVALUE'], data: [[null]] },
+    }) };
+  });
+  const asset = { kind: 'metal', secid: 'GLDRUB_TOM', board: 'SGLT' };
+  await sb.api.refreshSixMonth(asset);
+  assert.equal(asset.sixMonthBase, 9800, 'история CLOSE — в рублях за грамм');
+  assert.ok(Math.abs(asset.sixMonthPct - (10903 / 9800 - 1) * 100) < 1e-6,
+    'доходность: ' + asset.sixMonthPct);
+  assert.equal(asset.lastPrice, 10903, 'текущая цена за грамм');
 });
 
 test('MoexAPI.refreshAsset: облигация обогащается данными, пустая котировка не затирает цену', async () => {
@@ -1155,6 +1227,51 @@ test('Editor: подпись «Не считать в текущем бюдже�
     'чекбокс не сжимается при переносе строк');
   const ed = src('js/editor.js');
   assert.ok(ed.includes('id="f_offBudget"'), 'чекбокс «Не считать в текущем бюджете» существует');
+});
+
+test('Editor.typeMatches: БПИФ (exchange_ppif) распознаётся как фонд', () => {
+  const ed = src('js/editor.js');
+  assert.ok(ed.includes('typeMatches(r.type, kind)'), 'фильтр поиска использует typeMatches');
+  const mods = loadInto(makeSandbox(), ['js/core.js', 'js/bonds.js', 'js/editor.js'], '{ProductEditor}');
+  const tm = mods.ProductEditor.typeMatches;
+  // Российские БПИФ приходят с MOEX как exchange_ppif — раньше не находились
+  assert.equal(tm('exchange_ppif', 'fund'), true, 'БПИФ — это фонд');
+  assert.equal(tm('etf', 'fund'), true);
+  assert.equal(tm('fund_etf', 'fund'), true);
+  assert.equal(tm('common_share', 'fund'), false, 'акция не фонд');
+  assert.equal(tm('common_share', 'stock'), true);
+  assert.equal(tm('depositary_receipt', 'stock'), true);
+  assert.equal(tm('ofz_bond', 'bond'), true);
+  assert.equal(tm('exchange_ppif', 'bond'), false, 'фонд не облигация');
+  assert.equal(tm(null, 'fund'), false, 'пустой тип не проходит');
+});
+
+test('Editor.metalQuickList: кнопки металлов фильтруются по поисковому запросу', () => {
+  const ed = src('js/editor.js');
+  assert.ok(ed.includes('metalQuickList(q)'), 'список металлов строится от запроса');
+  const mods = loadInto(makeSandbox(), ['js/core.js', 'js/bonds.js', 'js/editor.js'], '{ProductEditor}');
+  const mq = mods.ProductEditor.metalQuickList;
+  assert.deepEqual(mq('золот').map(m => m[1]), ['Золото'], '«золот» — только золото');
+  assert.deepEqual(mq('СЕРЕБР').map(m => m[1]), ['Серебро'], 'регистр не важен');
+  assert.deepEqual(mq('gld').map(m => m[0]), ['GLDRUB_TOM'], 'поиск по тикеру');
+  assert.deepEqual(mq('Паллад').map(m => m[1]), ['Палладий']);
+  assert.deepEqual(mq('xyz123'), [], 'мусорный запрос — пустой список');
+  assert.equal(mq('').length, 4, 'пустой запрос — все четыре металла');
+});
+
+test('Editor: снятие можно пометить как «платёж по долгу» кредитки', () => {
+  // Платёж по кредитке записывается на дебетовой карте и помечается
+  // целью — тогда он уменьшает долг, а не списывается второй раз.
+  const html = src('index.html');
+  assert.ok(html.includes('id="op_debtTarget"'), 'селект цели платежа в форме операций');
+  assert.ok(html.includes('id="op_debtRow"'), 'строка выбора цели скрывается для пополнений');
+  const ed = src('js/editor.js');
+  assert.ok(ed.includes('debtTargetId'), 'операция хранит цель платежа');
+  assert.ok(ed.includes('populateDebtTargets'), 'список долгов заполняется при открытии');
+  const sim = src('js/simulator.js');
+  assert.ok(sim.includes('collectDebtPaydowns'), 'симулятор применяет платежи по долгу');
+  const dash = src('js/dashboard.js');
+  assert.ok(dash.includes('Платёж по долгу'), 'событие подписано понятно');
 });
 
 // ============================================================================

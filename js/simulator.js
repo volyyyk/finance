@@ -58,6 +58,65 @@ const Simulator = (() => {
     return (product.amount || 0) + stocks;
   }
 
+  // Дата месяца m от «сейчас» — та же точка месяца, что в simulateProduct.
+  function monthAt(now, m){
+    const monthDate = new Date(now);
+    monthDate.setDate(1);
+    monthDate.setMonth(monthDate.getMonth() + m);
+    monthDate.setDate(Math.min(now.getDate(), new Date(monthDate.getFullYear(), monthDate.getMonth()+1, 0).getDate()));
+    return monthDate;
+  }
+
+  // Сумма операции в конкретном месяце прогноза или null, если в этом
+  // месяце операции нет. Единая логика для продукта-источника и для
+  // графика погашения долга.
+  function opMonthlyAmount(op, monthDate, noEndLimit){
+    const opStart = parseDate(op.date);
+    if (!opOccursInMonth(op, monthDate, opStart, noEndLimit)) return null;
+    let amount = op.amount;
+    if (op.frequency === 'weekly') amount = op.amount * 52 / 12;
+    else if (op.frequency === 'yearly'){
+      if (monthDate.getMonth() !== opStart.getMonth()) return null;
+    }
+    return amount;
+  }
+
+  // Операции «платёж по долгу» (op.debtTargetId) на других продуктах:
+  // деньги уходят с источника и в те же месяцы уменьшают долг
+  // кредитки/кредита. Раньше такой платёж просто списывался из баланса,
+  // а долг оставался прежним — двойное списание.
+  function collectDebtPaydowns(list, months, noEndLimit){
+    const targets = new Set();
+    for (const p of list){
+      for (const op of p.operations || []){
+        if (op.direction !== 'out' || !op.debtTargetId || !op.amount) continue;
+        const t = list.find(x => x.id === op.debtTargetId);
+        if (t && Config.TYPES[t.type] && Config.TYPES[t.type].liability && t.type !== 'expense'){
+          targets.add(op.debtTargetId);
+        }
+      }
+    }
+    if (!targets.size) return {};
+    const now = new Date(); now.setHours(0,0,0,0);
+    const out = {};
+    for (const id of targets){
+      const rows = [];
+      for (let m = 1; m <= months; m++){
+        let total = 0;
+        for (const p of list){
+          for (const op of p.operations || []){
+            if (op.direction !== 'out' || op.debtTargetId !== id || !op.amount) continue;
+            const amount = opMonthlyAmount(op, monthAt(now, m), noEndLimit);
+            if (amount != null) total += amount;
+          }
+        }
+        if (total > 0) rows.push({ month: m, amount: total });
+      }
+      if (rows.length) out[id] = rows;
+    }
+    return out;
+  }
+
   // Годовой купонный доход по одному активу
   function annualCouponForAsset(a){
     if (a.kind !== 'bond') return 0;
@@ -73,7 +132,7 @@ const Simulator = (() => {
   // действовать с прежней ставкой, пополнения идут до конца горизонта.
   // Облигации в этом режиме не погашаются: купоны капают по графику,
   // тело облигации остаётся в портфеле.
-  function simulateProduct(product, months, extraInflows, opts = {}){
+  function simulateProduct(product, months, extraInflows, opts = {}, debtPaydowns){
     const isLiab = Config.TYPES[product.type].liability;
     const isExpense = product.type === 'expense';
     const isInvest = product.type === 'investment';
@@ -207,17 +266,29 @@ const Simulator = (() => {
         } else {
           if (isLiab && !isExpense){
             value += amount;
-            cumExpense += amount;
+            if (!op.debtTargetId) cumExpense += amount;
           } else if (isInvest) {
             cash = Math.max(0, cash - amount);
             value -= amount;
-            cumExpense += amount;
+            if (!op.debtTargetId) cumExpense += amount;
           } else {
             value = Math.max(0, value - amount);
-            cumExpense += amount;
+            // Снятие, помеченное как платёж по долгу, — это перевод
+            // на погашение кредитки/кредита, а не расход: долг уменьшается
+            // отдельно (debtPaydowns), повторного списания нет.
+            if (!op.debtTargetId) cumExpense += amount;
           }
         }
       });
+
+      // Платежи по этому долгу из других продуктов (операции
+      // «платёж по долгу»): деньги уже списаны с источника,
+      // здесь уменьшается только сам долг.
+      if (debtPaydowns && isLiab && !isExpense){
+        debtPaydowns.forEach(t => {
+          if (t.month === m) value = Math.max(0, value - t.amount);
+        });
+      }
 
       extraInflows?.forEach(t=>{
         if (t.month === m){
@@ -297,7 +368,10 @@ const Simulator = (() => {
     }
 
     const result = {};
-    list.forEach(p => { result[p.id] = simulateProduct(p, months, boosts[p.id] || [], opts); });
+    // Операции «платёж по долгу»: долг кредитки/кредита уменьшается
+    // в те же месяцы, что и списание с продукта-источника.
+    const paydowns = collectDebtPaydowns(list, months, noEvents);
+    list.forEach(p => { result[p.id] = simulateProduct(p, months, boosts[p.id] || [], opts, paydowns[p.id] || []); });
     return result;
   }
 
@@ -398,9 +472,12 @@ const Stats = (() => {
 
     // Регулярные пополнения и снятия идут в общий годовой зачёт:
     // пополнение — в доход, снятие — в расход (для обязательств пополнение
-    // уменьшает долг, снятие — увеличивает).
+    // уменьшает долг, снятие — увеличивает). Снятие, помеченное как
+    // «платёж по долгу», — это перевод на погашение: не доход и не расход,
+    // иначе платёж учитывался бы дважды.
     list.forEach(p => (p.operations || []).forEach(op => {
       if (!op.amount) return;
+      if (op.direction === 'out' && op.debtTargetId) return;
       const n = opOccurrencesInYear(op);
       if (!n) return;
       const total = op.amount * n;

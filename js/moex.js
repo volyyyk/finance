@@ -98,7 +98,9 @@ const MoexAPI = (() => {
     const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target));
     await refreshAsset(asset);
     const cur = asset.lastPrice ?? null;               // металл — уже за грамм
-    const base = asset.kind === 'metal' && baseRaw != null ? baseRaw / OUNCE_GRAM : baseRaw;
+    // История торгов металлами (CLOSE) — в тех же рублях за грамм,
+    // что и текущая котировка: пересчёт из унции не нужен.
+    const base = baseRaw;
     asset.sixMonthBase = base;
     asset.sixMonthBaseDate = baseRaw != null ? iso(target) : null;
     asset.sixMonthPct = (base != null && base > 0 && cur != null) ? (cur / base - 1) * 100 : null;
@@ -164,11 +166,12 @@ const MoexAPI = (() => {
       if (details.lastPrice == null) delete details.lastPrice;
       Object.assign(asset, details);
     } else if (asset.kind === 'metal') {
-      // Цена MOEX — за тройскую унцию; храним и показываем за грамм
+      // Котировка MOEX (GLDRUB_TOM и др.) уже выражена в рублях за 1 грамм —
+      // никакого пересчёта из унции не нужно. Унция — только справочно.
       const price = await lastPrice(asset.secid, board, 'metal');
       if (price?.last != null){
-        asset.ouncePrice = price.last;
-        asset.lastPrice = price.last / OUNCE_GRAM;
+        asset.lastPrice = price.last;
+        asset.ouncePrice = price.last * OUNCE_GRAM;
         asset.unit = 'gram';
         asset.moexUpdatedAt = price.updatedAt;
       }

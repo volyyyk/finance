@@ -53,18 +53,20 @@ const Events = (() => {
       }
       
       p.operations?.forEach(op=>{
+        const isDebtPay = op.direction === 'out' && op.debtTargetId;
+        const opTitle = op.direction==='in' ? 'Пополнение' : isDebtPay ? 'Платёж по долгу' : 'Снятие';
         if (op.frequency === 'once'){
           const d = parseDate(op.date);
           if (d && d >= today){
             list.push({ date:d, product:p, icon: op.direction==='in'?'⬇️':'⬆️',
-              title:`${op.direction==='in'?'Пополнение':'Снятие'}: ${p.name}`,
+              title:`${opTitle}: ${p.name}`,
               amount:op.amount, direction:op.direction });
           }
         } else {
           const d = nextOccurrence(op.date, op.frequency);
           if (d && (!op.endDate || d <= parseDate(op.endDate))){
             list.push({ date:d, product:p, icon: op.direction==='in'?'⬇️':'⬆️',
-              title:`${op.direction==='in'?'Пополнение':'Снятие'}: ${p.name}`,
+              title:`${opTitle}: ${p.name}`,
               amount:op.amount, direction:op.direction });
           }
         }

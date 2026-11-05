@@ -14,6 +14,29 @@ const ProductEditor = (() => {
   let searchResults = [];
   let previousFocus;
 
+  // Подходит ли бумага выбранному виду актива.
+  // Российские биржевые фонды приходят с MOEX с type «exchange_ppif»
+  // (БПИФ), старые ETF — «etf», поэтому фильтр фондов шире, чем «fund».
+  function typeMatches(t, kind){
+    const s = (t || '').toLowerCase();
+    if (kind === 'stock') return s.includes('share') || s.includes('depositary_receipt');
+    if (kind === 'fund') return s.includes('ppif') || s.includes('fund') || s.includes('etf');
+    return s.includes('bond');
+  }
+
+  // Быстрые кнопки драгметаллов, отфильтрованные по поисковому запросу:
+  // «золот» — только золото, «SLV» — только серебро, мусор — ничего.
+  const METALS = [
+    ['GLDRUB_TOM', 'Золото'], ['SLVRUB_TOM', 'Серебро'],
+    ['PLDRUB_TOM', 'Платина'], ['PDDRUB_TOM', 'Палладий'],
+  ];
+  function metalQuickList(q){
+    const ql = (q || '').trim().toLowerCase();
+    if (!ql) return METALS.slice();
+    return METALS.filter(([secid, label]) =>
+      secid.toLowerCase().includes(ql) || label.toLowerCase().includes(ql));
+  }
+
   function init(){
     injectExtraMarkup();
     $('assetKind').addEventListener('change', () => {
@@ -47,6 +70,7 @@ const ProductEditor = (() => {
     }
 
     if ($('f_end')) $('f_end').addEventListener('change', updateVisibility);
+    if ($('op_dir')) $('op_dir').addEventListener('change', updateDebtRowVisibility);
     if ($('addOpBtn')) $('addOpBtn').addEventListener('click', addOperation);
     if ($('addEndActionBtn')) $('addEndActionBtn').addEventListener('click', addEndAction);
     if ($('searchAssetBtn')) $('searchAssetBtn').addEventListener('click', searchAsset);
@@ -254,6 +278,7 @@ const ProductEditor = (() => {
     $('searchResults').textContent = '';
     $('bondExtra').style.display = 'none';
     if ($('productForm')) $('productForm').reset();
+    populateDebtTargets();
 
     if (id){
       const p = Storage.get(id);
@@ -315,6 +340,29 @@ const ProductEditor = (() => {
     renderAssets();
   }
 
+  // Список долгов для пометки снятия как «платёж по долгу»:
+  // операция не тратит деньги, а переводит их на погашение
+  // кредитки/кредита — иначе прогноз списывает платёж дважды
+  // (из баланса и ещё раз держа долг прежним).
+  function populateDebtTargets(){
+    const sel = $('op_debtTarget');
+    if (!sel) return;
+    const debts = Storage.all().filter(p =>
+      p.id !== editingId && Config.TYPES[p.type] &&
+      Config.TYPES[p.type].liability && p.type !== 'expense');
+    sel.innerHTML = '<option value="">Обычное снятие (в расход)</option>' +
+      debts.map(p =>
+        `<option value="${p.id}">Платёж по долгу: ${escapeHtml(p.name)}</option>`).join('');
+    updateDebtRowVisibility();
+  }
+
+  function updateDebtRowVisibility(){
+    const row = $('op_debtRow');
+    if (!row) return;
+    row.style.display = ($('op_dir') && $('op_dir').value === 'out' && $('op_debtTarget').options.length > 1)
+      ? '' : 'none';
+  }
+
   function renderOps(){
     const el = $('opsList');
     if (!el) return;
@@ -327,11 +375,13 @@ const ProductEditor = (() => {
       const cls  = op.direction === 'in' ? 'in' : 'out';
       const fLabel = Config.FREQUENCIES[op.frequency]?.label || op.frequency;
       const endTxt = op.endDate ? ` до ${fmtDate(op.endDate)}` : '';
+      const debtProduct = op.debtTargetId ? Storage.get(op.debtTargetId) : null;
+      const debtTxt = debtProduct ? ` · платёж по долгу: ${debtProduct.name}` : '';
       return `<div class="op-row">
         <div class="op-dir ${cls}">${sign}</div>
         <div class="op-body">
           <div>${op.amount.toLocaleString('ru-RU')} ₽ · ${fLabel}${endTxt}</div>
-          <div class="op-meta">${op.date ? 'с '+fmtDate(op.date) : ''}</div>
+          <div class="op-meta">${op.date ? 'с '+fmtDate(op.date) : ''}${debtTxt}</div>
         </div>
         <button type="button" class="op-del" data-op="${op.id}">×</button>
       </div>`;
@@ -352,7 +402,10 @@ const ProductEditor = (() => {
     const endDate = $('op_endDate').value || null;
     if (!amount || amount <= 0){ alert('Укажите сумму операции'); return; }
     if (!date){ alert('Укажите дату'); return; }
-    draftOps.push({ id: uid(), direction: dir, amount, frequency: freq, date, endDate });
+    // Снятие можно пометить как платёж по долгу конкретного продукта:
+    // тогда в прогнозе платёж уменьшает долг, а не «списывается» второй раз.
+    const debtTargetId = dir === 'out' ? ($('op_debtTarget')?.value || null) : null;
+    draftOps.push({ id: uid(), direction: dir, amount, frequency: freq, date, endDate, debtTargetId });
     $('op_amount').value = '';
     $('op_date').value = '';
     $('op_endDate').value = '';
@@ -453,29 +506,32 @@ const ProductEditor = (() => {
         return;
       }
       const kind = $('assetKind').value;
-      const filtered = rows.filter(r => {
-        const t = (r.type || '').toLowerCase();
-        if (kind === 'stock') return t.includes('share') || t.includes('depositary_receipt');
-        if (kind === 'fund') return t.includes('fund') || t.includes('etf');
-        if (kind === 'metal') return /^(GLD|SLVR|PLD|PDD)RUB/.test(r.secid || '');
-        return t.includes('bond');
-      });
+      const filtered = rows.filter(r =>
+        kind === 'metal'
+          ? /^(GLD|SLVR|PLD|PDD)RUB/.test(r.secid || '')
+          : typeMatches(r.type, kind));
 
       if (kind === 'metal'){
         searchResults = filtered;
-        const quick = `<div class="op-meta" style="margin-bottom:6px">Драгметаллы MOEX (цена — за грамм):</div>` +
-          [['GLDRUB_TOM','Золото'],['SLVRUB_TOM','Серебро'],['PLDRUB_TOM','Платина'],['PDDRUB_TOM','Палладий']]
-          .map(([secid,label]) => `<button type="button" class="btn small" data-metal="${secid}" style="margin:0 4px 4px 0">${label} · ${secid}</button>`)
-          .join('');
-        box.innerHTML = quick + (filtered.length
-          ? filtered.map((r, i) =>
+        const quickMetals = metalQuickList(q);
+        let html = quickMetals.length
+          ? `<div class="op-meta" style="margin-bottom:6px">Драгметаллы MOEX (цена — за грамм):</div>` +
+            quickMetals
+              .map(([secid,label]) => `<button type="button" class="btn small" data-metal="${secid}" style="margin:0 4px 4px 0">${label} · ${secid}</button>`)
+              .join('')
+          : '';
+        if (filtered.length){
+          html += filtered.map((r, i) =>
             `<div class="op-row" data-pick="${i}" style="cursor:pointer">
                <div class="op-body">
                  <div><b>${escapeHtml(r.shortname)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
                  <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}</div>
                </div>
-             </div>`).join('')
-          : '<div class="op-meta">Можно добавить металл кнопкой выше или найти по тикеру (например, GLD)</div>');
+             </div>`).join('');
+        } else if (!quickMetals.length){
+          html += '<div class="op-meta">Ничего не найдено. Попробуйте название (золото, серебро, платина, палладий) или тикер (GLD, SLV, PLD, PDD).</div>';
+        }
+        box.innerHTML = html;
         box.querySelectorAll('[data-metal]').forEach(btn => {
           btn.onclick = () => pickAsset({ secid: btn.dataset.metal, shortname: btn.dataset.metal, kind:'metal' });
         });
@@ -743,6 +799,6 @@ const ProductEditor = (() => {
     editingId = null;
   }
 
-  return { init, open, close, updateVisibility };
+  return { init, open, close, updateVisibility, typeMatches, metalQuickList };
 })();
 
