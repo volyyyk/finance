@@ -1624,3 +1624,56 @@ test('Charts.draw: крошечный canvas не падает и не рису�
   // rect.width = 0 → рисование остановилось до изменения размеров
   assert.equal(canvas.width, 0);
 });
+
+/* ============================================================================
+   13. Переводы при окончании срока: регрессия «исчезающие вклады»
+   Вклад, заканчивающийся раньше симуляционной точки месяца (точка —
+   текущее число месяца), обнулялся, а перевод на дебетовую карту не
+   приходил: сумма перевода читалась из history месяца окончания, где
+   значение уже ноль. На графике это выглядело как провал net worth.
+   ========================================================================== */
+
+test('Simulator: вклад до 3-го числа — перевод приходит, деньги не исчезают', () => {
+  // Окончание 3-го числа: раньше точки симуляции (текущее число месяца),
+  // поэтому вклад обнуляется в том же месяце, что и перевод.
+  const end = new Date();
+  end.setDate(1); end.setMonth(end.getMonth() + 3); end.setDate(3);
+  const { mods } = simMods([
+    { id: 'src', type: 'deposit', amount: 100000, rate: 0, endDate: iso(end),
+      endActions: [{ type: 'transfer', targetId: 'dst' }], operations: [] },
+    { id: 'dst', type: 'debit_card', amount: 0, rate: 0, operations: [] },
+  ]);
+  const res = mods.Simulator.simulateAll(6);
+  const net = res.src.history.map((h, i) => h.value + res.dst.history[i].value);
+  for (let m = 1; m <= 6; m++){
+    assert.ok(Math.abs(net[m] - 100000) < 1e-6,
+      `месяц ${m}: вклад+карта = ${net[m]} — деньги не должны ни исчезать, ни задваиваться`);
+  }
+  assert.ok(res.src.history.some(h => h.value === 0), 'вклад закрылся');
+  assert.ok(res.dst.history.some(h => Math.abs(h.value - 100000) < 1e-6), 'перевод пришёл на карту');
+});
+
+test('Simulator: прогноз без провала — переводы из вкладов на карту не теряются', () => {
+  // Сценарий из баг-репорта: два вклада заканчиваются (3-го и 25-го),
+  // деньги переводятся на дебетовую карту — net worth не должен падать.
+  const early = new Date();
+  early.setDate(1); early.setMonth(early.getMonth() + 3); early.setDate(3);
+  const late = new Date();
+  late.setDate(1); late.setMonth(late.getMonth() + 2); late.setDate(25);
+  const { mods } = simMods([
+    { id: 'dep1', type: 'deposit', amount: 273200, rate: 13.2, endDate: iso(early),
+      endActions: [{ type: 'transfer', targetId: 'card' }], operations: [] },
+    { id: 'dep2', type: 'deposit', amount: 120000, rate: 21.5, endDate: iso(late),
+      endActions: [{ type: 'transfer', targetId: 'card' }], operations: [] },
+    { id: 'card', type: 'debit_card', amount: 1000, rate: 0, operations: [] },
+  ]);
+  const res = mods.Simulator.simulateAll(12);
+  const net = [];
+  for (let m = 0; m <= 12; m++){
+    net.push(res.dep1.history[m].value + res.dep2.history[m].value + res.card.history[m].value);
+  }
+  for (let m = 1; m <= 12; m++){
+    assert.ok(net[m] >= net[m - 1] - 1e-6,
+      `месяц ${m}: net упал с ${net[m - 1].toFixed(0)} до ${net[m].toFixed(0)} — перевод потерян`);
+  }
+});

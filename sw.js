@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v17';
+const CACHE_NAME = 'finance-cache-v18';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);

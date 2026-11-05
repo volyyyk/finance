@@ -153,6 +153,9 @@ const Simulator = (() => {
 
     let cumIncome = 0, cumExpense = 0;
     const history = [{ month:0, value, cumIncome:0, cumExpense:0 }];
+    // Переводы при окончании срока: фиксируются в момент закрытия
+    // продукта (месяц, получатель, сумма) — см. блок обработки окончания.
+    const transfers = [];
 
     // Разделяем кэш, акции, фонды, металлы и облигации для инвестиций.
     // Фонды растут по своей доходности за полгода (sixMonthPct),
@@ -308,6 +311,12 @@ const Simulator = (() => {
             currentEnd = act.newEndDate ? parseDate(act.newEndDate) : null;
           } else if (act.type === 'close' || act.type === 'transfer'){
             resetInvest();
+            // Сумму перевода фиксируем ДО обнуления: из history её брать
+            // нельзя — к концу месяца закрытия значение уже ноль, и деньги
+            // «исчезали» из прогноза (вклад до 3 января при точке симуляции
+            // 5-го числа обнулялся, а перевод не приходил).
+            if (act.type === 'transfer' && act.targetId && value > 0)
+              transfers.push({ month: m, targetId: act.targetId, amount: value });
             value = 0;
             currentEnd = null;
           }
@@ -320,7 +329,7 @@ const Simulator = (() => {
 
       history.push({ month:m, value, cumIncome, cumExpense });
     }
-    return { history, endValue: value };
+    return { history, endValue: value, transfers };
   }
 
   function monthIndexOfDate(iso){
@@ -346,24 +355,16 @@ const Simulator = (() => {
     // «без событий» они не выполняются.
     const boosts = {};
     if (!noEvents){
+      // Переводы при окончании срока фиксируются в simulateProduct в момент
+      // закрытия: месяц, получатель и точная сумма. Раньше сумма читалась
+      // из history месяца окончания, но к концу этого месяца вклад уже
+      // обнулён — деньги пропадали из прогноза (провал на графике).
       list.forEach(p => {
-        const chain = Array.isArray(p.endActions) ? p.endActions
-                    : (p.endAction ? [p.endAction] : []);
-        let mEnd = p.endDate ? monthIndexOfDate(p.endDate) : -1;
-        for (const act of chain){
-          if (mEnd > 0 && act.type === 'transfer' && act.targetId){
-            const amount = pass1[p.id].history[mEnd]?.value || 0;
-            if (amount > 0){
-              (boosts[act.targetId] ??= []).push({ month: mEnd, amount });
-            }
-            break;
+        (pass1[p.id].transfers || []).forEach(t => {
+          if (t.month > 0 && t.amount > 0){
+            (boosts[t.targetId] ??= []).push({ month: t.month, amount: t.amount });
           }
-          if (act.type === 'change' && act.newEndDate){
-            mEnd = monthIndexOfDate(act.newEndDate);
-          } else {
-            break;
-          }
-        }
+        });
       });
     }
 

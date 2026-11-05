@@ -2,7 +2,7 @@
 
 ![PWA](https://img.shields.io/badge/PWA-offline--first-8A2BE2?logo=pwa&logoColor=white)
 ![Vanilla JS](https://img.shields.io/badge/Vanilla_JS-no__build__no__deps-F7DF1E?logo=javascript&logoColor=black)
-![Tests](https://img.shields.io/badge/tests-109%20passed-2EA44F)
+![Tests](https://img.shields.io/badge/tests-111%20passed-2EA44F)
 ![MOEX](https://img.shields.io/badge/data-MOEX%20ISS-1E90FF)
 ![Dark mode](https://img.shields.io/badge/theme-dark%20%2B%20light-333)
 
@@ -39,7 +39,7 @@
 npm test          # или: node --test tests/*.test.cjs
 ```
 
-109 тестов в трёх наборах: `bonds` (11), `cashback` (11) и `full` (87) —
+111 тестов в трёх наборах: `bonds` (11), `cashback` (11) и `full` (89) —
 облигации, симулятор, статистика, события, пагинация событий, погашение
 облигаций, кликабельный календарь, прогноз «без событий», квартира,
 продукты «вне бюджета», имя цели, группировка типов и архив продуктов,
