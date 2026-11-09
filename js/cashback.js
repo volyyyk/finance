@@ -299,31 +299,64 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       <h3>Лучшие кешбэки по категориям</h3>
       <div class="cb-list cb-grid">${groupHtml}</div>
       ${datalist('cbCatList', catNames(data, dict))}
-      <div class="cb-quick">
-        <div class="op-meta">Добавить кешбэк за ${monthTitle(data.month)}</div>
-        <div class="cb-add">
-          <input type="text" id="cbQCat" list="cbCatList" placeholder="Категория">
-          <label class="cb-check"><input type="checkbox" id="cbQSubOn">подкатегория</label>
-          <input type="text" id="cbQSub" class="cb-sub-input" placeholder="Подкатегория" hidden>
-          <input type="number" id="cbQVal" step="0.1" min="0" placeholder="%">
-          <select id="cbQBank">${bankOpts}</select>
-          <button class="btn small" id="cbQAdd">+ Добавить кешбэк</button>
-        </div>
-        <div class="actions-bar">
-          <button class="btn" id="cbEditBtn">✎ Редактировать</button>
-        </div>
-      </div>
-      <details class="cb-all" id="cbAll">
-        <summary>Общий список</summary>
-        <div class="cb-all-sort">
-          <button class="btn small${allSort === 'bank' ? ' active' : ''}" data-sort="bank">По банкам</button>
-          <button class="btn small${allSort === 'cat' ? ' active' : ''}" data-sort="cat">По категориям</button>
-        </div>
-        <div id="cbAllBody">${allListHtml(data)}</div>
-      </details>`;
+      <div class="cb-bottom-accordions">
+        <!-- 1. Добавить новое (красная подсветка в тёмной / пастельная в светлой) -->
+        <details class="cb-accordion cb-acc-add edge-glow-red" id="cbAccAdd" open>
+          <summary>➕ 1. Добавить новое</summary>
+          <div class="cb-acc-content">
+            <div class="op-meta">Быстрое добавление кешбэка за ${monthTitle(data.month)}</div>
+            <div class="cb-add">
+              <input type="text" id="cbQCat" list="cbCatList" placeholder="Категория">
+              <label class="cb-check"><input type="checkbox" id="cbQSubOn">подкатегория</label>
+              <input type="text" id="cbQSub" class="cb-sub-input" placeholder="Подкатегория" hidden>
+              <input type="number" id="cbQVal" step="0.1" min="0" placeholder="%">
+              <select id="cbQBank">${bankOpts}</select>
+              <button class="btn small primary" id="cbQAdd">+ Добавить</button>
+            </div>
+            <div class="cb-quick-chips">
+              <span class="op-meta">Популярные:</span>
+              <button type="button" class="btn chip" data-qchip="Супермаркеты">Супермаркеты</button>
+              <button type="button" class="btn chip" data-qchip="Кафе и рестораны">Кафе и рестораны</button>
+              <button type="button" class="btn chip" data-qchip="Такси">Такси</button>
+              <button type="button" class="btn chip" data-qchip="АЗС">АЗС</button>
+              <button type="button" class="btn chip" data-qchip="Аптеки">Аптеки</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- 2. Настроить (жёлтая подсветка в тёмной / пастельная в светлой) -->
+        <details class="cb-accordion cb-acc-settings edge-glow-yellow" id="cbAccSettings">
+          <summary>⚙️ 2. Настроить</summary>
+          <div class="cb-acc-content">
+            <div class="op-meta">Управление банками текущего месяца и постоянными справочниками:</div>
+            <div class="actions-bar" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" id="cbEditBtn">✎ Редактировать банки месяца</button>
+              <button class="btn banks" id="cbDictOpenBtn">♾️ Постоянные банки и категории</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- 3. Показать все кешбеки (оранжевая подсветка в тёмной / пастельная в светлой) -->
+        <details class="cb-accordion cb-acc-all edge-glow-orange cb-all" id="cbAll">
+          <summary>📋 3. Показать все кешбеки</summary>
+          <div class="cb-acc-content">
+            <div class="cb-all-sort">
+              <button class="btn small${allSort === 'bank' ? ' active' : ''}" data-sort="bank">По банкам</button>
+              <button class="btn small${allSort === 'cat' ? ' active' : ''}" data-sort="cat">По категориям</button>
+            </div>
+            <div id="cbAllBody">${allListHtml(data)}</div>
+          </div>
+        </details>
+      </div>`;
 
     wireDelete(el);
     marqueeSubs(el);
+    const dBtn = el.querySelector("#cbDictOpenBtn");
+    if (dBtn) dBtn.onclick = () => { mode = "dict"; render(); };
+    el.querySelectorAll("[data-qchip]").forEach(chip => chip.onclick = () => {
+      $("cbQCat").value = chip.dataset.qchip;
+      $("cbQVal").focus();
+    });
     $('cbQSubOn').onchange = () => { $('cbQSub').hidden = !$('cbQSubOn').checked; };
     $('cbQAdd').onclick = () => {
       const name = $('cbQCat').value.trim();
