@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v19';
+const CACHE_NAME = 'finance-cache-v20';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
@@ -18,9 +18,13 @@ const ICON_URL = new URL('./icons/icon-192.png', BASE).toString();
 const DAY_MS = 86400000;
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(
-    Object.values(ASSET_URLS).map(url => new Request(url, { cache: 'reload' }))
-  )));
+  event.waitUntil(caches.open(CACHE_NAME).then(async cache => {
+    // Каждый ресурс кэшируется отдельно: один недоступный файл
+    // (например, отсутствующая иконка) больше не должен проваливать
+    // всю установку — иначе новая версия вообще никогда не активируется.
+    await Promise.allSettled(Object.values(ASSET_URLS).map(url =>
+      cache.add(new Request(url, { cache: 'reload' }))));
+  }));
 });
 
 self.addEventListener('message', event => {
@@ -143,16 +147,25 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   // Live financial APIs and non-GET requests are never cached.
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (request.mode === 'navigate') {
-    const key = assetKey(url.pathname);
-    if (key !== './' && key !== './index.html') return;
-    event.respondWith(caches.open(CACHE_NAME).then(async cache =>
-      (await cache.match(ASSET_URLS['./index.html'])) || fetch(request)));
-    return;
-  }
   const key = assetKey(url.pathname);
   if (!key || !(key in ASSET_URLS)) return;
-  event.respondWith(caches.open(CACHE_NAME).then(async cache =>
-    (await cache.match(ASSET_URLS[key])) || fetch(request)));
+  // Навигация всегда обслуживается index.html из кэша (offline-first)
+  const cacheUrl = key === './' ? ASSET_URLS['./index.html'] : ASSET_URLS[key];
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(cacheUrl);
+    // Фоновое обновление (stale-while-revalidate): кэш отдаётся сразу,
+    // но параллельно освежается из сети. Даже если версию кэша забыли
+    // поднять (как было с v19), приложение получит свежие файлы при
+    // следующем открытии, а не останется замороженным навсегда.
+    const revalidate = fetch(cacheUrl)
+      .then(res => { if (res && res.ok) cache.put(cacheUrl, res.clone()); return res; })
+      .catch(() => null);
+    if (cached){
+      event.waitUntil(revalidate);
+      return cached;
+    }
+    return (await revalidate) || Response.error();
+  })());
 });
 
