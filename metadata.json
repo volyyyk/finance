@@ -1,0 +1,6 @@
+{
+  "name": "Финансы & Кешбэк — PWA & Native APK (Capacitor)",
+  "description": "Финансовый учёт, инвестиции, прогноз капитала, аналитика кешбэка с 3 сворачиваемыми списками и умной подсветкой (пастельная в светлой, красно-желто-оранжевая в темной) и нативное APK без Chrome через Capacitor + OTA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

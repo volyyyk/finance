@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+  }
+}
+
+/* Tabular figures for all financial values and dates */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+/* Edge Illumination for 3 Bottom Cashback Collapsible Lists */
+
+/* List 1: Add New (Red in Dark, Pastel Rose/Coral in Light) */
+.edge-glow-red {
+  position: relative;
+  border-left: 4px solid #f87171;
+  background: linear-gradient(90deg, rgba(254, 226, 226, 0.45) 0%, transparent 60%);
+}
+.dark .edge-glow-red {
+  border-left: 4px solid #ef4444;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, transparent 45%);
+  box-shadow: inset 3px 0 12px -2px rgba(239, 68, 68, 0.35);
+}
+
+/* List 2: Settings / Dictionary (Yellow in Dark, Pastel Cream/Amber in Light) */
+.edge-glow-yellow {
+  position: relative;
+  border-left: 4px solid #fde047;
+  background: linear-gradient(90deg, rgba(254, 249, 195, 0.5) 0%, transparent 60%);
+}
+.dark .edge-glow-yellow {
+  border-left: 4px solid #eab308;
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.15) 0%, transparent 45%);
+  box-shadow: inset 3px 0 12px -2px rgba(234, 179, 8, 0.35);
+}
+
+/* List 3: All Cashbacks (Orange in Dark, Pastel Peach/Apricot in Light) */
+.edge-glow-orange {
+  position: relative;
+  border-left: 4px solid #fdba74;
+  background: linear-gradient(90deg, rgba(255, 237, 213, 0.45) 0%, transparent 60%);
+}
+.dark .edge-glow-orange {
+  border-left: 4px solid #f97316;
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.15) 0%, transparent 45%);
+  box-shadow: inset 3px 0 12px -2px rgba(249, 115, 22, 0.35);
+}
