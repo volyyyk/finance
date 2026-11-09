@@ -343,6 +343,68 @@ echo "Готово! APK файл доступен в: android/app/build/outputs/
 
       </div>
 
+      {/* GitHub Repository Push & Patch Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 shadow-xs transition-colors space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-purple-500" />
+              Публикация в GitHub (volyyyk/finance)
+            </h2>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              Коммит с 3 списками кешбэка, подсветкой, JS-оптимизациями и Capacitor подготовлен в ветке <code>main</code>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+            commit: 51576a1
+          </span>
+        </div>
+
+        <div className="space-y-3 text-xs sm:text-sm">
+          <p className="text-slate-700 dark:text-slate-300">
+            Для отправки (push) в удалённый репозиторий <strong>https://github.com/volyyyk/finance.git</strong> на GitHub требуется авторизация (токен GitHub Personal Access Token с правами <code>repo</code>).
+          </p>
+
+          <div className="p-3.5 rounded-xl bg-slate-950 text-slate-200 font-mono text-xs space-y-2">
+            <div className="text-slate-400 text-[11px]">// Команда для отправки изменений в main:</div>
+            <div className="flex items-center justify-between text-emerald-400 font-bold overflow-x-auto">
+              <span>git push origin main</span>
+              <button
+                type="button"
+                onClick={() => copyToClipboard('git push origin main', 'gitpush')}
+                className="text-slate-400 hover:text-white ml-2 text-[11px]"
+              >
+                {copiedType === 'gitpush' ? 'Скопировано' : 'Копировать'}
+              </button>
+            </div>
+            <div className="text-slate-400 text-[11px] pt-1">// Либо с токеном в один клик:</div>
+            <div className="text-slate-300 text-[11px] overflow-x-auto">
+              git push https://&lt;GITHUB_TOKEN&gt;@github.com/volyyyk/finance.git main
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <a
+              href="/update.patch"
+              download="finance-update.patch"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5 text-purple-500" />
+              <span>Скачать update.patch (304 КБ)</span>
+            </a>
+
+            <a
+              href="/update.bundle"
+              download="finance-update.bundle"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5 text-blue-500" />
+              <span>Скачать Git Bundle (92 КБ)</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };
