@@ -1677,3 +1677,100 @@ test('Simulator: прогноз без провала — переводы из 
       `месяц ${m}: net упал с ${net[m - 1].toFixed(0)} до ${net[m].toFixed(0)} — перевод потерян`);
   }
 });
+
+/* ============================================================================
+   14. Зачёт операций: наступившие пополнения/списания проводятся по балансу
+   Раньше операции жили только в прогнозе: еженедельное начисление,
+   наступившее вчера, не попадало в реальный баланс карты. Теперь
+   наступившие даты проводятся по балансу один раз (op.settledThrough).
+   ========================================================================== */
+
+test('Зачёт операций: еженедельное пополнение, наступившее вчера, зачисляется один раз', () => {
+  const sb = makeSandbox();
+  sb.localStorage.setItem('fin_v3', JSON.stringify([{
+    id: 'card', type: 'debit_card', name: 'Карта', amount: 1000, rate: 0,
+    operations: [ { id: 'o1', direction: 'in', amount: 7000, frequency: 'weekly',
+      date: dayFromNow(-1), endDate: dayFromNow(30) } ], endActions: [],
+  }]));
+  const mods = loadInto(sb, ['js/core.js', 'js/bonds.js'], '{Storage, Bonds}');
+  mods.Bonds.settleAll();
+  assert.equal(mods.Storage.get('card').amount, 8000, 'вчерашнее начисление 7 000 зачислено');
+  assert.equal(mods.Storage.get('card').operations[0].settledThrough, dayFromNow(-1), 'зачтённая дата зафиксирована');
+  mods.Bonds.settleAll();
+  assert.equal(mods.Storage.get('card').amount, 8000, 'повторный зачёт ничего не меняет');
+});
+
+test('Зачёт операций: пропущенные недели зачисляются все до сегодняшнего дня', () => {
+  const sb = makeSandbox();
+  sb.localStorage.setItem('fin_v3', JSON.stringify([{
+    id: 'card', type: 'debit_card', amount: 1000, rate: 0,
+    operations: [ { id: 'o1', direction: 'in', amount: 7000, frequency: 'weekly',
+      date: dayFromNow(-15), endDate: null } ], endActions: [],
+  }]));
+  const mods = loadInto(sb, ['js/core.js', 'js/bonds.js'], '{Storage, Bonds}');
+  mods.Bonds.settleAll();
+  // наступившие даты: -15, -8, -1 → три начисления по 7 000
+  assert.equal(mods.Storage.get('card').amount, 1000 + 7000 * 3, 'три пропущенные недели зачислены');
+});
+
+test('Зачёт операций: дата окончания операции уважается', () => {
+  const sb = makeSandbox();
+  sb.localStorage.setItem('fin_v3', JSON.stringify([{
+    id: 'card', type: 'debit_card', amount: 1000, rate: 0,
+    operations: [ { id: 'o1', direction: 'in', amount: 7000, frequency: 'weekly',
+      date: dayFromNow(-20), endDate: dayFromNow(-10) } ], endActions: [],
+  }]));
+  const mods = loadInto(sb, ['js/core.js', 'js/bonds.js'], '{Storage, Bonds}');
+  mods.Bonds.settleAll();
+  // до окончания (−10) наступили только даты −20 и −13; дата −6 уже после окончания
+  assert.equal(mods.Storage.get('card').amount, 1000 + 7000 * 2, 'зачтены только даты до окончания');
+});
+
+test('Зачёт операций: пополнение кредитки уменьшает долг, снятие увеличивает', () => {
+  const sb = makeSandbox();
+  sb.localStorage.setItem('fin_v3', JSON.stringify([{
+    id: 'cc', type: 'credit_card', amount: 50000, rate: 0, limit: 100000,
+    operations: [
+      { id: 'o1', direction: 'in', amount: 5000, frequency: 'monthly', date: dayFromNow(-1) },
+      { id: 'o2', direction: 'out', amount: 2000, frequency: 'once', date: dayFromNow(-1) } ],
+    endActions: [],
+  }]));
+  const mods = loadInto(sb, ['js/core.js', 'js/bonds.js'], '{Storage, Bonds}');
+  mods.Bonds.settleAll();
+  assert.equal(mods.Storage.get('cc').amount, 50000 - 5000 + 2000, 'долг: −5 000 пополнение, +2 000 снятие');
+});
+
+test('Зачёт операций: платёж по долгу списывает с карты и уменьшает долг кредитки', () => {
+  const sb = makeSandbox();
+  sb.localStorage.setItem('fin_v3', JSON.stringify([
+    { id: 'dbt', type: 'debit_card', amount: 30000, rate: 0,
+      operations: [ { id: 'o1', direction: 'out', amount: 10000, frequency: 'monthly',
+        date: dayFromNow(-1), debtTargetId: 'cc' } ], endActions: [] },
+    { id: 'cc', type: 'credit_card', amount: 62000, rate: 0, limit: 170000,
+      operations: [], endActions: [] },
+  ]));
+  const mods = loadInto(sb, ['js/core.js', 'js/bonds.js'], '{Storage, Bonds}');
+  mods.Bonds.settleAll();
+  assert.equal(mods.Storage.get('dbt').amount, 20000, 'с дебетовой карты списано 10 000');
+  assert.equal(mods.Storage.get('cc').amount, 52000, 'долг кредитки уменьшился на 10 000');
+  mods.Bonds.settleAll();
+  assert.equal(mods.Storage.get('cc').amount, 52000, 'повторный зачёт ничего не меняет');
+  assert.equal(mods.Storage.get('dbt').amount, 20000, 'повторный зачёт не списывает второй раз');
+});
+
+test('Зачёт операций: будущие операции не зачисляются, годовые — по разу в год', () => {
+  const sb = makeSandbox();
+  const yearly = new Date(); yearly.setDate(yearly.getDate() - 400);
+  sb.localStorage.setItem('fin_v3', JSON.stringify([
+    { id: 'dep', type: 'deposit', amount: 100000, rate: 12,
+      operations: [ { id: 'o1', direction: 'in', amount: 36000, frequency: 'yearly',
+        date: iso(yearly), endDate: null } ], endActions: [] },
+    { id: 'card', type: 'debit_card', amount: 1000, rate: 0,
+      operations: [ { id: 'o2', direction: 'in', amount: 23000, frequency: 'monthly',
+        date: dayFromNow(10) } ], endActions: [] },
+  ]));
+  const mods = loadInto(sb, ['js/core.js', 'js/bonds.js'], '{Storage, Bonds}');
+  mods.Bonds.settleAll();
+  assert.equal(mods.Storage.get('dep').amount, 100000 + 36000 * 2, 'годовая операция: зачтено два наступивших года');
+  assert.equal(mods.Storage.get('card').amount, 1000, 'будущее ежемесячное пополнение не зачислено');
+});
