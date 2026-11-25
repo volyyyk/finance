@@ -1115,3 +1115,4 @@ test('ProductList: закрытые продукты уходят в серый 
   assert.ok(html.includes('product-archive'), 'архив в конце списка');
   assert.ok(html.includes('Архив · 1'), 'счётчик архива');
   assert.ok(html.indexOf('Закрытый вклад') > html.indexOf('product-archive'), 'закрытый вклад внутри архива');
+});
