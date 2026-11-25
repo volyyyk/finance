@@ -313,26 +313,30 @@ ${rows}
         if (p.type !== 'investment') continue;
         const assets = structuredClone(p.assets || []);
         let changed = false;
-        for (const a of assets) {
-          if (a.redeemed) continue;
-          const now = Date.now();
-          const updatedAt = Date.parse(a.moexUpdatedAt || '');
-          const attemptedAt = Date.parse(a.moexAttemptAt || '');
-          // Успешную цену обновляем раз в час; неудачный запрос повторяем
-          // не чаще раза в 5 минут, не блокируя повторные попытки на час.
-          if (Number.isFinite(updatedAt) && now - updatedAt < 3600000) continue;
-          if (Number.isFinite(attemptedAt) && now - attemptedAt < 5 * 60 * 1000) continue;
-          const before = JSON.stringify(a);
-          try {
+        // Небольшие параллельные пачки ускоряют большие портфели,
+        // не создавая десятки одновременных запросов к публичному ISS.
+        for (let i = 0; i < assets.length; i += 4) {
+          await Promise.all(assets.slice(i, i + 4).map(async a => {
+            if (a.redeemed) return;
+            const now = Date.now();
+            const updatedAt = Date.parse(a.moexUpdatedAt || '');
+            const attemptedAt = Date.parse(a.moexAttemptAt || '');
+            // Публичный ISS обновляется с задержкой: проверяем цену раз в 15 минут.
+            // После ошибки повторяем запрос через 5 минут.
+            if (Number.isFinite(updatedAt) && now - updatedAt < 15 * 60 * 1000) return;
+            if (Number.isFinite(attemptedAt) && now - attemptedAt < 5 * 60 * 1000) return;
+            const before = JSON.stringify(a);
             const previousQuoteAt = a.moexUpdatedAt || null;
-            await MoexAPI.refreshAsset(a);
-            a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
-              ? null : 'MOEX пока не вернул новую котировку';
-          } catch (error) {
-            a.moexError = String(error?.message || 'Ошибка запроса MOEX').slice(0, 180);
-          }
-          a.moexAttemptAt = new Date().toISOString();
-          if (before !== JSON.stringify(a)) changed = true;
+            try {
+              await MoexAPI.refreshAsset(a);
+              a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
+                ? null : 'MOEX пока не вернул новую котировку';
+            } catch (error) {
+              a.moexError = String(error?.message || 'Ошибка запроса MOEX').slice(0, 180);
+            }
+            a.moexAttemptAt = new Date().toISOString();
+            if (before !== JSON.stringify(a)) changed = true;
+          }));
         }
         if (changed && !$('modalBg').classList.contains('show') && Storage.get(p.id) === p) {
           p.assets = assets;
