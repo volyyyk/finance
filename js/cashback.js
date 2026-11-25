@@ -793,8 +793,8 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       ${datalist('cbCatList', catNames(data, dict))}
       ${datalist('cbBankList', bankNames(dict))}
       <div class="cb-add">
-        <input type="text" id="cbNewBank" list="cbBankList" placeholder="Название банка">
-        <button class="btn small" id="cbAddBank">+ Добавить банк</button>
+        <input type="text" id="cbNewBank" placeholder="Названия банков через запятую или с новой строки">
+        <button class="btn small" id="cbAddBank">+ Добавить банки</button>
       </div>
       <div class="actions-bar">
         <button class="btn primary" id="cbDone">✓ Готово</button>
