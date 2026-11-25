@@ -26,3 +26,27 @@ test('cashback accordion stack has consistent spacing and unified card styling',
   assert.match(styles.slice(stack, accordion), /gap:\s*10px/);
   assert.match(styles.slice(accordion, styles.indexOf('.cb-accordion>summary', accordion)), /border-radius:\s*15px/);
 });
+
+test('cashback first-use state explains the setup and offers two clear paths', () => {
+  assert.match(cashback, /cb-empty-state/);
+  assert.match(cashback, /Добавить первый банк/);
+  assert.match(cashback, /Заполнить по фото \/ ИИ/);
+  assert.match(cashback, /cbEmptyPromptBtn/);
+  assert.match(styles, /\.cb-empty-state/);
+});
+
+test('portfolio search filters product rows and hides empty groups', () => {
+  const dashboard = fs.readFileSync(path.join(__dirname, '../js/dashboard.js'), 'utf8');
+  assert.match(dashboard, /id\('productSearch'\)/);
+  assert.match(dashboard, /data-search=/);
+  assert.match(dashboard, /\.product-row:not\(\[hidden\]\)/);
+  assert.match(dashboard, /productSearchEmpty/);
+});
+
+test('portfolio section appears before analytics charts', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const stats = html.indexOf('id="stats"');
+  const portfolio = html.indexOf('id="productsList"');
+  const charts = html.indexOf('id="chartBalance"');
+  assert.ok(stats >= 0 && portfolio > stats && charts > portfolio);
+});
