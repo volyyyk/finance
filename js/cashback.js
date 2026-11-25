@@ -793,7 +793,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       ${datalist('cbCatList', catNames(data, dict))}
       ${datalist('cbBankList', bankNames(dict))}
       <div class="cb-add">
-        <input type="text" id="cbNewBank" placeholder="Названия банков через запятую или с новой строки">
+        <input type="text" id="cbNewBank" list="cbBankList" placeholder="Названия банков через запятую или с новой строки">
         <button class="btn small" id="cbAddBank">+ Добавить банки</button>
       </div>
       <div class="actions-bar">
@@ -842,7 +842,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       render();
     });
     $('cbAddBank').onclick = () => {
-      const names = [...new Set($('cbNewBank').value.split(/[\\n,;]+/).map(x => x.trim()).filter(Boolean))];
+      const names = [...new Set($('cbNewBank').value.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean))];
       if (!names.length){ alert('Укажите хотя бы один банк'); return; }
       let added = 0;
       mutate(d => names.forEach(name => {
