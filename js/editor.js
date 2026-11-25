@@ -240,7 +240,10 @@ const ProductEditor = (() => {
     const activity = makeSection('editorActivity','Операции и состав','Пополнения, снятия, активы и действия при окончании');
     const take = (selector, target) => {
       const node = form.querySelector(selector);
-      if (node) target.appendChild(node);
+      if (!node) return;
+      const controlFields = ['#f_type','#f_name','#f_amount','#f_rate','#f_start','#f_comment'];
+      const movable = controlFields.includes(selector) ? (node.closest('.field') || node) : node;
+      target.appendChild(movable);
     };
     const field = selector => {
       const node = form.querySelector(selector);
@@ -258,13 +261,10 @@ const ProductEditor = (() => {
     ['#creditCardBlock','#apartmentBlock','#offBudgetBlock'].forEach(sel => take(sel, conditions.body));
     take('#investmentBlock', activity.body);
     take('.ops-section', activity.body);
-    form.querySelector('.modal-actions')?.before(document.createElement('div'));
     const note = document.createElement('p');
     note.className = 'editor-footnote';
     note.textContent = 'Дополнительные параметры можно раскрыть ниже. Ничего важного не удалено.';
     basics.body.appendChild(note);
-    const formActions = form.querySelector('.modal-actions');
-    if (formActions) form.append(basics.details, conditions.details, activity.details);
   }
 
   function updateVisibility(){
