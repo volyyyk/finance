@@ -82,8 +82,11 @@ const App = (() => {
       for (const a of p.assets){
         if (a.redeemed) continue;
         if ((a.kind === 'fund' || a.kind === 'metal') && a.yieldMonth !== month){
-          try { await MoexAPI.refreshSixMonth(a); changed = true; }
-          catch { /* Нет сети или данных MOEX — обновим при следующем заходе */ }
+          try {
+            const before = JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
+            await MoexAPI.refreshSixMonth(a);
+            if (before !== JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
+          } catch { /* Нет сети или данных MOEX — повторим при следующем заходе */ }
         }
       }
     }
@@ -312,7 +315,11 @@ ${rows}
         let changed = false;
         for (const a of assets) {
           if (a.redeemed || (a.moexUpdatedAt && Date.now() - Date.parse(a.moexUpdatedAt) < 3600000)) continue;
-          try { await MoexAPI.refreshAsset(a); changed = true; } catch { /* Сохраняем последние доступные данные. */ }
+          try {
+            const before = JSON.stringify(a);
+            await MoexAPI.refreshAsset(a);
+            if (before !== JSON.stringify(a)) changed = true;
+          } catch { /* Сохраняем последние доступные данные. */ }
         }
         if (changed && !$('modalBg').classList.contains('show') && Storage.get(p.id) === p) {
           p.assets = assets;
