@@ -260,7 +260,8 @@ const ProductEditor = (() => {
     take('#f_comment', conditions.body);
     ['#creditCardBlock','#apartmentBlock','#offBudgetBlock'].forEach(sel => take(sel, conditions.body));
     take('#investmentBlock', activity.body);
-    take('.ops-section', activity.body);
+    const operationsSection = form.querySelector(':scope > .ops-section');
+    if (operationsSection) activity.body.appendChild(operationsSection);
     const note = document.createElement('p');
     note.className = 'editor-footnote';
     note.textContent = 'Дополнительные параметры можно раскрыть ниже. Ничего важного не удалено.';
