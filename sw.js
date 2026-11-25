@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v22';
+const CACHE_NAME = 'finance-cache-v23';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
@@ -151,20 +151,23 @@ self.addEventListener('fetch', event => {
   if (!key || !(key in ASSET_URLS)) return;
   // Навигация всегда обслуживается index.html из кэша (offline-first)
   const cacheUrl = key === './' ? ASSET_URLS['./index.html'] : ASSET_URLS[key];
+  // ВАЖНО: waitUntil вызывается синхронно в обработчике fetch.
+  // Если вызвать его после await (как раньше), браузер выбрасывает
+  // InvalidStateError: событие уже завершило dispatch. На некоторых
+  // устройствах это ломает каждый запрос кэшированного ресурса.
+  const cachePromise = caches.open(CACHE_NAME);
+  const revalidate = cachePromise.then(cache =>
+    fetch(cacheUrl).then(async res => {
+      if (res && res.ok) await cache.put(cacheUrl, res.clone());
+      return res;
+    })
+  ).catch(() => null);
+  event.waitUntil(revalidate);
   event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
+    const cache = await cachePromise;
     const cached = await cache.match(cacheUrl);
-    // Фоновое обновление (stale-while-revalidate): кэш отдаётся сразу,
-    // но параллельно освежается из сети. Даже если версию кэша забыли
-    // поднять (как было с v19), приложение получит свежие файлы при
-    // следующем открытии, а не останется замороженным навсегда.
-    const revalidate = fetch(cacheUrl)
-      .then(res => { if (res && res.ok) cache.put(cacheUrl, res.clone()); return res; })
-      .catch(() => null);
-    if (cached){
-      event.waitUntil(revalidate);
-      return cached;
-    }
+    // Stale-while-revalidate: кэш отдаётся сразу, сеть обновляет его в фоне.
+    if (cached) return cached;
     return (await revalidate) || Response.error();
   })());
 });
