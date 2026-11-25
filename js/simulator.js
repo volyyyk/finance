@@ -143,7 +143,10 @@ const Simulator = (() => {
     const now = new Date(); now.setHours(0,0,0,0);
     const endDate = (!noEvents && product.endDate) ? parseDate(product.endDate) : null;
 
-    let value = isInvest ? portfolioValue(product) : (product.amount || 0);
+    // Обязательный расход — это денежный поток, а не актив/долг на балансе.
+    // Хранить его сумму в value приводило к ложному росту капитала в прогнозе,
+    // когда «остаток расхода» исчезал уже в первый месяц.
+    let value = isExpense ? 0 : (isInvest ? portfolioValue(product) : (product.amount || 0));
     let rate = product.rate || 0;
     let currentEnd = endDate;
     let actionIndex = 0;
@@ -183,8 +186,7 @@ const Simulator = (() => {
       monthDate.setDate(Math.min(now.getDate(), new Date(monthDate.getFullYear(), monthDate.getMonth()+1, 0).getDate()));
 
       if (isExpense){
-        // Обязательный расход
-        value = Math.max(0, value - (product.amount || 0));
+        // Обязательный расход влияет только на денежный поток, не на капитал.
         cumExpense += product.amount || 0;
       } else {
         if (isInvest) {
@@ -256,11 +258,16 @@ const Simulator = (() => {
 
         if (op.direction === 'in'){
           if (isLiab && !isExpense){
+            // Пополнение карточного/кредитного долга — погашение обязательства,
+            // а не заработок. Перевод с источника учитывается отдельно.
             value = Math.max(0, value - amount);
-            cumIncome += amount;
-          } else if (isInvest) {
-            cash += amount;
+          } else if (isInvest || product.type === 'deposit') {
+            // Пополнение собственного вклада/брокерского счёта — движение
+            // капитала, не доход. Доходом остаются проценты, купоны и рост.
+            if (isInvest) cash += amount;
             value += amount;
+          } else if (isExpense) {
+            // Возврат/компенсация обязательного расхода.
             cumIncome += amount;
           } else {
             value += amount;
@@ -269,16 +276,18 @@ const Simulator = (() => {
         } else {
           if (isLiab && !isExpense){
             value += amount;
-            if (!op.debtTargetId) cumExpense += amount;
-          } else if (isInvest) {
-            cash = Math.max(0, cash - amount);
-            value -= amount;
-            if (!op.debtTargetId) cumExpense += amount;
+            // Покупка по кредитке — расход. Выдача дополнительного кредита
+            // меняет обязательство, но сама по себе не является потреблением.
+            if (product.type === 'credit_card' && !op.debtTargetId) cumExpense += amount;
+          } else if (isInvest || product.type === 'deposit') {
+            if (isInvest) cash = Math.max(0, cash - amount);
+            value = Math.max(0, value - amount);
+            // Снятие собственного капитала не является расходом.
+          } else if (isExpense) {
+            cumExpense += amount;
           } else {
             value = Math.max(0, value - amount);
-            // Снятие, помеченное как платёж по долгу, — это перевод
-            // на погашение кредитки/кредита, а не расход: долг уменьшается
-            // отдельно (debtPaydowns), повторного списания нет.
+            // Платёж по долгу — перевод, а не расход.
             if (!op.debtTargetId) cumExpense += amount;
           }
         }
@@ -297,7 +306,8 @@ const Simulator = (() => {
         if (t.month === m){
           value += t.amount;
           if (isInvest) cash += t.amount;
-          cumIncome += t.amount;
+          // extraInflows здесь — переводы тела закрытого продукта.
+          // Перенос собственных денег между счетами не создаёт доход.
         }
       });
 
@@ -471,25 +481,22 @@ const Stats = (() => {
       }
     });
 
-    // Регулярные пополнения и снятия идут в общий годовой зачёт:
-    // пополнение — в доход, снятие — в расход (для обязательств пополнение
-    // уменьшает долг, снятие — увеличивает). Снятие, помеченное как
-    // «платёж по долгу», — это перевод на погашение: не доход и не расход,
-    // иначе платёж учитывался бы дважды.
-    //
-    // Исключение — вклады: это движение денег внутри своих же активов.
-    // Пополнение вклада не является доходом, а возврат суммы вклада при
-    // завершении срока просто возвращается на баланс. В «доходность»
-    // у вкладов попадают только проценты по ставке (посчитаны выше).
+    // В годовой доход/расход попадают только реальные внешние денежные потоки.
+    // Пополнения/снятия вкладов и инвестиций — перемещение собственного капитала.
+    // Погашение кредита/кредитки уменьшает долг, но не является доходом.
+    // Покупки по кредитке — расход; выдача нового кредита — изменение долга.
     list.forEach(p => (p.operations || []).forEach(op => {
-      if (!op.amount) return;
-      if (p.type === 'deposit') return;
-      if (op.direction === 'out' && op.debtTargetId) return;
+      if (!op.amount || (op.direction === 'out' && op.debtTargetId)) return;
+      if (p.type === 'deposit' || p.type === 'investment' || p.type === 'loan') return;
+      if (Config.TYPES[p.type]?.liability && op.direction === 'in') return;
       const n = opOccurrencesInYear(op);
       if (!n) return;
       const total = op.amount * n;
-      if (op.direction === 'out') exp += total;
-      else                        inc += total;
+      if (op.direction === 'out') {
+        if (p.type === 'credit_card' || p.type === 'debit_card' || p.type === 'expense' || p.type === 'apartment') exp += total;
+      } else {
+        if (p.type === 'debit_card' || p.type === 'expense' || p.type === 'apartment') inc += total;
+      }
     }));
 
     const net = assets - debts;

@@ -35,13 +35,30 @@ const App = (() => {
   }
 
   function bootstrapData(){
-    if (Storage.hasData()) return;
-    if (!Storage.loadFromSeed()){
-      console.warn('Данные не найдены и seed.js пуст — начинаем с пустого списка');
-      Storage.save([]);
-    } else {
-      applySeedGoal();
-    }
+    // Новому пользователю не подставляем демо-портфель автоматически.
+    // Пустая база создаётся сразу; выбор демо сохраняется отдельно.
+    if (Storage.hasData()) return localStorage.getItem('fin_onboarding_choice') === 'pending';
+    Storage.save([]);
+    localStorage.setItem('fin_onboarding_choice', 'pending');
+    return true;
+  }
+
+  function showFirstRun(){
+    const card = $('welcomeCard');
+    if (!card || localStorage.getItem('fin_onboarding_choice') !== 'pending') return;
+    card.hidden = false;
+    $('startBlankBtn').onclick = () => {
+      localStorage.setItem('fin_onboarding_choice', 'blank');
+      card.hidden = true;
+      refresh();
+    };
+    $('startDemoBtn').onclick = () => {
+      Storage.clear();
+      if (Storage.loadFromSeed()) applySeedGoal();
+      localStorage.setItem('fin_onboarding_choice', 'demo');
+      card.hidden = true;
+      refresh();
+    };
   }
 
   // ===== Тёмная тема =====
@@ -275,8 +292,9 @@ ${rows}
     }
 
     // 3. Загружаем данные
-    bootstrapData();
+    const firstRun = bootstrapData();
     refresh();
+    if (firstRun) showFirstRun();
 
     // Уведомления: недельная сверка расходов и скорые списания
     if (typeof Notify !== 'undefined') Notify.init();
