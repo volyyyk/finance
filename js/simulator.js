@@ -421,13 +421,6 @@ const Simulator = (() => {
 })();
 
 const Stats = (() => {
-  // Годовые ставки в сводке должны совпадать с помесячной капитализацией
-  // прогноза, а не занижаться простой формулой amount * rate.
-  function effectiveAnnualFactor(rate){
-    const monthly = 1 + (Number(rate) || 0) / 1200;
-    return Number.isFinite(monthly) && monthly > 0 ? Math.pow(monthly, 12) - 1 : 0;
-  }
-
   // Сводка считается один раз на версию данных: GoalBar, карточки
   // статистики и результаты используют один и тот же aggregate().
   let aggMemo = { version: null, value: null };
@@ -446,78 +439,30 @@ const Stats = (() => {
     let assets = 0, debts = 0, inc = 0, exp = 0;
     const list = Storage.all();
     list.forEach(p => {
-      // offBudget: продукт не участвует в текущем балансе (активах/долгах),
-      // но его доходы и расходы по-прежнему влияют на статистику.
-      const off = p.offBudget === true;
-      if (p.type === 'expense'){
-        exp += (p.amount || 0) * 12;
-        return;
-      }
-      if (p.type === 'apartment'){
-        const v = p.amount || 0;
-        if (!off) assets += v;
-        const annualGrowth = Math.max(0, 1 + (Number(p.rate) || 0) / 100);
-        const monthlyGrowth = Math.pow(annualGrowth, 1 / 12);
-        inc += v * ((Number(p.rate) || 0) / 100) + (p.rented ? (p.rentPrice || 0) * 12 : 0);
-        // Ремонт рассчитывается от стоимости квартиры после месячного роста,
-        // как и в прогнозе; суммируем все 12 месяцев, а не берём 2% от старой цены.
-        let projectedValue = v, upkeep = 0;
-        const monthlyUpkeep = (Number(p.upkeepRate) || 0) / 1200;
-        for (let m = 0; m < 12; m++){
-          projectedValue *= monthlyGrowth > 0 ? monthlyGrowth : 1;
-          upkeep += projectedValue * monthlyUpkeep;
-        }
-        exp += upkeep;
-        return;
-      }
+      // Вне бюджета исключает продукт только из текущего баланса,
+      // но не из расчёта его денежных потоков.
+      // Обязательные расходы — денежный поток, а не актив/долг.
+      if (p.offBudget === true || p.type === 'expense') return;
       if (p.type === 'investment'){
-        const v = Simulator.portfolioValue(p);
-        if (!off) assets += v;
-        const cash = p.amount || 0;
-        const stocks = (p.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
-        const couponAnnual = (p.assets || [])
-          .reduce((s,a) => s + Simulator.annualCouponForAsset(a), 0);
-        // Доход считаем с акций, купонов и фондов. На кэш и металлы
-        // проценты не капают: металлы показывают изменение справочно.
-        const fundAnnual = (p.assets || []).filter(a => a.kind === 'fund').reduce((s,a) => {
-          const pct = a.sixMonthPct;
-          if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) return s;
-          return s + (a.qty || 0) * Bonds.price(a) * (Math.pow(1 + pct/100, 2) - 1);
-        }, 0);
-        inc += couponAnnual + stocks * effectiveAnnualFactor(p.rate) + fundAnnual;
-        return;
-      }
-      if (p.type === 'credit_card'){
-        if (!off) debts += p.amount || 0;
-        // На долг кредитной карты проценты автоматически не начисляем
-        return;
-      }
-      if (Config.TYPES[p.type].liability){
-        if (!off) debts += p.amount || 0;
-        exp += (p.amount || 0) * effectiveAnnualFactor(p.rate);
+        assets += Simulator.portfolioValue(p);
+      } else if (Config.TYPES[p.type].liability){
+        debts += p.amount || 0;
       } else {
-        if (!off) assets += p.amount || 0;
-        inc += (p.amount || 0) * effectiveAnnualFactor(p.rate);
+        assets += p.amount || 0;
       }
     });
 
-    // В годовой доход/расход попадают только реальные внешние денежные потоки.
-    // Пополнения/снятия вкладов и инвестиций — перемещение собственного капитала.
-    // Погашение кредита/кредитки уменьшает долг, но не является доходом.
-    // Покупки по кредитке — расход; выдача нового кредита — изменение долга.
-    list.forEach(p => (p.operations || []).forEach(op => {
-      if (!op.amount || (op.direction === 'out' && op.debtTargetId)) return;
-      if (p.type === 'deposit' || p.type === 'investment' || p.type === 'loan') return;
-      if (Config.TYPES[p.type]?.liability && op.direction === 'in') return;
-      const n = opOccurrencesInYear(op);
-      if (!n) return;
-      const total = op.amount * n;
-      if (op.direction === 'out') {
-        if (p.type === 'credit_card' || p.type === 'debit_card' || p.type === 'expense' || p.type === 'apartment') exp += total;
-      } else {
-        if (p.type === 'debit_card' || p.type === 'expense' || p.type === 'apartment') inc += total;
-      }
-    }));
+    // Единственный источник прогноза доходов/расходов — тот же движок,
+    // который строит графики и прогноз капитала. Это учитывает капитализацию,
+    // окончания вкладов, переводы тела вклада, купоны, аренду, ремонт,
+    // регулярные операции и погашение долгов без параллельных формул.
+    const forecast = Simulator.simulateAll(12);
+    list.forEach(p => {
+      const h = forecast[p.id]?.history?.[12];
+      if (!h) return;
+      inc += h.cumIncome || 0;
+      exp += h.cumExpense || 0;
+    });
 
     const net = assets - debts;
     const netAnnual = inc - exp;

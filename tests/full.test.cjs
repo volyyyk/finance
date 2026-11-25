@@ -1208,3 +1208,28 @@ test('Simulator: apartment rate is an effective annual appreciation, not nominal
   assert.ok(Math.abs(h.value-10800000)<1e-5,'after 12 months value rises by exactly 8%');
   assert.ok(Math.abs(h.cumIncome-800000)<1e-5,'unrealized appreciation is exactly 8%');
 });
+
+
+test('Stats: scheduled loan repayments reduce interest in the annual summary', () => {
+  const { mods } = simMods([{
+    id:'loan-pay',type:'loan',amount:500000,rate:15,
+    operations:[{id:'repay',direction:'in',amount:15000,frequency:'monthly',date:dayFromNow(-30)}]
+  }]);
+  const forecast=mods.Simulator.simulateAll(12)['loan-pay'].history[12];
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.exp-forecast.cumExpense)<1e-6,
+    'annual expense uses interest on the declining loan balance');
+});
+
+test('Stats: deposit maturity transfer and reinvestment use one annual forecast', () => {
+  const { mods } = simMods([
+    {id:'short',type:'deposit',amount:10000,rate:12,endDate:dayFromNow(2),
+      endActions:[{type:'transfer',targetId:'reinvest'}],operations:[]},
+    {id:'reinvest',type:'deposit',amount:0,rate:12,operations:[]}
+  ]);
+  const forecast=mods.Simulator.simulateAll(12);
+  const totalIncome=Object.values(forecast).reduce((sum,r)=>sum+r.history[12].cumIncome,0);
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.inc-totalIncome)<1e-6,
+    'summary includes only interest earned before and after the transfer, not transferred principal');
+});
