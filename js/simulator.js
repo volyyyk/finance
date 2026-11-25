@@ -441,10 +441,7 @@ const Stats = (() => {
     list.forEach(p => {
       // Вне бюджета исключает продукт только из текущего баланса,
       // но не из расчёта его денежных потоков.
-      if (p.offBudget === true || p.type === 'expense') {
-        // Обязательные расходы не являются активом или долгом.
-        if (p.type === 'expense') return;
-      }
+      // Обязательные расходы — денежный поток, а не актив/долг.
       if (p.offBudget === true || p.type === 'expense') return;
       if (p.type === 'investment'){
         assets += Simulator.portfolioValue(p);
