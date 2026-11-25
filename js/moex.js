@@ -171,13 +171,17 @@ const MoexAPI = (() => {
       const price = await lastPrice(asset.secid, board, 'metal');
       if (price?.last != null){
         asset.lastPrice = price.last;
+        asset.moexUpdatedAt = price.updatedAt;
         asset.ouncePrice = price.last * OUNCE_GRAM;
         asset.unit = 'gram';
         asset.moexUpdatedAt = price.updatedAt;
       }
     } else {
       const price = await lastPrice(asset.secid, board, asset.kind === 'fund' ? 'fund' : 'stock');
-      if (price?.last != null) asset.lastPrice = price.last;
+      if (price?.last != null){
+        asset.lastPrice = price.last;
+        asset.moexUpdatedAt = price.updatedAt;
+      }
     }
     return asset;
   }
