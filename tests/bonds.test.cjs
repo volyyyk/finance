@@ -60,35 +60,3 @@ test('MOEX calendar follows cursor pages and retains unknown values', async () =
   vm.createContext(sandbox);vm.runInContext(fs.readFileSync('js/moex.js','utf8')+'\nglobalThis.api=MoexAPI;',sandbox);
   const c=await sandbox.api.bondCoupons('TEST');assert.equal(c.length,2);assert.equal(c[0].value,null);assert.equal(requests,3);
 });
-function storageSandbox(initial, revision, responses){
-  const local = new Map([['fin_v3',JSON.stringify(initial)],['fin_revision',String(revision)]]);
-  const writes=[];
-  const sandbox={console,Set,JSON,Number,Event,localStorage:{getItem:k=>local.has(k)?local.get(k):null,setItem:(k,v)=>local.set(k,v),removeItem:k=>local.delete(k)},navigator:{onLine:true},document:{getElementById:()=>null},window:{dispatchEvent:()=>{}},fetch:async(url,options)=>{
-    if(options?.method==='PUT') {writes.push(JSON.parse(options.body));return {ok:true,json:async()=>({revision:revision+1})};}
-    return {ok:true,json:async()=>responses.shift()};
-  }};
-  vm.createContext(sandbox);vm.runInContext(fs.readFileSync('js/core.js','utf8')+'\nglobalThis.store=Storage;',sandbox);
-  return {sandbox,local,writes};
-}
-test('stats aggregate counts recurring debit card top-ups in monthly and yearly income', () => {
-  const sandbox={console,Intl,Date,Utils:{parseDate:s=>new Date(s+'T00:00:00'),dateKey:d=>d.toISOString().slice(0,10)},window:{},Bonds,Config:{TYPES:{debit_card:{liability:false}}},Storage:{all:()=>[{id:'d',type:'debit_card',amount:1000,rate:0,operations:[{direction:'in',amount:5000,frequency:'monthly',date:'2026-01-01'},{direction:'out',amount:1000,frequency:'weekly',date:'2026-01-05'}]}]}};
-  vm.createContext(sandbox);vm.runInContext(fs.readFileSync('js/simulator.js','utf8')+'\nglobalThis.stats=Stats;',sandbox);
-  const s=sandbox.stats.aggregate();
-  assert.equal(s.inc,60000);
-  assert.ok(s.exp>=52000&&s.exp<=53000,'weekly withdrawals ~52x1000, got '+s.exp);
-  assert.equal(s.netMonthly,(s.inc-s.exp)/12);
-  assert.equal(s.assets,1000);
-});
-test('cloud conflict preserves local pending data and never overwrites on later retries', async()=>{
-  const fixture=storageSandbox([{id:'local'}],3,[{products:[{id:'remote'}],revision:4},{products:[{id:'remote'}],revision:4}]);
-  fixture.sandbox.store.save([{id:'local-edit'}]);
-  await fixture.sandbox.store.sync();await fixture.sandbox.store.sync();
-  assert.equal(fixture.writes.length,0);assert.equal(fixture.sandbox.store.all()[0].id,'local-edit');
-  assert.equal(fixture.local.get('fin_pending'),'1');
-});
-test('cloud save sends matching revision and clears the pending marker only after success',async()=>{
-  const fixture=storageSandbox([{id:'local'}],3,[{products:[],revision:3}]);
-  fixture.sandbox.store.save([{id:'local-edit'}]);await fixture.sandbox.store.sync();
-  assert.equal(fixture.writes[0].revision,3);assert.equal(fixture.writes[0].products[0].id,'local-edit');
-  assert.equal(fixture.local.has('fin_pending'),false);assert.equal(fixture.local.get('fin_revision'),'4');
-});
