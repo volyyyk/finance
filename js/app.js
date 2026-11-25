@@ -329,16 +329,23 @@ ${rows}
       }
       refresh();
     }
-    // Котировки обновляются независимо от хранилища: GitHub Pages — статический хостинг.
-    refreshMoex();
-    refreshMonthlyYields();
-    window.addEventListener('online', () => { refreshMoex(); refreshMonthlyYields(); });
-    window.addEventListener('remoteData', refresh);
+    // Котировки и доходность обновляются независимо от хранилища: GitHub Pages — статический хостинг.
+    let marketRefreshPromise = null;
+    const refreshMarketData = () => {
+      if (marketRefreshPromise) return marketRefreshPromise;
+      marketRefreshPromise = (async () => {
+        await refreshMoex();
+        await refreshMonthlyYields();
+      })().finally(() => { marketRefreshPromise = null; });
+      return marketRefreshPromise;
+    };
+    refreshMarketData();
+    window.addEventListener('online', refreshMarketData);
     setInterval(() => {
-      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMoex(); refreshMonthlyYields(); }
+      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMarketData(); }
     }, 60000);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMoex(); refreshMonthlyYields(); }
+      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMarketData(); }
     });
     document.addEventListener('click', e => {
       const settings = $('settingsMenu');
