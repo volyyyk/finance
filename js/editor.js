@@ -638,6 +638,7 @@ const ProductEditor = (() => {
     // Доходность фондов (учтена в прогнозе) и металлов (справочно) за полгода
     const yieldTxt = ((a.kind === 'fund' || a.kind === 'metal') && a.sixMonthPct != null)
       ? `<div class="op-meta">Изменение за полгода: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b>${a.kind === 'fund' ? ' · учтено в прогнозе' : ' · справочно'}</div>` : '';
+    const quoteTxt = `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${a.moexError ? ' · ' + escapeHtml(a.moexError) : ''}</div>`;
     const couponTxt = a.kind === 'bond' ? `
       <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
       · купон ${a.couponAmount == null ? 'не объявлен' : fmtMoney(a.couponAmount)}
@@ -645,8 +646,7 @@ const ProductEditor = (() => {
       <div class="op-meta">Ближайший купон: ${fmtDate(nextCoupon?.date || a.nextCouponDate)}
       · погашение: ${fmtDate(a.maturityDate)}${a.redeemed ? ' · погашена' : ''}
       · зачислено: ${fmtMoney(paid)}</div>
-      <div class="op-meta">Покупка: ${fmtMoney(a.avgPrice || 0)} / шт · НКД сейчас: ${fmtMoney(a.accruedInterest || 0)}
-      · обновлено: ${a.moexUpdatedAt ? new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет свежих данных'}</div>
+      <div class="op-meta">Покупка: ${fmtMoney(a.avgPrice || 0)} / шт · НКД сейчас: ${fmtMoney(a.accruedInterest || 0)}</div>
       <details><summary>График выплат</summary><div class="bond-schedule">${Bonds.payments(a).map(c =>
         `<div>${fmtDate(c.date)} · ${c.type === 'coupon' ? 'Купон' : 'Основной долг'} · ${c.value == null ? 'сумма не объявлена' : fmtMoney(c.value * (a.qty || 0))}${a.paidEvents?.[c.key] ? ' · зачислено' : ''}</div>`).join('') || 'График пока недоступен'}</div></details>` : '';
     return `<div class="op-row">
@@ -656,7 +656,7 @@ const ProductEditor = (() => {
           <span class="badge">${escapeHtml(a.secid)}</span></div>
         <div class="op-meta">${qtyTxt}
           = ${fmtMoney(total)}
-          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${couponTxt}
+          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${couponTxt}
       </div>
       <button type="button" class="op-del" data-asset-del="${a.id}" title="Убрать этот актив из портфеля">Убрать</button>
     </div>`;
