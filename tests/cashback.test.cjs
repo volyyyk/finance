@@ -251,3 +251,31 @@ test('mergeImported: новый банк создаётся только в ме
   // Словарь mergeImported не изменяет (это чистая функция)
   assert.deepEqual(CbLogic.normalizeDict(null).banks, []);
 });
+
+test('parseAiAnswer supports several banks, merges repeated names and accepts comma decimals', () => {
+  const parsed = CbLogic.parseAiAnswer(`\`\`json
+[
+  {"bank":"Т-Банк","cashbacks":[{"category":"Кафе","percent":"3,5"}]},
+  {"bank":"Сбер","cashbacks":[{"category":"АЗС","percent":5}]},
+  {"bank":"т-банк","cashbacks":[{"category":"Такси","percent":7}]}
+]
+\`\`\``);
+  assert.equal(parsed.length, 2, 'повторяющийся банк объединён');
+  assert.equal(parsed[0].bank, 'Т-Банк');
+  assert.deepEqual(parsed[0].cashbacks.map(x => x.name), ['Кафе', 'Такси']);
+  assert.equal(parsed[0].cashbacks[0].value, 3.5, 'запятая в дробном проценте обработана');
+  assert.equal(parsed[1].bank, 'Сбер');
+  assert.equal(parsed[1].cashbacks[0].value, 5);
+});
+
+test('mergeImported adds several banks from one prompt response without collisions', () => {
+  const imported = [
+    { bank: 'Т-Банк', cashbacks: [{ name: 'Кафе', sub: null, value: 5 }, { name: 'АЗС', sub: null, value: 3 }] },
+    { bank: 'Сбер', cashbacks: [{ name: 'Такси', sub: null, value: 7 }] }
+  ];
+  const res = CbLogic.mergeImported([], imported, CbLogic.normalizeDict(null));
+  assert.equal(res.banks.length, 2);
+  assert.equal(res.rows.length, 3);
+  assert.equal(new Set(res.rows.map(x => x.key)).size, 3, 'ключи строк уникальны');
+  assert.deepEqual(res.banks.map(x => x.name), ['Т-Банк', 'Сбер']);
+});
