@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 test('service worker extends fetch lifetime synchronously before async work', () => {
-  const source = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'sw.js'), 'utf8');
   const fetchHandler = source.slice(source.indexOf("self.addEventListener('fetch'"));
   const waitUntil = fetchHandler.indexOf('event.waitUntil(revalidate)');
   const respondWith = fetchHandler.indexOf('event.respondWith(');
