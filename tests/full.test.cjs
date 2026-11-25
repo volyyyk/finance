@@ -1166,3 +1166,33 @@ test('Simulator: credit-card repayments reduce debt but are not income', () => {
   assert.equal(result.history[1].cumIncome,0);
   assert.equal(mods.Stats.aggregate().inc,0);
 });
+
+
+test('Stats: annual deposit yield matches 12-month compounded forecast', () => {
+  const { mods } = simMods([{id:'dep',type:'deposit',amount:100000,rate:12,operations:[]}]);
+  const forecast=mods.Simulator.simulateProduct(mods.Storage.get('dep'),12);
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.inc-forecast.history[12].cumIncome)<1e-6,
+    'annual summary and forecast show the same interest');
+});
+
+test('Stats: apartment appreciation, rent and maintenance match the annual forecast', () => {
+  const { mods } = simMods([{
+    id:'flat',type:'apartment',amount:12000000,rate:8,rented:true,
+    rentPrice:60000,upkeepRate:2,operations:[]
+  }]);
+  const forecast=mods.Simulator.simulateProduct(mods.Storage.get('flat'),12);
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.inc-forecast.history[12].cumIncome)<1e-5,
+    'annual result matches appreciation plus rent');
+  assert.ok(Math.abs(stats.exp-forecast.history[12].cumExpense)<1e-5,
+    'annual maintenance matches monthly forecast');
+});
+
+test('Stats: loan interest expense matches 12-month compounded forecast', () => {
+  const { mods } = simMods([{id:'loan',type:'loan',amount:500000,rate:15,operations:[]}]);
+  const forecast=mods.Simulator.simulateProduct(mods.Storage.get('loan'),12);
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.exp-forecast.history[12].cumExpense)<1e-5,
+    'annual loan cost matches monthly compounding');
+});
