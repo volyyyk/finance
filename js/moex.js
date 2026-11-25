@@ -168,9 +168,11 @@ const MoexAPI = (() => {
       : /фиксирован|постоянн|fixed/i.test(description) ? 'fixed' : 'unknown';
     const currency = price.currency || d.FACEUNIT;
     if (!['RUB','SUR'].includes(currency)) throw new Error('Пока поддерживаются только рублёвые облигации');
+    const nominal = price.nominal ?? number(d.FACEVALUE);
+    const last = price.last ?? (price.pricePercent != null && nominal != null
+      ? price.pricePercent * nominal / 100 : null);
     return {
-      ...price, lastPrice: price.last,
-      nominal: price.nominal ?? number(d.FACEVALUE),
+      ...price, last, lastPrice: last, nominal,
       maturityDate: price.maturityDate || d.MATDATE || null,
       couponType, couponDescription: d.COUPON_DETAILS || d.BOND_TYPE || 'Тип купона не указан MOEX',
       couponRate: number(d.COUPONPERCENT), couponAmount: number(d.COUPONVALUE),
@@ -197,7 +199,6 @@ const MoexAPI = (() => {
         if (price.board) asset.board = price.board;
         asset.ouncePrice = price.last * OUNCE_GRAM;
         asset.unit = 'gram';
-        asset.moexUpdatedAt = price.updatedAt;
       }
     } else {
       const price = await lastPrice(asset.secid, board, asset.kind === 'fund' ? 'fund' : 'stock');
