@@ -90,9 +90,9 @@ const MoexAPI = (() => {
   // полгода назад − 1) × 100%. Обновляется не чаще раза в месяц.
   async function refreshSixMonth(asset){
     if (asset.kind !== 'fund' && asset.kind !== 'metal') return asset;
-    const target = new Date();
-    target.setMonth(target.getMonth() - 6);
-    target.setDate(1);
+    const now = new Date();
+    // День 1 не даёт JS перепрыгнуть через месяц на датах 29–31.
+    const target = new Date(now.getFullYear(), now.getMonth() - 6, 1);
     const from = new Date(target);
     from.setDate(from.getDate() - 14);
     const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target));
@@ -104,8 +104,11 @@ const MoexAPI = (() => {
     asset.sixMonthBase = base;
     asset.sixMonthBaseDate = baseRaw != null ? iso(target) : null;
     asset.sixMonthPct = (base != null && base > 0 && cur != null) ? (cur / base - 1) * 100 : null;
-    asset.yieldMonth = monthKey();
-    asset.yieldUpdatedAt = new Date().toISOString();
+    // Не считаем месяц успешным, если MOEX не вернул обе цены.
+    if (base != null && base > 0 && cur != null && cur > 0){
+      asset.yieldMonth = monthKey();
+      asset.yieldUpdatedAt = new Date().toISOString();
+    }
     return asset;
   }
 
