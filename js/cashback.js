@@ -163,12 +163,24 @@ const CbLogic = (() => {
         if (!name) return;
         const subRaw = c.subcategory !== undefined ? c.subcategory : (c.sub !== undefined ? c.sub : null);
         const sub = subRaw && String(subRaw).trim() ? String(subRaw).trim() : null;
-        const value = Math.max(0, Math.min(100, Number(c.percent ?? c.value ?? c.rate) || 0));
+        const rawValue = c.percent ?? c.value ?? c.rate ?? 0;
+        const parsedValue = Number(String(rawValue).replace('%', '').replace(',', '.').trim());
+        if (!Number.isFinite(parsedValue)) return;
+        const value = Math.max(0, Math.min(100, parsedValue));
         rows.push({ name, sub, value });
       });
       if (rows.length) out.push({ bank, cashbacks: rows });
     });
-    return out.length ? out : null;
+    if (!out.length) return null;
+    // Объединяем повторяющиеся банки из одного JSON (без учёта регистра).
+    // Это сохраняет уникальные индексы категорий для предпросмотра/исключения.
+    const merged = new Map();
+    out.forEach(item => {
+      const key = item.bank.toLocaleLowerCase('ru');
+      if (!merged.has(key)) merged.set(key, { bank: item.bank, cashbacks: [] });
+      merged.get(key).cashbacks.push(...item.cashbacks);
+    });
+    return [...merged.values()];
   }
 
   // Слияние распознанного ответа с банками месяца. Банк узнаётся без
@@ -477,13 +489,13 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       'Твоя задача: извлечь условия кешбэка и вернуть их в машиночитаемом виде.',
       '',
       'Правила ответа:',
-      '1. В ответе должен быть ровно один блок кода с JSON — и ничего больше, до или после:',
+      '1. В ответе должен быть ровно один блок кода с JSON — и ничего больше, до или после. Если на фото несколько банков, верни все банки отдельными объектами в одном JSON-массиве:',
       '```json',
       '[{"bank":"Название банка","cashbacks":[{"category":"Категория","subcategory":null,"percent":5}]}]',
       '```',
       '2. "subcategory" — null, если подкатегории нет. "percent" — число без знака %, можно дробное (например 3.5).',
       '3. Максимально согласуй ответ с моими справочниками ниже: если банк или категория уже есть в списках, используй точно такое же написание. Новую категорию называй коротко (1–3 слова).',
-      '4. Если данных на фото не хватает (не видно процентов, категорию или срок действия) — сначала задай мне уточняющие вопросы и дождись ответа; блок кода пока не присылай.',
+      '4. Если данных на фото не хватает (не видно процентов, категорию или срок действия) — сначала задай мне уточняющие вопросы и дождись ответа; блок кода пока не присылай. Не выдумывай категории и проценты.',
       '',
       'Банки, которые уже есть в приложении: ' + (banks.join(', ') || 'пока нет'),
       'Категории кешбэка, которые уже есть: ' + (cats.join(', ') || 'пока нет'),
@@ -830,10 +842,16 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       render();
     });
     $('cbAddBank').onclick = () => {
-      const name = $('cbNewBank').value.trim();
-      if (!name){ alert('Укажите название банка'); return; }
-      mutate(d => d.banks.push({ id: uid(), name, cats: [] }));
-      remember('bank', name);
+      const names = [...new Set($('cbNewBank').value.split(/[\\n,;]+/).map(x => x.trim()).filter(Boolean))];
+      if (!names.length){ alert('Укажите хотя бы один банк'); return; }
+      let added = 0;
+      mutate(d => names.forEach(name => {
+        if (d.banks.some(b => b.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru'))) return;
+        d.banks.push({ id: uid(), name, cats: [] });
+        added++;
+      }));
+      names.forEach(name => remember('bank', name));
+      if (!added){ alert('Эти банки уже есть в списке'); return; }
       render();
     };
     $('cbDone').onclick = () => { mode = 'view'; render(); };
