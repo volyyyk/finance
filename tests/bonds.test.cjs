@@ -60,3 +60,47 @@ test('MOEX calendar follows cursor pages and retains unknown values', async () =
   vm.createContext(sandbox);vm.runInContext(fs.readFileSync('js/moex.js','utf8')+'\nglobalThis.api=MoexAPI;',sandbox);
   const c=await sandbox.api.bondCoupons('TEST');assert.equal(c.length,2);assert.equal(c[0].value,null);assert.equal(requests,3);
 });
+
+test('MOEX refreshAsset stores a freshness timestamp for stocks and funds', async () => {
+  const sandbox = {
+    navigator: { onLine: true }, AbortSignal, Map, Date,
+    fetch: async () => ({ ok: true, json: async () => ({
+      marketdata: { columns: ['LAST'], data: [[123.45]] },
+      securities: { columns: ['PREVPRICE', 'FACEVALUE', 'FACEUNIT'], data: [[120, 1000, 'RUB']] }
+    }) })
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync('js/moex.js', 'utf8') + '\\nglobalThis.api=MoexAPI;', sandbox);
+  const fund = { kind: 'fund', secid: 'TEST_FUND_TIMESTAMP', board: 'TQTF', lastPrice: 100 };
+  await sandbox.api.refreshAsset(fund);
+  assert.equal(fund.lastPrice, 123.45);
+  assert.ok(Number.isFinite(Date.parse(fund.moexUpdatedAt)), 'timestamp сохранён');
+});
+
+test('MOEX six-month history uses the correct month even when today is the 31st', async () => {
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : ['2026-05-31T12:00:00Z'])); }
+    static now() { return new Date('2026-05-31T12:00:00Z').getTime(); }
+  }
+  let historyUrl = '';
+  const sandbox = {
+    navigator: { onLine: true }, AbortSignal, Map, Date: FixedDate,
+    fetch: async url => {
+      if (String(url).includes('/history/')) {
+        historyUrl = String(url);
+        return { ok: true, json: async () => ({ history: { columns: ['TRADEDATE', 'CLOSE'], data: [['2025-11-01', 100]] } }) };
+      }
+      return { ok: true, json: async () => ({
+        marketdata: { columns: ['LAST'], data: [[110]] },
+        securities: { columns: ['PREVPRICE', 'FACEVALUE', 'FACEUNIT'], data: [[100, null, 'RUB']] }
+      }) };
+    }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync('js/moex.js', 'utf8') + '\\nglobalThis.api=MoexAPI;', sandbox);
+  const fund = { kind: 'fund', secid: 'TEST_FUND_MONTH_EDGE', board: 'TQTF' };
+  await sandbox.api.refreshSixMonth(fund);
+  assert.ok(historyUrl.includes('from=2025-10-18') && historyUrl.includes('till=2025-11-01'), historyUrl);
+  assert.equal(fund.yieldMonth, '2026-05');
+  assert.equal(fund.sixMonthPct, 10);
+});
