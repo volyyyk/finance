@@ -1,9 +1,14 @@
 /* ============================================================
    cashback.js — режим «Кешбэк»: категории кешбэка банков на месяц
    Зависит: Utils (в браузере)
-   Данные хранятся только за текущий месяц: при открытии
-   прошлые месяцы удаляются. Постоянные банки и категории
-   хранятся в словаре (fin_cbDict) независимо друг от друга.
+   Данные хранятся за текущий месяц и (за 15 дней до нового
+   месяца) за следующий как предзаказ; прошлые месяцы удаляются
+   при открытии. Постоянные банки и категории хранятся в словаре
+   (fin_cbDict) независимо друг от друга.
+   «Быстрый ввод по промту» (📑): промт копируется в нейросеть,
+   ответ (JSON-блок) вставляется обратно и добавляется в месяц;
+   новые банки и категории в постоянный словарь при этом не
+   попадают.
    Чистая логика вынесена в CbLogic и покрывается
    tests/cashback.test.cjs.
    ============================================================ */
@@ -14,6 +19,21 @@ const CbLogic = (() => {
 
   function monthKey(d = new Date()){
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const DAY_MS = 86400000;
+
+  // Ключ следующего месяца
+  function nextMonthKey(d = new Date()){
+    return monthKey(new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  }
+
+  // Предзаказ разрешён, когда до начала следующего месяца осталось
+  // 15 дней или меньше (например, с 17 декабря можно завести кешбэки на январь).
+  function advanceAllowed(d = new Date(), daysAhead = 15){
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const gap = Math.round((new Date(d.getFullYear(), d.getMonth() + 1, 1) - t) / DAY_MS);
+    return gap <= daysAhead;
   }
 
   // Нормализация: остаётся только текущий месяц, прошлые удаляются
@@ -96,6 +116,105 @@ const CbLogic = (() => {
       .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
   }
 
+  // ===== Быстрый ввод кешбэка: разбор ответа нейросети =====
+
+  // Достаёт первый JSON из ответа: блок кода ```json …```, либо массив,
+  // либо объект. Возвращает распарсенное значение или null.
+  function extractJsonBlock(text){
+    const s = String(text || '');
+    const attempts = [];
+    const fence = s.match(/```(?:json|js|javascript)?\s*([\s\S]*?)```/i);
+    if (fence) attempts.push(fence[1]);
+    attempts.push(s);
+    const arr = s.match(/\[[\s\S]*\]/);
+    const obj = s.match(/\{[\s\S]*\}/);
+    if (arr) attempts.push(arr[0]);
+    if (obj) attempts.push(obj[0]);
+    for (const a of attempts){
+      try {
+        const v = JSON.parse(String(a).trim());
+        if (v && typeof v === 'object') return v;
+      } catch {}
+    }
+    return null;
+  }
+
+  // Разбор ответа нейросети → [{ bank, cashbacks: [{ name, sub, value }]}].
+  // Понимает и альтернативные названия полей (bankName, category,
+  // subcategory, percent, rate), Cast мусорных строк отбрасывается.
+  function parseAiAnswer(text){
+    const raw = extractJsonBlock(text);
+    if (!raw) return null;
+    const list = Array.isArray(raw) ? raw
+      : Array.isArray(raw.banks) ? raw.banks
+      : (raw.bank || raw.bankName) ? [raw]
+      : null;
+    if (!Array.isArray(list)) return null;
+    const out = [];
+    list.forEach(item => {
+      if (!item || typeof item !== 'object') return;
+      const bank = String(item.bank || item.bankName || item.name || '').trim();
+      const cats = item.cashbacks || item.categories || item.cats;
+      if (!bank || !Array.isArray(cats)) return;
+      const rows = [];
+      cats.forEach(c => {
+        if (!c || typeof c !== 'object') return;
+        const name = String(c.category || c.cat || c.name || '').trim();
+        if (!name) return;
+        const subRaw = c.subcategory !== undefined ? c.subcategory : (c.sub !== undefined ? c.sub : null);
+        const sub = subRaw && String(subRaw).trim() ? String(subRaw).trim() : null;
+        const value = Math.max(0, Math.min(100, Number(c.percent ?? c.value ?? c.rate) || 0));
+        rows.push({ name, sub, value });
+      });
+      if (rows.length) out.push({ bank, cashbacks: rows });
+    });
+    return out.length ? out : null;
+  }
+
+  // Слияние распознанного ответа с банками месяца. Банк узнаётся без
+  // учёта регистра; категория приводится к написанию из постоянного
+  // словаря или из уже заведённых категорий месяца. Повтор той же
+  // категории с той же подкатегорией обновляет процент. В постоянный
+  // словарь быстрый ввод ничего не добавляет — только банки месяца.
+  function mergeImported(currentBanks, imported, dict){
+    const canon = new Map(); // «нижний регистр» → каноничное имя категории
+    ((dict && dict.cats) || []).forEach(x => canon.set(x.name.toLowerCase(), x.name));
+    const banks = (currentBanks || []).map(b => ({
+      id: b.id, name: b.name, cats: (b.cats || []).map(c => ({ ...c }))
+    }));
+    banks.forEach(b => (b.cats || []).forEach(c => {
+      if (!canon.has(c.name.toLowerCase())) canon.set(c.name.toLowerCase(), c.name);
+    }));
+    const rows = [];
+    (imported || []).forEach(item => {
+      const bankName = String(item.bank || '').trim();
+      if (!bankName) return;
+      let bank = banks.find(b => b.name.toLowerCase() === bankName.toLowerCase());
+      const bankNew = !bank;
+      if (bankNew){ bank = { id: uid(), name: bankName, cats: [] }; banks.push(bank); }
+      (item.cashbacks || []).forEach((c, ci) => {
+        if (!c || !String(c.name || '').trim()) return;
+        const catName = canon.get(String(c.name).trim().toLowerCase()) || String(c.name).trim();
+        const value = Math.max(0, Math.min(100, Number(c.value) || 0));
+        const sub = c.sub ? String(c.sub).trim() : null;
+        const exists = bank.cats.find(x => x.name.toLowerCase() === catName.toLowerCase() &&
+          ((x.sub || null) === sub));
+        const catKnown = canon.has(catName.toLowerCase());
+        const key = `${bankName.toLowerCase()}::${ci}`;
+        if (exists){
+          const changed = exists.value !== value;
+          exists.value = value;
+          rows.push({ key, bankName: bank.name, catName, sub: exists.sub || null, value: exists.value,
+            bankNew: false, catKnown, updated: changed });
+        } else {
+          bank.cats.push({ id: uid(), name: catName, sub, value });
+          rows.push({ key, bankName: bank.name, catName, sub, value, bankNew, catKnown, updated: false });
+        }
+      });
+    });
+    return { banks, rows };
+  }
+
   // ===== Словарь постоянных банков и категорий =====
   function normalizeDict(dict){
     const clean = list => (Array.isArray(list) ? list : [])
@@ -137,8 +256,10 @@ const CbLogic = (() => {
   }
 
   return {
-    monthKey, normalize, entriesAll, groupByCategory, allByBank, allByCategory,
-    normalizeDict, dictAdd, dictRemove, level, groupLevel
+    monthKey, nextMonthKey, advanceAllowed, normalize, entriesAll,
+    groupByCategory, allByBank, allByCategory,
+    normalizeDict, dictAdd, dictRemove, level, groupLevel,
+    extractJsonBlock, parseAiAnswer, mergeImported
   };
 })();
 if (typeof module !== 'undefined') module.exports = CbLogic;
@@ -146,20 +267,62 @@ if (typeof module !== 'undefined') module.exports = CbLogic;
 // ===== UI (только в браузере) =====
 const Cashback = typeof document !== 'undefined' ? (() => {
   const { $, uid, escapeHtml } = Utils;
-  const LS_M = 'fin_cashback';  // кешбэки текущего месяца
+  const LS_M = 'fin_cashback';  // кешбэки месяцев: текущий + предзаказ следующего
   const LS_D = 'fin_cbDict';    // словарь: постоянные банки и категории
   const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля',
                   'августа','сентября','октября','ноября','декабря'];
+  const MONTHS_NOM = ['январь','февраль','март','апрель','май','июнь','июль',
+                      'август','сентябрь','октябрь','ноябрь','декабрь'];
   let mode = 'view';    // view | edit | dict
   let allSort = 'bank'; // bank | cat — сортировка общего списка
+  let activeMonth = null;  // null — текущий месяц, иначе ключ предзаказа
+  let importState = null;  // разобранный быстрый ввод: [{ bank, cashbacks }]
+  let importSkip = new Set();
 
-  function load(){
-    let data = null;
-    try { data = JSON.parse(localStorage.getItem(LS_M) || 'null'); } catch {}
-    return CbLogic.normalize(data, CbLogic.monthKey());
+  // Месяцы с данными: текущий всегда, следующий — когда до его начала
+  // осталось 15 дней или меньше
+  function availableKeys(){
+    const cur = CbLogic.monthKey();
+    return CbLogic.advanceAllowed() ? [cur, CbLogic.nextMonthKey()] : [cur];
   }
-  function save(data){ localStorage.setItem(LS_M, JSON.stringify(data)); }
-  function mutate(fn){ const data = load(); fn(data); save(data); }
+  function activeKey(){
+    return availableKeys().includes(activeMonth) ? activeMonth : availableKeys()[0];
+  }
+
+  // Хранилище: { months: { 'YYYY-MM': { banks: [...] } } }. Прежний
+  // одно-месячный формат { month, banks } читается автоматически.
+  function loadAll(){
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(LS_M) || 'null'); } catch {}
+    const out = {};
+    if (raw && raw.months && typeof raw.months === 'object'){
+      Object.keys(raw.months).forEach(k => { out[k] = raw.months[k]; });
+    } else if (raw && raw.month){
+      out[raw.month] = { banks: Array.isArray(raw.banks) ? raw.banks : [] };
+    }
+    return out;
+  }
+  function saveAll(months){
+    // Хранятся только доступные месяцы: текущий и (в окно предзаказа)
+    // следующий; прошлые удаляются.
+    const allowed = new Set(availableKeys());
+    const pruned = {};
+    Object.keys(months).forEach(k => { if (allowed.has(k)) pruned[k] = months[k]; });
+    localStorage.setItem(LS_M, JSON.stringify({ months: pruned }));
+  }
+  function load(){
+    const key = activeKey();
+    const months = loadAll();
+    const m = months[key];
+    return CbLogic.normalize({ month: key, banks: m && Array.isArray(m.banks) ? m.banks : [] }, key);
+  }
+  function mutate(fn){
+    const data = load();
+    fn(data);
+    const months = loadAll();
+    months[data.month] = { banks: data.banks };
+    saveAll(months);
+  }
 
   function loadDict(){
     let dict = null;
@@ -175,6 +338,13 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     const name = MONTHS[(m || 1) - 1] || '';
     return `${name[0].toUpperCase()}${name.slice(1)} ${y}`;
   }
+  // Короткое имя месяца для вкладок переключателя
+  function monthShort(key){
+    const m = Number(key.split('-')[1]);
+    const name = MONTHS_NOM[(m || 1) - 1] || '';
+    return `${name[0].toUpperCase()}${name.slice(1)}`;
+  }
+  function isNextMonth(key){ return key === CbLogic.nextMonthKey(); }
   function hasData(data){ return data.banks.some(b => (b.cats || []).length); }
   function hasBanks(data){ return data.banks.length > 0; }
 
@@ -206,7 +376,26 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     const root = $('cbMonth');
     if (!root) return;
     const data = load();
-    root.textContent = `Кешбэк · ${monthTitle(data.month)}`;
+    const allowed = availableKeys();
+    if (allowed.length > 1){
+      // Переключатель месяца: текущий и предзаказ следующего (с 15 дней
+      // до его начала)
+      root.innerHTML =
+        `<span class="cb-month-title">Кешбэк · ${monthTitle(data.month)}${isNextMonth(data.month) ? ' · предзаказ' : ''}</span>` +
+        `<span class="cb-month-tabs">` + allowed.map(k =>
+          `<button class="cb-tab${k === data.month ? ' active' : ''}" data-cbmonth="${k}"` +
+          ` title="${isNextMonth(k) ? 'Предзаказ кешбэка на следующий месяц' : 'Кешбэк текущего месяца'}">${monthShort(k)}</button>`
+        ).join('') + `</span>`;
+    } else {
+      root.textContent = `Кешбэк · ${monthTitle(data.month)}`;
+    }
+    root.querySelectorAll('[data-cbmonth]').forEach(b => b.onclick = () => {
+      activeMonth = b.dataset.cbmonth;
+      mode = 'view';
+      importState = null;
+      importSkip = new Set();
+      render();
+    });
     $('cbView').hidden = mode !== 'view';
     $('cbEdit').hidden = mode === 'view';
     if (mode === 'view'){ $('cbEdit').innerHTML = ''; renderView(data); }
@@ -243,18 +432,173 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     } catch (e) { /* DOM недоступен (тестовая песочница) — просто пропускаем */ }
   }
 
+  // ===== 4. Быстрый ввод кешбэка по промту =====
+
+  // Копирование в буфер с резервным путём через execCommand
+  async function copyText(text, btn){
+    let ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    } catch {}
+    if (!ok){
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {}
+    }
+    if (btn && ok){
+      const old = btn.textContent;
+      btn.textContent = '✓ Скопировано';
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    } else if (!ok){
+      alert('Не удалось скопировать автоматически — выделите и скопируйте текст вручную');
+    }
+  }
+
+  // Промт для любой нейросети: правило оформления ответа, известные
+  // банки и категории, просьба согласовать с ними и задавать вопросы.
+  function promptText(data, dict){
+    const banks = [...new Set([...bankNames(dict), ...(data.banks || []).map(b => b.name)])]
+      .sort((a, b) => a.localeCompare(b, 'ru'));
+    const cats = catNames(data, dict);
+    return [
+      'Ты — помощник по кешбэк-программам банков. Я отправлю тебе фото или описание условий кешбэка банка.',
+      '',
+      'Твоя задача: извлечь условия кешбэка и вернуть их в машиночитаемом виде.',
+      '',
+      'Правила ответа:',
+      '1. В ответе должен быть ровно один блок кода с JSON — и ничего больше, до или после:',
+      '```json',
+      '[{"bank":"Название банка","cashbacks":[{"category":"Категория","subcategory":null,"percent":5}]}]',
+      '```',
+      '2. "subcategory" — null, если подкатегории нет. "percent" — число без знака %, можно дробное (например 3.5).',
+      '3. Максимально согласуй ответ с моими справочниками ниже: если банк или категория уже есть в списках, используй точно такое же написание. Новую категорию называй коротко (1–3 слова).',
+      '4. Если данных на фото не хватает (не видно процентов, категорию или срок действия) — сначала задай мне уточняющие вопросы и дождись ответа; блок кода пока не присылай.',
+      '',
+      'Банки, которые уже есть в приложении: ' + (banks.join(', ') || 'пока нет'),
+      'Категории кешбэка, которые уже есть: ' + (cats.join(', ') || 'пока нет'),
+      '',
+      'Месяц, для которого добавляем кешбэки: ' + monthTitle(data.month) + '.',
+    ].join('\n');
+  }
+
+  function promptAccordionHtml(data){
+    return `
+        <!-- 4. Быстрый ввод по промту (фиолетовая подсветка) -->
+        <details class="cb-accordion cb-acc-prompt edge-glow-purple" id="cbAccPrompt">
+          <summary>📑 4. Быстрый ввод по промту</summary>
+          <div class="cb-acc-content">
+            <div class="op-meta">Скопируйте промт и отправьте его любой нейросети вместе с фото условий банка.
+            Ответ нейросети (блок кода) вставьте в поле ниже — кешбэки добавятся за ${monthTitle(data.month)}.
+            Новые банки и категории попадут только в этот месяц, постоянный список не изменится.</div>
+            <div class="cb-prompt-box">
+              <pre id="cbPromptText" title="Нажмите, чтобы скопировать">${escapeHtml(promptText(data, loadDict()))}</pre>
+              <button class="btn small" id="cbPromptCopy">Копировать промт</button>
+            </div>
+            <textarea id="cbPaste" rows="6" placeholder="Вставьте сюда ответ нейросети (блок кода с JSON)"></textarea>
+            <div class="actions-bar" style="margin-top:8px;display:flex;gap:8px">
+              <button class="btn small primary" id="cbParseBtn">Разобрать и добавить</button>
+            </div>
+            <div id="cbImportBox"></div>
+          </div>
+        </details>`;
+  }
+
+  // Предпросмотр распознанного ответа: какие записи попадут в месяц,
+  // какие из них новые. Перед добавлением можно убрать лишние.
+  function renderImportView(){
+    const box = $('cbImportBox');
+    if (!box) return;
+    if (!importState){ box.innerHTML = ''; return; }
+    const res = CbLogic.mergeImported(load().banks, importState, loadDict());
+    const rows = res.rows.filter(r => !importSkip.has(r.key));
+    if (!rows.length){
+      box.innerHTML = '<div class="empty">В ответе не нашлось ни одного кешбэка. Попросите нейросеть прислать JSON ещё раз.</div>';
+      return;
+    }
+    const badge = r => r.updated ? '<span class="cb-badge upd">обновлён %</span>'
+      : r.bankNew ? '<span class="cb-badge new">новый банк</span>'
+      : r.catKnown ? '' : '<span class="cb-badge new">новая категория</span>';
+    box.innerHTML = `
+      <div class="op-meta" style="margin-top:10px">Найдено ${rows.length} — проверьте и добавьте:</div>
+      <div class="cb-import-list">${rows.map(r => `
+        <div class="cb-import-row">
+          <span class="cb-all-name">${escapeHtml(r.bankName)} · ${escapeHtml(r.catName)}${r.sub ? ` · ${escapeHtml(r.sub)}` : ''}</span>
+          <b>${r.value}%</b>${badge(r)}
+          <button class="op-del" data-impskip="${escapeHtml(r.key)}" title="Убрать из добавления">×</button>
+        </div>`).join('')}</div>
+      <div class="actions-bar" style="margin-top:8px">
+        <button class="btn small primary" id="cbImportApply">Добавить в ${monthTitle(load().month)}</button>
+      </div>`;
+    box.querySelectorAll('[data-impskip]').forEach(b => b.onclick = () => {
+      importSkip.add(b.dataset.impskip);
+      renderImportView();
+    });
+    const apply = box.querySelector('#cbImportApply');
+    if (apply) apply.onclick = () => {
+      const kept = importState
+        .map(item => ({ bank: item.bank, cashbacks: item.cashbacks
+          .filter((c, ci) => !importSkip.has(String(item.bank).toLowerCase() + '::' + ci)) }))
+        .filter(x => x.cashbacks.length);
+      if (kept.length){
+        mutate(d => { d.banks = CbLogic.mergeImported(d.banks, kept, loadDict()).banks; });
+      }
+      importState = null;
+      importSkip = new Set();
+      render();
+    };
+  }
+
+  function wirePrompt(el){
+    const txt = el.querySelector('#cbPromptText');
+    const copyBtn = el.querySelector('#cbPromptCopy');
+    if (txt && copyBtn){
+      copyBtn.onclick = () => copyText(txt.textContent, copyBtn);
+      txt.onclick = () => copyText(txt.textContent, copyBtn);
+    }
+    const parseBtn = el.querySelector('#cbParseBtn');
+    if (parseBtn) parseBtn.onclick = () => {
+      const ta = $('cbPaste');
+      const parsed = CbLogic.parseAiAnswer(ta ? ta.value : '');
+      if (!parsed){
+        alert('Не удалось найти блок кода с JSON. Попросите нейросеть прислать ответ ещё раз — одним блоком кода.');
+        return;
+      }
+      importSkip = new Set();
+      importState = parsed;
+      renderImportView();
+    };
+    renderImportView();
+  }
+
   // Основной вид: лучшие кешбэки по категориям
   function renderView(data){
     const el = $('cbView');
     const dict = loadDict();
 
     if (!hasBanks(data) || !hasData(data)){
+      const nextHint = isNextMonth(data.month)
+        ? '<br>Это предзаказ на следующий месяц — категории можно вносить заранее.'
+        : '';
       el.innerHTML = `
-        <div class="empty">В ${monthTitle(data.month)} кешбэки ещё не добавлены.<br>Добавьте банки и категории кешбэка на этот месяц.</div>
+        <div class="empty">В ${monthTitle(data.month)} кешбэки ещё не добавлены.${nextHint}<br>Добавьте банки и категории кешбэка на этот месяц.</div>
         <div class="actions-bar">
           <button class="btn primary" id="cbStartBtn">+ Добавить кешбэк</button>
-        </div>`;
+        </div>` + promptAccordionHtml(data);
       $('cbStartBtn').onclick = () => { mode = 'edit'; render(); };
+      importState = null;
+      importSkip = new Set();
+      wirePrompt(el);
       return;
     }
 
@@ -346,11 +690,14 @@ const Cashback = typeof document !== 'undefined' ? (() => {
             </div>
             <div id="cbAllBody">${allListHtml(data)}</div>
           </div>
-        </details>
+        </details>` + promptAccordionHtml(data) + `
       </div>`;
 
     wireDelete(el);
     marqueeSubs(el);
+    importState = null;
+    importSkip = new Set();
+    wirePrompt(el);
     const dBtn = el.querySelector("#cbDictOpenBtn");
     if (dBtn) dBtn.onclick = () => { mode = "dict"; render(); };
     el.querySelectorAll("[data-qchip]").forEach(chip => chip.onclick = () => {
@@ -542,8 +889,11 @@ const Cashback = typeof document !== 'undefined' ? (() => {
   }
 
   function init(){
-    // При открытии: прошлые месяцы удаляются, остаётся только текущий
-    save(load());
+    // При открытии: прошлые месяцы удаляются, остаются текущий и (в окно
+    // предзаказа за 15 дней) следующий. Прежний одно-месячный формат
+    // хранилища мигрирует в много-месячный.
+    activeMonth = null;
+    saveAll(loadAll());
     render();
   }
 

@@ -80,12 +80,16 @@ const Notify = (() => {
   function cbMonthKey(d = new Date()){
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
-  // Есть ли уже категории кешбэка за текущий месяц
+  // Есть ли уже категории кешбэка за текущий месяц (формат новый
+  // { months: {...} } и прежний { month, banks })
   function cashbackHasEntries(){
     try {
       const data = JSON.parse(localStorage.getItem('fin_cashback') || 'null');
-      return !!(data && Array.isArray(data.banks) &&
-        data.banks.some(b => Array.isArray(b.cats) && b.cats.length));
+      if (!data) return false;
+      const months = (data.months && typeof data.months === 'object')
+        ? Object.values(data.months) : [data];
+      return months.some(m => m && Array.isArray(m.banks) &&
+        m.banks.some(b => Array.isArray(b.cats) && b.cats.length));
     } catch { return false; }
   }
   function checkCashbackMonth(){
@@ -205,3 +209,4 @@ const Notify = (() => {
 
   return { init, checkPayments, syncMeta };
 })();
+

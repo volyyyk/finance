@@ -40,7 +40,11 @@ const Events = (() => {
         const d = parseDate(p.endDate);
         if (d && d >= today){
           list.push({ date:d, product:p, icon:'🏁',
-            title:`Окончание: ${p.name}`, direction:Config.TYPES[p.type].liability ? 'out' : 'in', amount:p.type === 'investment' ? Simulator.portfolioValue(p) : p.amount });
+            title:`Окончание: ${p.name}`,
+            // Возврат тела вклада при завершении — не доход (деньги просто
+            // возвращаются на баланс), поэтому без знака и подсветки.
+            direction:p.type === 'deposit' ? '' : (Config.TYPES[p.type].liability ? 'out' : 'in'),
+            amount:p.type === 'investment' ? Simulator.portfolioValue(p) : p.amount });
         }
       }
       // Окончание льготного периода кредитной карты
@@ -743,4 +747,5 @@ const Dashboard = (() => {
   }
   return { renderAll, renderCharts, renderEvents, setEventsPage, showDay, prevMonth, nextMonth };
 })();
+
 

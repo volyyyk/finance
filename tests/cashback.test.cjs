@@ -176,3 +176,78 @@ test('dict stores banks and categories independently', () => {
   assert.equal(dict.banks.length, 1);
   assert.equal(dict.cats.length, 1);
 });
+
+// ===== Предзаказ следующего месяца и быстрый ввод по промту =====
+
+test('advanceAllowed: предзаказ разрешён за 15 дней до начала месяца', () => {
+  assert.equal(CbLogic.advanceAllowed(new Date(2026, 11, 17)), true, '17 декабря — ровно за 15 дней');
+  assert.equal(CbLogic.advanceAllowed(new Date(2026, 11, 31)), true, 'последний день месяца');
+  assert.equal(CbLogic.advanceAllowed(new Date(2026, 11, 16)), false, '16 декабря — рано');
+  assert.equal(CbLogic.advanceAllowed(new Date(2026, 1, 17)), true, 'февраль → март: 12+1 дней впритык');
+  assert.equal(CbLogic.nextMonthKey(new Date(2026, 11, 5)), '2027-01', 'январь следующего года');
+  assert.equal(CbLogic.nextMonthKey(new Date(2026, 0, 15)), '2026-02');
+});
+
+test('parseAiAnswer: достаёт JSON из блока кода и приводит поля', () => {
+  const ans = 'Вот условия:\n```json\n[{"bank":"Т-Банк","cashbacks":' +
+    '[{"category":"Супермаркеты","subcategory":null,"percent":5},' +
+    '{"category":"АЗС","subcategory":"95,95","percent":3.5}]}]\n```\nПодойдёт?';
+  const parsed = CbLogic.parseAiAnswer(ans);
+  assert.ok(Array.isArray(parsed) && parsed.length === 1);
+  assert.equal(parsed[0].bank, 'Т-Банк');
+  assert.equal(parsed[0].cashbacks[0].name, 'Супермаркеты');
+  assert.equal(parsed[0].cashbacks[0].sub, null);
+  assert.equal(parsed[0].cashbacks[0].value, 5);
+  assert.equal(parsed[0].cashbacks[1].value, 3.5);
+  assert.equal(parsed[0].cashbacks[1].sub, '95,95');
+  // Сырой JSON без ограждения блока
+  const raw = CbLogic.parseAiAnswer('[{"bank":"Банк","cashbacks":[{"category":"Кафе","percent":7}]}]');
+  assert.ok(raw && raw[0].bank === 'Банк' && raw[0].cashbacks[0].value === 7);
+  // Обёртка { banks: [...] } и альтернативные поля bankName/value
+  const wrapped = CbLogic.parseAiAnswer('```json\n{"banks":[{"bankName":"Сбер","cashbacks":[{"category":"Такси","value":10}]}]}\n```');
+  assert.ok(wrapped && wrapped[0].bank === 'Сбер' && wrapped[0].cashbacks[0].value === 10);
+  // Мусор, пустые строки и ответы без данных
+  assert.equal(CbLogic.parseAiAnswer('просто текст без данных'), null);
+  assert.equal(CbLogic.parseAiAnswer(''), null);
+  assert.equal(CbLogic.parseAiAnswer('[{"bank":"Банк","cashbacks":[]}'), null);
+});
+
+test('mergeImported: банк узнаётся без учёта регистра, категория берётся из справочников', () => {
+  const monthBanks = [
+    { id: 'b1', name: 'Т-Банк', cats: [{ id: 'c1', name: 'Супермаркеты', sub: null, value: 3 }] },
+  ];
+  const dict = CbLogic.normalizeDict({
+    banks: [{ id: 'db1', name: 'Т-Банк' }],
+    cats: [{ id: 'dc1', name: 'Супермаркеты' }, { id: 'dc2', name: 'Такси' }],
+  });
+  const imported = [{ bank: 'т-банк', cashbacks: [
+    { name: 'супермаркеты', sub: null, value: 5 },   // обновление процента известной категории
+    { name: 'такси', sub: null, value: 7 },          // известная категория
+    { name: 'Электроника', sub: 'Ситилинк', value: 2 }, // полностью новая
+  ]}];
+  const res = CbLogic.mergeImported(monthBanks, imported, dict);
+  const tb = res.banks.find(b => b.name === 'Т-Банк');
+  assert.ok(tb, 'банк узнан без учёта регистра — новый не создан');
+  assert.ok(res.rows[0].updated, 'процент супермаркетов обновлён');
+  assert.equal(res.rows[0].value, 5);
+  assert.equal(tb.cats[0].value, 5);
+  assert.equal(res.rows[1].catName, 'Такси', 'написание из словаря, а не «такси»');
+  assert.ok(res.rows[1].catKnown && !res.rows[1].bankNew);
+  assert.equal(res.rows[2].catName, 'Электроника');
+  assert.ok(res.rows[2].catNew === undefined || res.rows[2].catKnown === false, 'новая категория помечена');
+  assert.equal(res.banks.length, 1, 'словарь и месяц не наполнились дублями');
+  // Идентичная запись повторно — без «обновления»
+  const again = CbLogic.mergeImported(res.banks, [{ bank: 'Т-Банк', cashbacks: [{ name: 'Такси', sub: null, value: 7 }] }], dict);
+  assert.ok(!again.rows[0].updated);
+  assert.equal(again.banks[0].cats.length, 3, ' дублей не добавлено');
+});
+
+test('mergeImported: новый банк создаётся только в месяце (данные чистые)', () => {
+  const res = CbLogic.mergeImported([], [{ bank: 'Райффайзен', cashbacks: [{ name: 'Супермаркеты', sub: null, value: 4 }] }],
+    CbLogic.normalizeDict(null));
+  assert.equal(res.banks.length, 1);
+  assert.ok(res.rows[0].bankNew, 'новый банк помечен');
+  assert.equal(res.rows[0].value, 4);
+  // Словарь mergeImported не изменяет (это чистая функция)
+  assert.deepEqual(CbLogic.normalizeDict(null).banks, []);
+});
