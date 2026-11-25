@@ -37,7 +37,7 @@ test('cashback first-use state explains the setup and offers two clear paths', (
 
 test('portfolio search filters product rows and hides empty groups', () => {
   const dashboard = fs.readFileSync(path.join(__dirname, '../js/dashboard.js'), 'utf8');
-  assert.match(dashboard, /id\('productSearch'\)/);
+  assert.match(dashboard, /\$\('productSearch'\)/);
   assert.match(dashboard, /data-search=/);
   assert.match(dashboard, /\.product-row:not\(\[hidden\]\)/);
   assert.match(dashboard, /productSearchEmpty/);
