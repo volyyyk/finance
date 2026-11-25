@@ -1025,14 +1025,14 @@ test('Simulator: квартира растёт в цене, аренда — в 
   const res = mods.Simulator.simulateAll(12);
   const h = res.apt.history[12];
   assert.ok(h.value > 12900000 && h.value < 13100000, 'стоимость выросла на ~8%: ' + h.value);
-  assert.ok(h.cumIncome > 1700000 && h.cumIncome < 1730000, 'доход = рост + аренда 12 мес: ' + h.cumIncome);
+  assert.ok(h.cumIncome > 1670000 && h.cumIncome < 1690000, 'рост ровно 8% за год + аренда 12 мес: ' + h.cumIncome);
   assert.ok(h.cumExpense > 245000 && h.cumExpense < 255000, 'ремонт ~2%/год: ' + h.cumExpense);
   const s = mods.Stats.aggregate();
   assert.equal(s.assets, 12000000, 'квартира в активах');
-  const growth = Math.pow(1 + 0.08 / 12, 12) - 1;
-  assert.ok(Math.abs(s.inc - (12000000 * growth + 60000 * 12)) < 1e-5, 'результат: рост + аренда за год');
+  assert.ok(Math.abs(s.inc - (12000000 * 0.08 + 60000 * 12)) < 1e-5, 'результат: эффективный рост 8% + аренда за год');
   let projected = 12000000, upkeep = 0;
-  for (let m = 0; m < 12; m++){ projected *= 1 + 0.08 / 12; upkeep += projected * 0.02 / 12; }
+  const monthlyGrowth = Math.pow(1.08, 1 / 12);
+  for (let m = 0; m < 12; m++){ projected *= monthlyGrowth; upkeep += projected * 0.02 / 12; }
   assert.ok(Math.abs(s.exp - upkeep) < 1e-5, 'расход: ремонт по растущей стоимости за год');
 });
 
@@ -1199,4 +1199,12 @@ test('Stats: loan interest expense matches 12-month compounded forecast', () => 
   const stats=mods.Stats.aggregate();
   assert.ok(Math.abs(stats.exp-forecast.history[12].cumExpense)<1e-5,
     'annual loan cost matches monthly compounding');
+});
+
+
+test('Simulator: apartment rate is an effective annual appreciation, not nominal monthly interest', () => {
+  const { mods } = simMods([{id:'flat',type:'apartment',amount:10000000,rate:8,operations:[]}]);
+  const h=mods.Simulator.simulateProduct(mods.Storage.get('flat'),12).history[12];
+  assert.ok(Math.abs(h.value-10800000)<1e-5,'after 12 months value rises by exactly 8%');
+  assert.ok(Math.abs(h.cumIncome-800000)<1e-5,'unrealized appreciation is exactly 8%');
 });
