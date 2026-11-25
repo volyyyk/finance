@@ -253,13 +253,7 @@ test('mergeImported: новый банк создаётся только в ме
 });
 
 test('parseAiAnswer supports several banks, merges repeated names and accepts comma decimals', () => {
-  const parsed = CbLogic.parseAiAnswer(`\`\`json
-[
-  {"bank":"Т-Банк","cashbacks":[{"category":"Кафе","percent":"3,5"}]},
-  {"bank":"Сбер","cashbacks":[{"category":"АЗС","percent":5}]},
-  {"bank":"т-банк","cashbacks":[{"category":"Такси","percent":7}]}
-]
-\`\`\``);
+  const parsed = CbLogic.parseAiAnswer('[{"bank":"Т-Банк","cashbacks":[{"category":"Кафе","percent":"3,5"}]},{"bank":"Сбер","cashbacks":[{"category":"АЗС","percent":5}]},{"bank":"т-банк","cashbacks":[{"category":"Такси","percent":7}]}]');
   assert.equal(parsed.length, 2, 'повторяющийся банк объединён');
   assert.equal(parsed[0].bank, 'Т-Банк');
   assert.deepEqual(parsed[0].cashbacks.map(x => x.name), ['Кафе', 'Такси']);
