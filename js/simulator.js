@@ -473,6 +473,5 @@ const Stats = (() => {
     return { assets, debts, net, inc, exp, netAnnual, netMonthly, pctAnnual, pctMonthly };
   }
   return { aggregate };
-})();  return { aggregate };
 })();
 
