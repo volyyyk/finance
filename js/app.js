@@ -324,9 +324,10 @@ ${rows}
           if (Number.isFinite(attemptedAt) && now - attemptedAt < 5 * 60 * 1000) continue;
           const before = JSON.stringify(a);
           try {
+            const previousQuoteAt = a.moexUpdatedAt || null;
             await MoexAPI.refreshAsset(a);
-            a.moexError = a.moexUpdatedAt
-              ? null : 'MOEX пока не вернул текущую котировку';
+            a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
+              ? null : 'MOEX пока не вернул новую котировку';
           } catch (error) {
             a.moexError = String(error?.message || 'Ошибка запроса MOEX').slice(0, 180);
           }
