@@ -543,8 +543,8 @@ test('ВАРИАТИВНОСТЬ: 30 случайных портфелей — �
     const res = mods.Simulator.simulateAll(6);
     for (const p of products){
       assert.equal(res[p.id].history.length, 7, `#${iter} длина истории ${p.id}`);
-      const startVal = p.type === 'investment'
-        ? mods.Simulator.portfolioValue(p) : (p.amount || 0);
+      const startVal = p.type === 'expense' ? 0
+        : (p.type === 'investment' ? mods.Simulator.portfolioValue(p) : (p.amount || 0));
       assert.ok(Math.abs(res[p.id].history[0].value - startVal) < 1e-6, `#${iter} старт ${p.id}`);
     }
 
@@ -1122,7 +1122,7 @@ test('ProductList: закрытые продукты уходят в серый 
 test('Simulator: deposit top-ups change capital but do not inflate income', () => {
   const { mods } = simMods([{
     id:'dep-topup', type:'deposit', amount:10000, rate:0,
-    operations:[{id:'topup',direction:'in',amount:5000,frequency:'once',date:dayFromNow(1)}]
+    operations:[{id:'topup',direction:'in',amount:5000,frequency:'monthly',date:dayFromNow(-30)}]
   }]);
   const result=mods.Simulator.simulateAll(2)['dep-topup'];
   assert.equal(result.history[1].value,15000);
@@ -1159,7 +1159,7 @@ test('Simulator: mandatory expenses never appear as an asset or debt in forecast
 test('Simulator: credit-card repayments reduce debt but are not income', () => {
   const { mods } = simMods([{
     id:'cc',type:'credit_card',amount:20000,rate:0,
-    operations:[{id:'payment',direction:'in',amount:5000,frequency:'once',date:dayFromNow(1)}]
+    operations:[{id:'payment',direction:'in',amount:5000,frequency:'monthly',date:dayFromNow(-30)}]
   }]);
   const result=mods.Simulator.simulateAll(2).cc;
   assert.equal(result.history[1].value,15000);
