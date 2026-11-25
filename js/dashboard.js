@@ -719,7 +719,10 @@ const Dashboard = (() => {
     const simNoEvents = Simulator.simulateAll(120, { noEvents: true });
     const list = Storage.all();
     // Прогноз капитала: продукты «вне бюджета» исключаются из баланса
-    const onBudget = list.filter(p => p.offBudget !== true);
+    // Обязательные расходы — поток, а не актив/обязательство.
+    // Не включаем их в чистый капитал, иначе исчезновение «остатка расхода»
+    // выглядело как искусственный прирост состояния.
+    const onBudget = list.filter(p => p.offBudget !== true && p.type !== 'expense');
     const valueAt = (map, p, m) => {
       const r = map[p.id];
       return (r && r.history[m] && r.history[m].value) || 0;
