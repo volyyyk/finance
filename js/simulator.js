@@ -481,25 +481,22 @@ const Stats = (() => {
       }
     });
 
-    // Регулярные пополнения и снятия идут в общий годовой зачёт:
-    // пополнение — в доход, снятие — в расход (для обязательств пополнение
-    // уменьшает долг, снятие — увеличивает). Снятие, помеченное как
-    // «платёж по долгу», — это перевод на погашение: не доход и не расход,
-    // иначе платёж учитывался бы дважды.
-    //
-    // Исключение — вклады: это движение денег внутри своих же активов.
-    // Пополнение вклада не является доходом, а возврат суммы вклада при
-    // завершении срока просто возвращается на баланс. В «доходность»
-    // у вкладов попадают только проценты по ставке (посчитаны выше).
+    // В годовой доход/расход попадают только реальные внешние денежные потоки.
+    // Пополнения/снятия вкладов и инвестиций — перемещение собственного капитала.
+    // Погашение кредита/кредитки уменьшает долг, но не является доходом.
+    // Покупки по кредитке — расход; выдача нового кредита — изменение долга.
     list.forEach(p => (p.operations || []).forEach(op => {
-      if (!op.amount) return;
-      if (p.type === 'deposit') return;
-      if (op.direction === 'out' && op.debtTargetId) return;
+      if (!op.amount || (op.direction === 'out' && op.debtTargetId)) return;
+      if (p.type === 'deposit' || p.type === 'investment' || p.type === 'loan') return;
+      if (Config.TYPES[p.type]?.liability && op.direction === 'in') return;
       const n = opOccurrencesInYear(op);
       if (!n) return;
       const total = op.amount * n;
-      if (op.direction === 'out') exp += total;
-      else                        inc += total;
+      if (op.direction === 'out') {
+        if (p.type === 'credit_card' || p.type === 'debit_card' || p.type === 'expense' || p.type === 'apartment') exp += total;
+      } else {
+        if (p.type === 'debit_card' || p.type === 'expense' || p.type === 'apartment') inc += total;
+      }
     }));
 
     const net = assets - debts;
