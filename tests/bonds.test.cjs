@@ -46,10 +46,10 @@ test('forecast pays by exact dates, retains principal as cash and does not grow 
   const h=sandbox.sim.simulateProduct(p,3).history;
   assert.equal(h[1].value,2080);assert.equal(h[2].value,2260);assert.equal(h[3].value,2260);
 });
-test('MOEX bond price uses face value and security fallback when LAST is empty', async () => {
+test('MOEX does not present previous close as a live bond quote', async () => {
   const sandbox={navigator:{onLine:true},AbortSignal,Map,Date,fetch:async()=>({ok:true,json:async()=>({marketdata:{columns:['LAST'],data:[[null]]},securities:{columns:['FACEVALUE','PREVPRICE','FACEUNIT'],data:[[1000,95,'RUB']]}})})};
   vm.createContext(sandbox);vm.runInContext(fs.readFileSync('js/moex.js','utf8')+'\nglobalThis.api=MoexAPI;',sandbox);
-  const p=await sandbox.api.lastPrice('TEST','OTHER','bond');assert.equal(p.last,950);assert.equal(p.pricePercent,95);
+  const p=await sandbox.api.lastPrice('TEST','OTHER','bond');assert.equal(p.last,null);assert.equal(p.pricePercent,null);
 });
 test('MOEX calendar follows cursor pages and retains unknown values', async () => {
   let requests=0;
