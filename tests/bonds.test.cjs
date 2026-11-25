@@ -70,7 +70,7 @@ test('MOEX refreshAsset stores a freshness timestamp for stocks and funds', asyn
     }) })
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync('js/moex.js', 'utf8') + '\\nglobalThis.api=MoexAPI;', sandbox);
+  vm.runInContext(fs.readFileSync('js/moex.js', 'utf8') + '\nglobalThis.api=MoexAPI;', sandbox);
   const fund = { kind: 'fund', secid: 'TEST_FUND_TIMESTAMP', board: 'TQTF', lastPrice: 100 };
   await sandbox.api.refreshAsset(fund);
   assert.equal(fund.lastPrice, 123.45);
@@ -97,7 +97,7 @@ test('MOEX six-month history uses the correct month even when today is the 31st'
     }
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync('js/moex.js', 'utf8') + '\\nglobalThis.api=MoexAPI;', sandbox);
+  vm.runInContext(fs.readFileSync('js/moex.js', 'utf8') + '\nglobalThis.api=MoexAPI;', sandbox);
   const fund = { kind: 'fund', secid: 'TEST_FUND_MONTH_EDGE', board: 'TQTF' };
   await sandbox.api.refreshSixMonth(fund);
   assert.ok(historyUrl.includes('from=2025-10-18') && historyUrl.includes('till=2025-11-01'), historyUrl);
