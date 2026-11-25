@@ -599,15 +599,36 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     const dict = loadDict();
 
     if (!hasBanks(data) || !hasData(data)){
+      const noBanks = !hasBanks(data);
       const nextHint = isNextMonth(data.month)
-        ? '<br>Это предзаказ на следующий месяц — категории можно вносить заранее.'
+        ? '<p class="cb-empty-note">Это предварительный план на следующий месяц — условия можно внести заранее.</p>'
         : '';
       el.innerHTML = `
-        <div class="empty">В ${monthTitle(data.month)} кешбэки ещё не добавлены.${nextHint}<br>Добавьте банки и категории кешбэка на этот месяц.</div>
-        <div class="actions-bar">
-          <button class="btn primary" id="cbStartBtn">+ Добавить кешбэк</button>
-        </div>` + promptAccordionHtml(data);
+        <section class="cb-empty-state" aria-labelledby="cbEmptyTitle">
+          <div class="cb-empty-art" aria-hidden="true"><span>₽</span><i>✦</i><b>+</b></div>
+          <div class="cb-empty-copy">
+            <span class="cb-eyebrow">ВАШИ ВЫГОДНЫЕ КАТЕГОРИИ</span>
+            <h3 id="cbEmptyTitle">${noBanks ? 'Начнём с первого банка' : 'Добавим первые категории?'}</h3>
+            <p>${noBanks
+              ? 'Добавьте банки, которыми пользуетесь, и приложение покажет, где выгоднее платить в каждой категории.'
+              : 'Банки уже добавлены. Осталось указать проценты кешбэка — вручную или с помощью распознавания условий.'}</p>
+            ${nextHint}
+            <div class="cb-empty-actions">
+              <button class="btn primary" id="cbStartBtn">${noBanks ? '+ Добавить первый банк' : '+ Добавить категории'}</button>
+              <button class="btn" id="cbEmptyPromptBtn">Заполнить по фото / ИИ</button>
+            </div>
+          </div>
+          <div class="cb-empty-steps">
+            <div><span>01</span><b>Банки</b><small>Добавьте один или несколько</small></div>
+            <div><span>02</span><b>Категории</b><small>Укажите процент и подкатегорию</small></div>
+            <div><span>03</span><b>Сравнение</b><small>Выбирайте лучший кешбэк</small></div>
+          </div>
+        </section>` + promptAccordionHtml(data);
       $('cbStartBtn').onclick = () => { mode = 'edit'; render(); };
+      $('cbEmptyPromptBtn').onclick = () => {
+        const details = $('cbAccPrompt');
+        if (details) { details.open = true; details.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      };
       importState = null;
       importSkip = new Set();
       wirePrompt(el);

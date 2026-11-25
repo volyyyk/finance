@@ -119,6 +119,14 @@ const ProductList = (() => {
   function render(onEdit){
     const el = $('productsList');
     const list = Storage.all();
+    const search = $('productSearch');
+    if (search){
+      search.value = '';
+      search.disabled = !list.length;
+      if (search.parentElement) search.parentElement.hidden = !list.length;
+    }
+    const searchEmpty = $('productSearchEmpty');
+    if (searchEmpty) searchEmpty.hidden = true;
     if (!list.length){
       el.innerHTML = '<div class="empty">Пока нет продуктов. Добавьте первый!</div>';
       updateDeleteBtn();
@@ -171,6 +179,24 @@ const ProductList = (() => {
     }
     el.innerHTML = html;
     updateDeleteBtn();
+    const searchInput = $('productSearch');
+    if (searchInput) {
+      const applyFilter = () => {
+        const q = searchInput.value.trim().toLocaleLowerCase('ru');
+        let visible = 0;
+        el.querySelectorAll('.product-row').forEach(row => {
+          const match = !q || (row.dataset.search || '').includes(q);
+          row.hidden = !match;
+          if (match) visible++;
+        });
+        el.querySelectorAll('.product-group,.product-archive').forEach(group => {
+          group.hidden = !group.querySelector('.product-row:not([hidden])');
+        });
+        if (searchEmpty) searchEmpty.hidden = visible > 0;
+      };
+      searchInput.oninput = applyFilter;
+      applyFilter();
+    }
 
     el.querySelectorAll('[data-edit]').forEach(b=>{
       b.onclick = () => onEdit(b.dataset.edit);
@@ -261,7 +287,8 @@ const ProductList = (() => {
         else subParts.push('нет событий');
         if (chainCount) subParts.push(`⚙ ${chainCount} действ.`);
 
-        return `<div class="product-row">
+        const searchText = [p.name, t.label, p.comment || ''].join(' ').toLocaleLowerCase('ru');
+        return `<div class="product-row" data-search="${escapeHtml(searchText)}">
           <input type="checkbox" data-id="${p.id}" ${selected.has(p.id)?'checked':''}>
           <div class="prod-icon">${t.icon}</div>
           <div class="prod-main">
