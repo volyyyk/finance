@@ -102,5 +102,5 @@ test('MOEX six-month history uses the correct month even when today is the 31st'
   await sandbox.api.refreshSixMonth(fund);
   assert.ok(historyUrl.includes('from=2025-10-18') && historyUrl.includes('till=2025-11-01'), historyUrl);
   assert.equal(fund.yieldMonth, '2026-05');
-  assert.equal(fund.sixMonthPct, 10);
+  assert.ok(Math.abs(fund.sixMonthPct - 10) < 1e-9, String(fund.sixMonthPct));
 });
