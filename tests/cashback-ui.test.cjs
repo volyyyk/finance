@@ -7,19 +7,22 @@ const cashback = fs.readFileSync(path.join(__dirname, '../js/cashback.js'), 'utf
 const styles = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
 
 test('cashback action accordions are collapsed on first render', () => {
-  const markup = cashback.slice(cashback.indexOf('id="cbAccAdd"') - 100,
-    cashback.indexOf('id="cbAccAdd"') + 1200);
-  assert.doesNotMatch(markup, /id="cbAccAdd"[^>]*\bopen\b/);
-  assert.match(markup, /id="cbAccSettings"/);
-  assert.match(markup, /id="cbAll"/);
-  assert.match(markup, /cbAccPrompt/);
+  const add = cashback.indexOf('id="cbAccAdd"');
+  const settings = cashback.indexOf('id="cbAccSettings"', add);
+  const all = cashback.indexOf('id="cbAll"', settings);
+  assert.ok(add >= 0 && settings > add && all > settings);
+  for (const id of ['cbAccAdd', 'cbAccSettings', 'cbAll']) {
+    const tag = cashback.match(new RegExp('<details[^>]*id="' + id + '"[^>]*>'));
+    assert.ok(tag, id + ' details element exists');
+    assert.doesNotMatch(tag[0], /\bopen(?:\s|=|>)/, id + ' starts collapsed');
+  }
+  assert.match(cashback, /promptAccordionHtml\(data\)/);
 });
 
-test('cashback accordion stack uses one spacing system and no per-card margin', () => {
-  const start = styles.indexOf('.cb-bottom-accordions{');
-  const end = styles.indexOf('.cb-accordion{', start);
-  assert.ok(start >= 0 && end > start);
-  const stack = styles.slice(start, end);
-  assert.match(stack, /gap:\s*10px/);
-  assert.match(styles.slice(end, styles.indexOf('.cb-quick-chips{', end)), /margin:\s*0!important/);
+test('cashback accordion stack has consistent spacing and unified card styling', () => {
+  const stack = styles.lastIndexOf('.cb-bottom-accordions{');
+  const accordion = styles.lastIndexOf('.cb-accordion{');
+  assert.ok(stack >= 0 && accordion > stack);
+  assert.match(styles.slice(stack, accordion), /gap:\s*10px/);
+  assert.match(styles.slice(accordion, styles.indexOf('.cb-accordion>summary', accordion)), /border-radius:\s*15px/);
 });
