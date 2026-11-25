@@ -657,7 +657,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       ${datalist('cbCatList', catNames(data, dict))}
       <div class="cb-bottom-accordions">
         <!-- 1. Добавить новое (красная подсветка в тёмной / пастельная в светлой) -->
-        <details class="cb-accordion cb-acc-add edge-glow-red" id="cbAccAdd" open>
+        <details class="cb-accordion cb-acc-add edge-glow-red" id="cbAccAdd">
           <summary>➕ 1. Добавить новое</summary>
           <div class="cb-acc-content">
             <div class="op-meta">Быстрое добавление кешбэка за ${monthTitle(data.month)}</div>
