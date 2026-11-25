@@ -24,7 +24,8 @@ const MoexAPI = (() => {
     const hit = cache.get(key);
     if (hit && (now - hit.ts) < ttl) return Promise.resolve(hit.data);
     return loader().then(data => {
-      cache.set(key, { ts: now, data });
+      // Пустой ответ MOEX не кэшируем: следующая попытка сможет получить цену.
+      if (!(key.startsWith('price:') && (!data || data.last == null))) cache.set(key, { ts: now, data });
       return data;
     });
   }
@@ -41,28 +42,45 @@ const MoexAPI = (() => {
     Object.fromEntries(block.columns.map((c,i) => [c, r[i]])));
   const number = v => v == null || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null;
 
+  function chooseMarketRow(marketRows, preferredBoard){
+    const usable = marketRows.filter(row =>
+      [row.LAST, row.LCURRENTPRICE, row.MARKETPRICE, row.WAPRICE]
+        .some(value => number(value) > 0)
+    );
+    if (!usable.length) return null;
+    return usable.find(row => row.BOARDID === preferredBoard)
+      || usable.find(row => row.IS_PRIMARY === 1 || row.IS_PRIMARY === true)
+      || usable[0];
+  }
+
   async function lastPrice(secid, board, kind){
-    return cached(`price:${kind}:${board}:${secid}`, CACHE_TTL, async () => {
-      // Драгметаллы (золото, серебро, платина, палладий) торгуются
-      // на валютном рынке СЭЛТ: GLDRUB_TOM и т.п.
+    return cached(`price:${kind}:${board || ''}:${secid}`, CACHE_TTL, async () => {
       const metal = kind === 'metal';
-      const bond = kind === 'bond' || ['TQOB','TQCB','TQOD','TQIR'].includes(board);
+      const bond = kind === 'bond';
+      // Берём данные по инструменту на всём рынке, а не привязываемся
+      // к одному BOARDID: режим торгов может отличаться у разных бумаг.
       const url = metal
         ? `${ISS}/engines/currency/markets/selt/securities/${encodeURIComponent(secid)}.json?iss.meta=off`
-        : `${ISS}/engines/stock/markets/${bond ? 'bonds' : 'shares'}/boards/${encodeURIComponent(board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
+        : `${ISS}/engines/stock/markets/${bond ? 'bonds' : 'shares'}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
       const json = await fetchJSON(url);
-      const md = rows(json.marketdata)[0] || {};
+      const md = chooseMarketRow(rows(json.marketdata), board);
       const security = rows(json.securities)[0] || {};
-      const quoted = [md.LAST, md.LCURRENTPRICE, md.MARKETPRICE, md.WAPRICE, security.PREVPRICE, security.PREVLEGALCLOSEPRICE]
-        .map(number).find(v => v != null && v > 0);
+      // PREVPRICE/PREVLEGALCLOSEPRICE — прошлое закрытие, не текущая цена.
+      const quoted = md
+        ? [md.LAST, md.LCURRENTPRICE, md.MARKETPRICE, md.WAPRICE]
+            .map(number).find(value => value != null && value > 0) ?? null
+        : null;
       const nominal = number(security.FACEVALUE);
+      const last = quoted == null ? null : bond
+        ? (nominal == null ? null : quoted * nominal / 100) : quoted;
       return {
-        last: quoted == null ? null : bond ? (nominal == null ? null : quoted * nominal / 100) : quoted,
-        pricePercent: bond ? quoted : null,
-        nominal, accruedInterest: number(security.ACCRUEDINT),
+        last, pricePercent: bond ? quoted : null, nominal,
+        accruedInterest: number(security.ACCRUEDINT),
         maturityDate: security.MATDATE || null,
         currency: security.FACEUNIT || 'RUB',
-        updatedAt: new Date().toISOString(),
+        board: md?.BOARDID || board || null,
+        quoteTime: md?.SYSTIME || md?.UPDATETIME || md?.TIME || null,
+        updatedAt: last != null ? new Date().toISOString() : null,
       };
     });
   }
@@ -157,7 +175,7 @@ const MoexAPI = (() => {
       couponType, couponDescription: d.COUPON_DETAILS || d.BOND_TYPE || 'Тип купона не указан MOEX',
       couponRate: number(d.COUPONPERCENT), couponAmount: number(d.COUPONVALUE),
       couponFreq: number(d.COUPONFREQUENCY), nextCouponDate: d.COUPONDATE || null,
-      ...schedule, moexUpdatedAt: new Date().toISOString(), priceUnit: 'rub',
+      ...schedule, ...(price.last != null ? { moexUpdatedAt: price.updatedAt } : {}), priceUnit: 'rub',
     };
   }
 
@@ -168,6 +186,7 @@ const MoexAPI = (() => {
       // Не заменяем сохранённую рублёвую цену пустой котировкой.
       if (details.lastPrice == null) delete details.lastPrice;
       Object.assign(asset, details);
+      if (details.board) asset.board = details.board;
     } else if (asset.kind === 'metal') {
       // Котировка MOEX (GLDRUB_TOM и др.) уже выражена в рублях за 1 грамм —
       // никакого пересчёта из унции не нужно. Унция — только справочно.
@@ -175,6 +194,7 @@ const MoexAPI = (() => {
       if (price?.last != null){
         asset.lastPrice = price.last;
         asset.moexUpdatedAt = price.updatedAt;
+        if (price.board) asset.board = price.board;
         asset.ouncePrice = price.last * OUNCE_GRAM;
         asset.unit = 'gram';
         asset.moexUpdatedAt = price.updatedAt;
@@ -184,6 +204,7 @@ const MoexAPI = (() => {
       if (price?.last != null){
         asset.lastPrice = price.last;
         asset.moexUpdatedAt = price.updatedAt;
+        if (price.board) asset.board = price.board;
       }
     }
     return asset;
@@ -201,6 +222,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
