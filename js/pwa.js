@@ -80,6 +80,9 @@
         showStatus();
       };
       checkWaiting();
+      // Принудительно проверяем новую версию при открытии PWA, не полагаясь
+      // на периодический интервал браузера или HTTP-кэш service worker.
+      registration.update().catch(() => {});
       registration.addEventListener('updatefound', () => {
         const worker = registration.installing;
         worker?.addEventListener('statechange', () => {

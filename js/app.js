@@ -82,8 +82,11 @@ const App = (() => {
       for (const a of p.assets){
         if (a.redeemed) continue;
         if ((a.kind === 'fund' || a.kind === 'metal') && a.yieldMonth !== month){
-          try { await MoexAPI.refreshSixMonth(a); changed = true; }
-          catch { /* Нет сети или данных MOEX — обновим при следующем заходе */ }
+          try {
+            const before = JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
+            await MoexAPI.refreshSixMonth(a);
+            if (before !== JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
+          } catch { /* Нет сети или данных MOEX — повторим при следующем заходе */ }
         }
       }
     }
@@ -257,7 +260,6 @@ ${rows}
     $('resetZeroBtn').onclick = resetToZero;
     $('createGoalBtn').onclick = () => GoalBar.createOrEdit();
     $('cbBanksBtn').onclick = () => { if (window.Cashback) window.Cashback.openDict(); };
-    $('loadCloudBtn').onclick = () => Storage.useRemote();
     $('importBtn').onclick = () => $('importFile').click();
     $('importFile').addEventListener('change', (e)=>{
       const f = e.target.files[0];
@@ -313,7 +315,11 @@ ${rows}
         let changed = false;
         for (const a of assets) {
           if (a.redeemed || (a.moexUpdatedAt && Date.now() - Date.parse(a.moexUpdatedAt) < 3600000)) continue;
-          try { await MoexAPI.refreshAsset(a); changed = true; } catch { /* Сохраняем последние доступные данные. */ }
+          try {
+            const before = JSON.stringify(a);
+            await MoexAPI.refreshAsset(a);
+            if (before !== JSON.stringify(a)) changed = true;
+          } catch { /* Сохраняем последние доступные данные. */ }
         }
         if (changed && !$('modalBg').classList.contains('show') && Storage.get(p.id) === p) {
           p.assets = assets;
@@ -323,14 +329,23 @@ ${rows}
       }
       refresh();
     }
-    Storage.sync().then(() => { refresh(); refreshMoex(); refreshMonthlyYields(); });
-    window.addEventListener('online', () => Storage.sync().then(() => { refreshMoex(); refreshMonthlyYields(); }));
-    window.addEventListener('remoteData', refresh);
+    // Котировки и доходность обновляются независимо от хранилища: GitHub Pages — статический хостинг.
+    let marketRefreshPromise = null;
+    const refreshMarketData = () => {
+      if (marketRefreshPromise) return marketRefreshPromise;
+      marketRefreshPromise = (async () => {
+        await refreshMoex();
+        await refreshMonthlyYields();
+      })().finally(() => { marketRefreshPromise = null; });
+      return marketRefreshPromise;
+    };
+    refreshMarketData();
+    window.addEventListener('online', refreshMarketData);
     setInterval(() => {
-      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); Storage.sync(); }
+      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMarketData(); }
     }, 60000);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); Storage.sync(); }
+      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMarketData(); }
     });
     document.addEventListener('click', e => {
       const settings = $('settingsMenu');

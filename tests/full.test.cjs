@@ -4,7 +4,7 @@
 
    Разделы:
    1. Config / Utils (core.js)
-   2. Storage: CRUD, версия данных, облачная синхронизация (core.js)
+   2. Storage: CRUD, версия данных, локальное хранилище (core.js)
    3. Облигации: цены, купоны, амортизации, зачёт выплат (bonds.js)
    4. Симулятор и статистика: прогнозы, кэши по версии данных (simulator.js)
    5. Вариабельные тесты: генеративные портфели с фиксированным зерном
@@ -173,12 +173,14 @@ test('Utils.escapeHtml: экранируются все спецсимволы',
 });
 
 // ============================================================================
-// 2. Storage: CRUD, версия данных, облако
+// 2. Storage: CRUD и версия данных
 // ============================================================================
 
 test('Storage: save/load/upsert/remove/clear работают корректно', () => {
   const { mods } = coreMods();
   const st = mods.Storage;
+  assert.equal(typeof st.sync, 'undefined', 'облачный API удалён из локальной версии');
+  assert.equal(typeof st.useRemote, 'undefined', 'облачная загрузка удалена');
   assert.equal(st.all().length, 0, 'пустое хранилище в начале');
   st.save([{ id: 'a', type: 'deposit' }]);
   assert.equal(st.all().length, 1);
@@ -220,42 +222,6 @@ test('Storage.loadFromSeed: загружает window.SEED_DATA и подним�
   // повторная загрузка не должна терять данные
   mods.Storage.loadFromSeed();
   assert.equal(mods.Storage.all().length, 2);
-});
-
-test('Storage.sync: облачная загрузка без локальных правок обновляет кэш и версию', async () => {
-  const sb = makeSandbox({
-    fetch: async () => ({ ok: true, json: async () => ({ products: [{ id: 'remote' }], revision: 7 }) }),
-  });
-  const mods = loadInto(sb, ['js/core.js'], '{Storage}');
-  const v0 = mods.Storage.version();
-  await mods.Storage.sync();
-  assert.equal(mods.Storage.all()[0].id, 'remote');
-  assert.equal(sb.localStorage.getItem('fin_revision'), '7');
-  assert.ok(mods.Storage.version() > v0, 'версия выросла — внешние данные видны кэшам');
-});
-
-test('Storage.sync: конфликт не перезаписывает локальные правки', async () => {
-  let n = 0;
-  const sb = makeSandbox({
-    fetch: async () => ({ ok: true, json: async () => ({ products: [{ id: 'remote' }], revision: 99 + (n++) }) }),
-  });
-  const mods = loadInto(sb, ['js/core.js'], '{Storage}');
-  mods.Storage.save([{ id: 'local' }]);
-  await mods.Storage.sync();
-  await mods.Storage.sync();
-  assert.equal(mods.Storage.all()[0].id, 'local', 'локальные правки сохранены');
-  assert.equal(sb.localStorage.getItem('fin_pending'), '1');
-});
-
-test('Storage.useRemote: заменяет данные облачной версией', async () => {
-  const sb = makeSandbox({
-    fetch: async () => ({ ok: true, json: async () => ({ products: [{ id: 'cloud' }], revision: 2 }) }),
-  });
-  const mods = loadInto(sb, ['js/core.js'], '{Storage}');
-  mods.Storage.save([{ id: 'local' }]);
-  await mods.Storage.useRemote();
-  assert.equal(mods.Storage.all()[0].id, 'cloud');
-  assert.equal(sb.localStorage.getItem('fin_pending'), null);
 });
 
 // ============================================================================
@@ -420,7 +386,7 @@ test('Simulator.simulateAll: после сохранения кэш пересч
 
 test('Simulator.simulateAll: пустое хранилище → пустой результат без ошибок', () => {
   const { mods } = simMods([]);
-  assert.deepEqual(mods.Simulator.simulateAll(24), {});
+  assert.equal(Object.keys(mods.Simulator.simulateAll(24)).length, 0);
 });
 
 test('Simulator.simulateProduct: проценты вклада капитализируются помесячно', () => {
@@ -1149,3 +1115,4 @@ test('ProductList: закрытые продукты уходят в серый 
   assert.ok(html.includes('product-archive'), 'архив в конце списка');
   assert.ok(html.includes('Архив · 1'), 'счётчик архива');
   assert.ok(html.indexOf('Закрытый вклад') > html.indexOf('product-archive'), 'закрытый вклад внутри архива');
+});
