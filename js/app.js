@@ -314,12 +314,24 @@ ${rows}
         const assets = structuredClone(p.assets || []);
         let changed = false;
         for (const a of assets) {
-          if (a.redeemed || (a.moexUpdatedAt && Date.now() - Date.parse(a.moexUpdatedAt) < 3600000)) continue;
+          if (a.redeemed) continue;
+          const now = Date.now();
+          const updatedAt = Date.parse(a.moexUpdatedAt || '');
+          const attemptedAt = Date.parse(a.moexAttemptAt || '');
+          // Успешную цену обновляем раз в час; неудачный запрос повторяем
+          // не чаще раза в 5 минут, не блокируя повторные попытки на час.
+          if (Number.isFinite(updatedAt) && now - updatedAt < 3600000) continue;
+          if (Number.isFinite(attemptedAt) && now - attemptedAt < 5 * 60 * 1000) continue;
+          const before = JSON.stringify(a);
           try {
-            const before = JSON.stringify(a);
             await MoexAPI.refreshAsset(a);
-            if (before !== JSON.stringify(a)) changed = true;
-          } catch { /* Сохраняем последние доступные данные. */ }
+            a.moexError = a.moexUpdatedAt
+              ? null : 'MOEX пока не вернул текущую котировку';
+          } catch (error) {
+            a.moexError = String(error?.message || 'Ошибка запроса MOEX').slice(0, 180);
+          }
+          a.moexAttemptAt = new Date().toISOString();
+          if (before !== JSON.stringify(a)) changed = true;
         }
         if (changed && !$('modalBg').classList.contains('show') && Storage.get(p.id) === p) {
           p.assets = assets;
