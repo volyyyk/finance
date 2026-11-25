@@ -257,7 +257,6 @@ ${rows}
     $('resetZeroBtn').onclick = resetToZero;
     $('createGoalBtn').onclick = () => GoalBar.createOrEdit();
     $('cbBanksBtn').onclick = () => { if (window.Cashback) window.Cashback.openDict(); };
-    $('loadCloudBtn').onclick = () => Storage.useRemote();
     $('importBtn').onclick = () => $('importFile').click();
     $('importFile').addEventListener('change', (e)=>{
       const f = e.target.files[0];
@@ -323,14 +322,16 @@ ${rows}
       }
       refresh();
     }
-    Storage.sync().then(() => { refresh(); refreshMoex(); refreshMonthlyYields(); });
-    window.addEventListener('online', () => Storage.sync().then(() => { refreshMoex(); refreshMonthlyYields(); }));
+    // Котировки обновляются независимо от хранилища: GitHub Pages — статический хостинг.
+    refreshMoex();
+    refreshMonthlyYields();
+    window.addEventListener('online', () => { refreshMoex(); refreshMonthlyYields(); });
     window.addEventListener('remoteData', refresh);
     setInterval(() => {
-      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); Storage.sync(); }
+      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMoex(); refreshMonthlyYields(); }
     }, 60000);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); Storage.sync(); }
+      if (!document.hidden && !$('modalBg').classList.contains('show')) { refresh(); refreshMoex(); refreshMonthlyYields(); }
     });
     document.addEventListener('click', e => {
       const settings = $('settingsMenu');
