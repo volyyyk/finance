@@ -386,7 +386,7 @@ test('Simulator.simulateAll: после сохранения кэш пересч
 
 test('Simulator.simulateAll: пустое хранилище → пустой результат без ошибок', () => {
   const { mods } = simMods([]);
-  assert.deepEqual(mods.Simulator.simulateAll(24), {});
+  assert.equal(Object.keys(mods.Simulator.simulateAll(24)).length, 0);
 });
 
 test('Simulator.simulateProduct: проценты вклада капитализируются помесячно', () => {
