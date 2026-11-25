@@ -418,6 +418,13 @@ const Simulator = (() => {
 })();
 
 const Stats = (() => {
+  // Годовые ставки в сводке должны совпадать с помесячной капитализацией
+  // прогноза, а не занижаться простой формулой amount * rate.
+  function effectiveAnnualFactor(rate){
+    const monthly = 1 + (Number(rate) || 0) / 1200;
+    return Number.isFinite(monthly) && monthly > 0 ? Math.pow(monthly, 12) - 1 : 0;
+  }
+
   // Сводка считается один раз на версию данных: GoalBar, карточки
   // статистики и результаты используют один и тот же aggregate().
   let aggMemo = { version: null, value: null };
@@ -446,8 +453,17 @@ const Stats = (() => {
       if (p.type === 'apartment'){
         const v = p.amount || 0;
         if (!off) assets += v;
-        inc += v * (p.rate || 0) / 100 + (p.rented ? (p.rentPrice || 0) * 12 : 0);
-        exp += v * (p.upkeepRate || 0) / 100;
+        const monthlyGrowth = 1 + (Number(p.rate) || 0) / 1200;
+        inc += v * effectiveAnnualFactor(p.rate) + (p.rented ? (p.rentPrice || 0) * 12 : 0);
+        // Ремонт рассчитывается от стоимости квартиры после месячного роста,
+        // как и в прогнозе; суммируем все 12 месяцев, а не берём 2% от старой цены.
+        let projectedValue = v, upkeep = 0;
+        const monthlyUpkeep = (Number(p.upkeepRate) || 0) / 1200;
+        for (let m = 0; m < 12; m++){
+          projectedValue *= monthlyGrowth > 0 ? monthlyGrowth : 1;
+          upkeep += projectedValue * monthlyUpkeep;
+        }
+        exp += upkeep;
         return;
       }
       if (p.type === 'investment'){
@@ -464,7 +480,7 @@ const Stats = (() => {
           if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) return s;
           return s + (a.qty || 0) * Bonds.price(a) * (Math.pow(1 + pct/100, 2) - 1);
         }, 0);
-        inc += couponAnnual + stocks * (p.rate || 0) / 100 + fundAnnual;
+        inc += couponAnnual + stocks * effectiveAnnualFactor(p.rate) + fundAnnual;
         return;
       }
       if (p.type === 'credit_card'){
@@ -474,10 +490,10 @@ const Stats = (() => {
       }
       if (Config.TYPES[p.type].liability){
         if (!off) debts += p.amount || 0;
-        exp += (p.amount || 0) * (p.rate || 0) / 100;
+        exp += (p.amount || 0) * effectiveAnnualFactor(p.rate);
       } else {
         if (!off) assets += p.amount || 0;
-        inc += (p.amount || 0) * (p.rate || 0) / 100;
+        inc += (p.amount || 0) * effectiveAnnualFactor(p.rate);
       }
     });
 
