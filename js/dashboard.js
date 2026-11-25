@@ -531,14 +531,14 @@ const Dashboard = (() => {
         <div class="stat-sub">Активы ${fmtMoney(s.assets)} · Долги ${fmtMoney(s.debts)}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Доходность за год</div>
+        <div class="stat-label">Расчётный результат за год</div>
         <div class="stat-value ${s.netAnnual>=0?'green':'red'}">${fmtMoney(s.netAnnual)}</div>
-        <div class="stat-sub">${fmtPct(s.pctAnnual)} годовых</div>
+        <div class="stat-sub">${fmtPct(s.pctAnnual)} от активов · с учётом роста стоимости</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Доходность за месяц</div>
+        <div class="stat-label">Расчётный результат за месяц</div>
         <div class="stat-value ${s.netMonthly>=0?'green':'red'}">${fmtMoney(s.netMonthly)}</div>
-        <div class="stat-sub">${fmtPct(s.pctMonthly)} в месяц</div>
+        <div class="stat-sub">${fmtPct(s.pctMonthly)} от активов</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Продуктов</div>

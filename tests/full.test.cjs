@@ -335,8 +335,9 @@ test('Stats.aggregate: мемоизация возвращает тот же о�
   const s2 = mods.Stats.aggregate();
   assert.equal(s1, s2, 'без изменения данных сводка берётся из кэша');
   assert.equal(s1.assets, 400000);
-  assert.equal(s1.inc, 300000);
-  assert.equal(s1.netMonthly, 25000);
+  const effectiveAnnual = Math.pow(1 + 0.75 / 12, 12) - 1;
+  assert.ok(Math.abs(s1.inc - 400000 * effectiveAnnual) < 1e-6);
+  assert.ok(Math.abs(s1.netMonthly - 400000 * effectiveAnnual / 12) < 1e-6);
   mods.Storage.save(mods.Storage.all()); // данные «изменились»
   const s3 = mods.Stats.aggregate();
   assert.notEqual(s1, s3, 'после сохранения кэш пересчитан');
@@ -883,14 +884,14 @@ function setStorage(sb, products){
 }
 const deposit400k = () => [{ id: 'd1', type: 'deposit', name: 'Вклад', amount: 400000, rate: 75, operations: [] }];
 
-test('GoalBar: цель 1 млн, темп 25 тыс/мес → «≈ 2 года», заполнение 40%', () => {
+test('GoalBar: цель 1 млн, расчётный темп с капитализацией → корректный срок и заполнение 40%', () => {
   const { sb, mods } = dashboardSandbox();
   setStorage(sb, deposit400k());
   sb.localStorage.setItem('fin_goal', JSON.stringify({ amount: 1000000 }));
   mods.GoalBar.render();
   const card = sb.document.getElementById('goalCard');
   assert.equal(card.hidden, false);
-  assert.ok(card.innerHTML.includes('≈ 2 года'), card.innerHTML);
+  assert.ok(card.innerHTML.includes('≈ 1 год 5 мес'), card.innerHTML);
   assert.ok(card.innerHTML.includes('40%'), 'заполнение 40%');
   assert.ok(card.innerHTML.includes('goal-fill'));
   assert.equal(sb.document.getElementById('createGoalBtn').textContent, '🎯 Изменить цель');
@@ -1028,8 +1029,11 @@ test('Simulator: квартира растёт в цене, аренда — в 
   assert.ok(h.cumExpense > 245000 && h.cumExpense < 255000, 'ремонт ~2%/год: ' + h.cumExpense);
   const s = mods.Stats.aggregate();
   assert.equal(s.assets, 12000000, 'квартира в активах');
-  assert.equal(s.inc, 12000000 * 0.08 + 60000 * 12, 'доход: рост + аренда за год');
-  assert.equal(s.exp, 12000000 * 0.02, 'расход: ремонт за год');
+  const growth = Math.pow(1 + 0.08 / 12, 12) - 1;
+  assert.ok(Math.abs(s.inc - (12000000 * growth + 60000 * 12)) < 1e-5, 'результат: рост + аренда за год');
+  let projected = 12000000, upkeep = 0;
+  for (let m = 0; m < 12; m++){ projected *= 1 + 0.08 / 12; upkeep += projected * 0.02 / 12; }
+  assert.ok(Math.abs(s.exp - upkeep) < 1e-5, 'расход: ремонт по растущей стоимости за год');
 });
 
 test('Stats: продукт «вне бюджета» не входит в баланс, но влияет на доход', () => {
@@ -1165,4 +1169,34 @@ test('Simulator: credit-card repayments reduce debt but are not income', () => {
   assert.equal(result.history[1].value,15000);
   assert.equal(result.history[1].cumIncome,0);
   assert.equal(mods.Stats.aggregate().inc,0);
+});
+
+
+test('Stats: annual deposit yield matches 12-month compounded forecast', () => {
+  const { mods } = simMods([{id:'dep',type:'deposit',amount:100000,rate:12,operations:[]}]);
+  const forecast=mods.Simulator.simulateProduct(mods.Storage.get('dep'),12);
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.inc-forecast.history[12].cumIncome)<1e-6,
+    'annual summary and forecast show the same interest');
+});
+
+test('Stats: apartment appreciation, rent and maintenance match the annual forecast', () => {
+  const { mods } = simMods([{
+    id:'flat',type:'apartment',amount:12000000,rate:8,rented:true,
+    rentPrice:60000,upkeepRate:2,operations:[]
+  }]);
+  const forecast=mods.Simulator.simulateProduct(mods.Storage.get('flat'),12);
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.inc-forecast.history[12].cumIncome)<1e-5,
+    'annual result matches appreciation plus rent');
+  assert.ok(Math.abs(stats.exp-forecast.history[12].cumExpense)<1e-5,
+    'annual maintenance matches monthly forecast');
+});
+
+test('Stats: loan interest expense matches 12-month compounded forecast', () => {
+  const { mods } = simMods([{id:'loan',type:'loan',amount:500000,rate:15,operations:[]}]);
+  const forecast=mods.Simulator.simulateProduct(mods.Storage.get('loan'),12);
+  const stats=mods.Stats.aggregate();
+  assert.ok(Math.abs(stats.exp-forecast.history[12].cumExpense)<1e-5,
+    'annual loan cost matches monthly compounding');
 });
