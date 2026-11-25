@@ -179,6 +179,8 @@ test('Utils.escapeHtml: экранируются все спецсимволы',
 test('Storage: save/load/upsert/remove/clear работают корректно', () => {
   const { mods } = coreMods();
   const st = mods.Storage;
+  assert.equal(typeof st.sync, 'undefined', 'облачный API удалён из локальной версии');
+  assert.equal(typeof st.useRemote, 'undefined', 'облачная загрузка удалена');
   assert.equal(st.all().length, 0, 'пустое хранилище в начале');
   st.save([{ id: 'a', type: 'deposit' }]);
   assert.equal(st.all().length, 1);
