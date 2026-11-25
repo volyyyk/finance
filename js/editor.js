@@ -211,6 +211,60 @@ const ProductEditor = (() => {
         else form.appendChild(div);
       }
     }
+    buildEditorSections();
+  }
+
+  // Прогрессивное раскрытие: сначала только поля, необходимые для создания
+  // продукта. Редкие настройки и операции не исчезают, а живут в отдельных
+  // раскрывающихся секциях. DOM-узлы перемещаются без пересоздания контролов,
+  // поэтому их id, значения и обработчики остаются прежними.
+  function buildEditorSections(){
+    const form = $('productForm');
+    if (!form || $('editorBasics')) return;
+    const hidden = form.querySelector('#f_id');
+    const makeSection = (id, title, hint, open=false) => {
+      const details = document.createElement('details');
+      details.className = 'editor-section';
+      details.id = id;
+      details.open = open;
+      const summary = document.createElement('summary');
+      summary.innerHTML = '<span class="editor-section-copy"><b>' + title +
+        '</b><small>' + hint + '</small></span><span class="editor-chevron" aria-hidden="true">⌄</span>';
+      const body = document.createElement('div');
+      body.className = 'editor-section-body';
+      details.append(summary, body);
+      return { details, body };
+    };
+    const basics = makeSection('editorBasics','Основное','Тип, название и сумма',true);
+    const conditions = makeSection('editorConditions','Условия и доходность','Ставка, даты и дополнительные параметры');
+    const activity = makeSection('editorActivity','Операции и состав','Пополнения, снятия, активы и действия при окончании');
+    const take = (selector, target) => {
+      const node = form.querySelector(selector);
+      if (node) target.appendChild(node);
+    };
+    const field = selector => {
+      const node = form.querySelector(selector);
+      return node ? (node.closest('.field') || node) : null;
+    };
+    if (hidden) hidden.after(basics.details, conditions.details, activity.details);
+    take('#f_type', basics.body);
+    take('#f_name', basics.body);
+    take('#f_amount', basics.body);
+    take('#f_rate', conditions.body);
+    take('#f_start', conditions.body);
+    take('#field_end', conditions.body);
+    take('#endActionBlock', activity.body);
+    take('#f_comment', conditions.body);
+    ['#creditCardBlock','#apartmentBlock','#offBudgetBlock'].forEach(sel => take(sel, conditions.body));
+    take('#investmentBlock', activity.body);
+    take('.ops-section', activity.body);
+    form.querySelector('.modal-actions')?.before(document.createElement('div'));
+    const note = document.createElement('p');
+    note.className = 'editor-footnote';
+    note.textContent = 'Дополнительные параметры можно раскрыть ниже. Ничего важного не удалено.';
+    basics.body.appendChild(note);
+    const formActions = form.querySelector('.modal-actions');
+    if (formActions) form.append(basics.details, conditions.details, activity.details);
   }
 
   function updateVisibility(){
