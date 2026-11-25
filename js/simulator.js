@@ -229,11 +229,14 @@ const Simulator = (() => {
         } else if (isCredit) {
           // Кредитная карта: проценты на остаток долга не начисляются
         } else if (isApartment) {
-          // Квартира: стоимость растёт на заданный процент в год,
-          // аренда (если сдаётся) идёт в доход, ремонт — в расход.
-          const interest = value * rate / 100 / 12;
-          value += interest;
-          cumIncome += Math.max(0, interest);
+          // Рост стоимости квартиры задан как эффективный годовой процент:
+          // за 12 месяцев цена вырастет ровно на rate%, без скрытых лишних 0.3 п.п.
+          // Аренда идёт в доход, ремонт считается от текущей рыночной стоимости.
+          const annualGrowth = Math.max(0, 1 + rate / 100);
+          const nextValue = value * Math.pow(annualGrowth, 1 / 12);
+          const appreciation = nextValue - value;
+          value = nextValue;
+          cumIncome += appreciation;
           if (product.rented) cumIncome += product.rentPrice || 0;
           cumExpense += value * (product.upkeepRate || 0) / 100 / 12;
         } else {
@@ -453,8 +456,9 @@ const Stats = (() => {
       if (p.type === 'apartment'){
         const v = p.amount || 0;
         if (!off) assets += v;
-        const monthlyGrowth = 1 + (Number(p.rate) || 0) / 1200;
-        inc += v * effectiveAnnualFactor(p.rate) + (p.rented ? (p.rentPrice || 0) * 12 : 0);
+        const annualGrowth = Math.max(0, 1 + (Number(p.rate) || 0) / 100);
+        const monthlyGrowth = Math.pow(annualGrowth, 1 / 12);
+        inc += v * ((Number(p.rate) || 0) / 100) + (p.rented ? (p.rentPrice || 0) * 12 : 0);
         // Ремонт рассчитывается от стоимости квартиры после месячного роста,
         // как и в прогнозе; суммируем все 12 месяцев, а не берём 2% от старой цены.
         let projectedValue = v, upkeep = 0;
