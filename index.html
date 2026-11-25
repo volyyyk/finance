@@ -79,6 +79,19 @@
 <main id="modeMain">
   <section class="card goal-card" id="goalCard" hidden></section>
   <section class="stats" id="stats"></section>
+  <section class="card welcome-card" id="welcomeCard" hidden aria-labelledby="welcomeTitle">
+    <div class="welcome-visual" aria-hidden="true"><span>₽</span><i>✦</i></div>
+    <div class="welcome-content">
+      <span class="welcome-kicker">ВАШИ ФИНАНСЫ · ВАШИ ПРАВИЛА</span>
+      <h2 id="welcomeTitle">Начнём с чистого листа?</h2>
+      <p>Добавьте только свои счета и активы — или сначала изучите приложение на демонстрационных данных. Демо можно включить отдельно, ваши реальные данные не затрагиваются.</p>
+      <div class="welcome-actions">
+        <button class="btn primary" id="startBlankBtn">Начать без демо</button>
+        <button class="btn" id="startDemoBtn">Посмотреть демо-портфель</button>
+      </div>
+      <small>Данные хранятся локально в этом браузере. Их можно экспортировать в настройках.</small>
+    </div>
+  </section>
 
   <section class="card">
     <div class="section-heading"><div><h2>Активы и обязательства</h2><p>Все счета, вклады, долги и инвестиционные портфели</p></div><span class="section-kicker">МОЙ ПОРТФЕЛЬ</span></div>
@@ -91,11 +104,6 @@
   </section
 
   <section class="card" id="sinceVisitCard" hidden></section>
-
-  <section class="charts-row">
-    <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
-    <div class="chart-card"><h3>Доход (накопленный)</h3><canvas id="chartIncome"></canvas></div>
-  </section>
 
   <div class="grid-2">
     <section class="card">
@@ -112,6 +120,11 @@
       <div id="calDayInfo" class="cal-day-info" hidden></div>
     </section>
   </div>
+
+  <section class="charts-row">
+    <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
+    <div class="chart-card"><h3>Доход (накопленный)</h3><canvas id="chartIncome"></canvas></div>
+  </section>
 
 >
 
