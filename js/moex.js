@@ -60,7 +60,7 @@ const MoexAPI = (() => {
     // публичный URL ISS, никогда не данные портфеля или количество бумаг.
     const proxy = getProxyUrl();
     const targets = [];
-    if (proxy) targets.push({ name: 'Cloudflare Worker', url: proxy + url.slice(ISS.length) });
+    if (proxy) targets.push({ name: 'Cloudflare Worker', url: proxy + '/iss' + url.slice(ISS.length) });
     targets.push({ name: 'MOEX ISS', url });
     targets.push({ name: 'cors.dev', url: 'https://proxy.cors.dev/' + url });
     targets.push({ name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) });
