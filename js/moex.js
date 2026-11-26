@@ -10,35 +10,47 @@ const MoexAPI = (() => {
 
   async function fetchJSON(url, timeout = 12000){
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Нет подключения к интернету');
-    const options = {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(timeout),
-      cache: 'no-store'
-    };
-    let res;
-    try {
-      res = await fetch(url, options);
-    } catch (error) {
-      // GitHub Pages is a static host: it cannot proxy requests itself.
-      // If a browser/network blocks the official public ISS endpoint (often
-      // surfaced only as "Failed to fetch"), retry the same public GET via
-      // a CORS relay. No portfolio, account or personal data is sent.
-      const isMoex = url.startsWith(ISS + '/');
-      const networkFailure = error instanceof TypeError
-        || /failed to fetch|networkerror|load failed/i.test(String(error?.message || error));
-      if (!isMoex || !networkFailure) throw error;
-      try {
-        res = await fetch('https://proxy.cors.dev/' + url, {
-          ...options,
-          signal: AbortSignal.timeout(Math.max(timeout, 18000))
-        });
-      } catch (proxyError) {
-        throw new Error('MOEX не отвечает напрямую, резервный канал тоже недоступен: ' +
-          String(proxyError?.message || proxyError).slice(0, 120));
+    const isMoex = url.startsWith(ISS + '/');
+    const request = async (target, ms) => {
+      const res = await fetch(target, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(ms),
+        cache: 'no-store',
+        credentials: 'omit'
+      });
+      if (!res.ok) {
+        const error = new Error('HTTP ' + res.status);
+        error.status = res.status;
+        throw error;
       }
+      return res.json();
+    };
+    try {
+      return await request(url, timeout);
+    } catch (directError) {
+      // GitHub Pages is static and cannot provide its own same-origin proxy.
+      // Retry only public MOEX GETs, and only for browser/network failures or
+      // upstream 5xx. No balances, quantities or account data are transmitted.
+      const networkFailure = directError instanceof TypeError
+        || /failed to fetch|networkerror|load failed/i.test(String(directError?.message || directError));
+      const temporaryFailure = Number(directError?.status) >= 500;
+      if (!isMoex || (!networkFailure && !temporaryFailure)) throw directError;
+      const relays = [
+        { name: 'cors.dev', url: 'https://proxy.cors.dev/' + url },
+        { name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) }
+      ];
+      const failures = [];
+      for (const relay of relays){
+        try {
+          return await request(relay.url, Math.max(timeout, 18000));
+        } catch (error) {
+          failures.push(relay.name + ': ' + String(error?.message || error).slice(0, 90));
+        }
+      }
+      throw new Error('MOEX: прямой запрос не прошёл (' +
+        String(directError?.message || directError).slice(0, 70) +
+        '); резервные каналы недоступны (' + failures.join('; ') + ')');
     }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
   }
 
   function cached(key, ttl, loader){
