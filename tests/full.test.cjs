@@ -1233,3 +1233,36 @@ test('Stats: deposit maturity transfer and reinvestment use one annual forecast'
   assert.ok(Math.abs(stats.inc-totalIncome)<1e-6,
     'summary includes only interest earned before and after the transfer, not transferred principal');
 });
+
+
+test('Simulator: investment valuation includes free cash and every asset class', () => {
+  const { mods } = simMods([{
+    id:'portfolio-total', type:'investment', amount:500, rate:99, operations:[],
+    assets:[
+      {id:'s',kind:'stock',qty:2,lastPrice:100},
+      {id:'f',kind:'fund',qty:3,lastPrice:50},
+      {id:'m',kind:'metal',qty:1.5,lastPrice:200},
+      {id:'b',kind:'bond',qty:2,lastPrice:950,priceUnit:'rub',nominal:1000}
+    ]
+  }]);
+  const p=mods.Storage.get('portfolio-total');
+  assert.equal(mods.Simulator.portfolioValue(p), 500 + 200 + 150 + 300 + 1900);
+  assert.equal(mods.Stats.aggregate().assets, 3050);
+});
+
+test('Simulator: six-month price trend projects shares, funds, metals and bonds on full market value', () => {
+  const { mods } = simMods([{
+    id:'all-assets', type:'investment', amount:500, rate:99, operations:[],
+    assets:[
+      {id:'s',kind:'stock',qty:1,lastPrice:1000,sixMonthPct:10},
+      {id:'f',kind:'fund',qty:1,lastPrice:1000,sixMonthPct:10},
+      {id:'m',kind:'metal',qty:1,lastPrice:1000,sixMonthPct:10},
+      {id:'b',kind:'bond',qty:1,lastPrice:1000,priceUnit:'rub',nominal:1000,sixMonthPct:10,
+        accountingFrom:new Date().toISOString().slice(0,10), coupons:[], amortizations:[], paidEvents:{}}
+    ]
+  }]);
+  const p=mods.Storage.get('all-assets');
+  const six=mods.Simulator.simulateProduct(p,6).history[6];
+  assert.ok(Math.abs(six.value - 4900) < 1e-6, 'cash 500 + four positions × 1100');
+  assert.ok(Math.abs(six.cumIncome - 400) < 1e-6, 'price appreciation from all four asset types');
+});
