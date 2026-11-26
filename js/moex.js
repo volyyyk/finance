@@ -318,14 +318,14 @@ const MoexAPI = (() => {
       const key = market.engine + '/' + market.market;
       if (visited.has(key)) continue;
       visited.add(key);
-      const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/securities/${encodeURIComponent(secid)}/candles.json`;
+      const selectedBoard = market.board || board;
+      if (!selectedBoard) continue;
+      const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(selectedBoard)}/securities/${encodeURIComponent(secid)}/candles.json`;
       const params = [
         'iss.meta=off', 'iss.only=candles', 'candles.columns=begin,close',
         'interval=24', 'from=' + encodeURIComponent(dateFrom),
         'till=' + encodeURIComponent(dateTo)
       ];
-      // У обычных бумаг фиксируем площадку, у фондов оставляем все режимы рынка.
-      if (kind !== 'fund' && board) params.push('boardid=' + encodeURIComponent(board));
       try {
         const json = await fetchJSON(base + '?' + params.join('&'), 12000);
         const candles = requireRows(json, 'candles')
