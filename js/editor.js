@@ -1116,7 +1116,7 @@ const ProductEditor = (() => {
     // Историческое изменение цены за полгода — основа сценарного прогноза
     // для акций, фондов, облигаций и металлов.
     const yieldTxt = a.quoteSource === 'vim'
-      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? 'нет данных' : fmtMoney(a.nav) + ' ₽'} · история ${a.historyMonths || '—'} мес. · автоматическое обновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
+      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? 'нет данных' : fmtMoney(a.nav) + ' ₽'} · изменение за ${a.historyMonths || '—'} мес.: ${a.historyPct == null ? 'нет данных' : Utils.fmtPct(a.historyPct) + '%'} · годовой темп: ${a.historyAnnualPct == null ? 'нет данных' : Utils.fmtPct(a.historyAnnualPct) + '%'} · автообновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
       : a.quoteSource === 'manual'
       ? `<div class="op-meta">Последняя официальная стоимость пая: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · история ${a.historyMonths || 1} мес. · котировка обновляется вручную</div>`
       : a.moexInactive
