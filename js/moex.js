@@ -212,7 +212,7 @@ const MoexAPI = (() => {
       : { engine:'stock', market:kind === 'bond' ? 'bonds' : 'shares', board:preferredBoard || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR') };
     if (kind !== 'fund') return fallback;
     try {
-      const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=boards`, 10000);
+      const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}/boards.json?iss.meta=off`, 5000);
       const available = requireRows(json, 'boards').filter(row =>
         row.engine && row.market && row.boardid && Number(row.is_traded ?? 1) !== 0
       );
