@@ -12,37 +12,31 @@ const MoexAPI = (() => {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Нет подключения к интернету');
     const isMoex = url.startsWith(ISS + '/');
     const request = async (target, ms) => {
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      let timer;
+      const signal = AbortSignal.timeout(ms);
       const timedOut = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          controller?.abort();
+        signal.addEventListener('abort', () => {
           const error = new Error('Тайм-аут запроса (' + Math.round(ms / 1000) + ' с)');
           error.code = 'ETIMEDOUT';
           reject(error);
-        }, ms);
+        }, { once: true });
       });
-      try {
-        return await Promise.race([
-          (async () => {
-            const res = await fetch(target, {
-              headers: { 'Accept': 'application/json' },
-              ...(controller ? { signal: controller.signal } : {}),
-              cache: 'no-store',
-              credentials: 'omit'
-            });
-            if (!res.ok) {
-              const error = new Error('HTTP ' + res.status);
-              error.status = res.status;
-              throw error;
-            }
-            return await res.json();
-          })(),
-          timedOut
-        ]);
-      } finally {
-        clearTimeout(timer);
-      }
+      return Promise.race([
+        (async () => {
+          const res = await fetch(target, {
+            headers: { 'Accept': 'application/json' },
+            signal,
+            cache: 'no-store',
+            credentials: 'omit'
+          });
+          if (!res.ok) {
+            const error = new Error('HTTP ' + res.status);
+            error.status = res.status;
+            throw error;
+          }
+          return await res.json();
+        })(),
+        timedOut
+      ]);
     };
     try {
       return await request(url, timeout);
