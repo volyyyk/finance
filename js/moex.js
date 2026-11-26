@@ -59,6 +59,13 @@ const MoexAPI = (() => {
           error.upstreamStatus = upstream ? Number(upstream) : null;
           throw error;
         }
+        // Native Fetch Response exposes text(); the json() branch also keeps
+        // small test doubles and compatible fetch implementations working.
+        if (typeof res.text !== 'function') {
+          const data = await res.json();
+          if (!data || typeof data !== 'object') throw new Error('MOEX ISS вернул пустой или некорректный JSON');
+          return data;
+        }
         const body = await res.text();
         let data;
         try { data = JSON.parse(body); }
