@@ -475,15 +475,17 @@ ${rows}
             const now = Date.now();
             const updatedAt = Date.parse(a.moexUpdatedAt || '');
             const attemptedAt = Date.parse(a.moexAttemptAt || '');
-            // Публичный ISS обновляется с задержкой: проверяем цену раз в 15 минут.
-            // Если цена свежая, старую ошибку запроса очищаем без лишнего запроса.
-            if (Number.isFinite(updatedAt) && now - updatedAt < 15 * 60 * 1000) {
-              if (a.moexError || a.moexErrorSince){
-                a.moexError = null;
-                a.moexErrorSince = null;
-                a.moexCheckStartedAt = null;
-                changed = true;
-              }
+            // Цена младше 30 дней остаётся пригодной для баланса. Ошибка
+            // более позднего запроса не должна перекрывать сохранённую котировку.
+            const quoteUsable = Number.isFinite(updatedAt) && now - updatedAt < 30 * 86400000;
+            if (quoteUsable && (a.moexError || a.moexErrorSince)){
+              a.moexError = null;
+              a.moexErrorSince = null;
+              changed = true;
+            }
+            // Публичный ISS обновляется с задержкой: не опрашиваем чаще 15 минут.
+            if (Number.isFinite(updatedAt) && now - updatedAt < 15 * 60 * 1000){
+              if (a.moexCheckStartedAt){ a.moexCheckStartedAt = null; changed = true; }
               return;
             }
             if (Number.isFinite(attemptedAt) && now - attemptedAt < (a.moexError ? 5 : 1) * 60 * 1000) return;
