@@ -84,7 +84,6 @@ const Utils = (() => {
     if (asset.kind !== 'fund') return '';
     const isin = String(asset.isin || asset.ISIN || '').trim().toUpperCase();
     if (isin && OFFICIAL_FUND_NAMES[isin]) return OFFICIAL_FUND_NAMES[isin];
-    const ticker = String(asset.secid || '').trim().toUpperCase();
     const byTicker = {
       AKGD: 'БПИФ Альфа Капитал Золото',
       AKMB: 'БПИФ Альфа Управляем облигации',
