@@ -811,7 +811,9 @@ const ProductEditor = (() => {
     if (kind === 'bond' && (purchaseDate > Bonds.today() || (pendingAsset.maturityDate && purchaseDate >= pendingAsset.maturityDate))) {
       alert('Дата покупки должна быть не позже сегодняшней даты и раньше погашения'); return;
     }
-    const customName = ($('assetHumanName')?.value || '').trim();
+    const enteredName = ($('assetHumanName')?.value || '').trim();
+    const sourceName = String(pendingAsset.shortname || pendingAsset.fullname || pendingAsset.secid || '').trim();
+    const customName = enteredName && enteredName !== sourceName ? enteredName : '';
     const asset = {
       ...pendingAsset, ...(customName ? { customName } : {}), id:uid(), qty, avgPrice,
       accountingFrom:Bonds.today(), purchaseDate,
@@ -831,7 +833,8 @@ const ProductEditor = (() => {
   }
 
   function assetDisplayName(asset){
-    return String(asset?.customName || asset?.shortname || asset?.fullname || asset?.secid || 'Актив').trim();
+    const short = asset?.shortname && asset.shortname !== asset.secid ? asset.shortname : '';
+    return String(asset?.customName || short || asset?.fullname || asset?.secid || 'Актив').trim();
   }
 
   // Отдельная запись актива: вся подробная информация (как раньше)
