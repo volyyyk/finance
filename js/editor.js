@@ -612,8 +612,9 @@ const ProductEditor = (() => {
     if (typeof MoexAPI === 'undefined') return;
     for (const a of draftAssets){
       try {
-        await MoexAPI.refreshAsset(a);
-      } catch(e){ /* тихо */ }
+        if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(a)) await VIMAPI.refreshAsset(a);
+        else if (a.quoteSource !== 'manual') await MoexAPI.refreshAsset(a);
+      } catch(e){ /* тихо: сохраняем последнюю подтверждённую цену */ }
     }
     renderAssets();
   }
@@ -803,7 +804,7 @@ const ProductEditor = (() => {
         const a=match.asset;
         return '<div class="op-row" data-saved-pick="' + i + '" style="cursor:pointer">' +
           '<div class="op-body"><div><b>' + escapeHtml(a.customName) + '</b> <span class="badge">' +
-          escapeHtml(a.quoteSource === 'manual' ? ('Правила ПИФ ' + (a.rulesNumber || '')) : (a.secid || '')) + '</span></div><div class="op-meta">' +
+          escapeHtml(['manual','vim'].includes(a.quoteSource) ? ('Правила ПИФ ' + (a.rulesNumber || '')) : (a.secid || '')) + '</span></div><div class="op-meta">' +
           escapeHtml(match.productName) + ' · сохранённое название</div></div></div>';
       }).join('');
   }
@@ -828,7 +829,7 @@ const ProductEditor = (() => {
   // Новые открытые ПИФы Яндекс Пэй / ВИМ: не торгуются на MOEX,
   // поэтому добавляются из локального каталога по номеру правил/названию.
   const LOCAL_YANDEX_FUNDS = [
-    {kind:'fund',quoteSource:'manual',secid:'PIF8000',rulesNumber:'8000',
+    {kind:'fund',quoteSource:'vim',secid:'PIF8000',rulesNumber:'8000',
       shortname:'Яндекс Пэй — Фонд акций и облигаций',
       fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд акций и облигаций»',
       customName:'Яндекс Пэй — Фонд акций и облигаций',
@@ -836,7 +837,7 @@ const ProductEditor = (() => {
       historyMonths:1,historyBase:100.68,historyBaseDate:'2026-08-31',
       sixMonthPct:(101.36/100.68-1)*100,historyPct:(101.36/100.68-1)*100,historyAnnualPct:(Math.pow(101.36/100.68,12)-1)*100,
       navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'},
-    {kind:'fund',quoteSource:'manual',secid:'PIF8002',rulesNumber:'8002',
+    {kind:'fund',quoteSource:'vim',secid:'PIF8002',rulesNumber:'8002',
       shortname:'Яндекс Пэй — Фонд рублёвых облигаций',
       fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд рублёвых облигаций»',
       customName:'Яндекс Пэй — Фонд рублёвых облигаций',
@@ -861,7 +862,7 @@ const ProductEditor = (() => {
   function localFundMatchesHtml(matches){
     return matches.map((a,i)=>`<div class="op-row" data-local-fund="${i}" style="cursor:pointer"><div class="op-body">
       <div><b>${escapeHtml(a.shortname)}</b> <span class="badge">Правила ПИФ ${a.rulesNumber}</span></div>
-      <div class="op-meta">Последняя найденная стоимость: ${fmtMoney(a.lastPrice)} за пай · на ${a.navDate}. Тикера MOEX нет.</div>
+      <div class="op-meta">Официальная цена и история ВИМ загрузятся при выборе фонда. Тикера MOEX нет.</div>
     </div></div>`).join('');
   }
 
@@ -981,7 +982,9 @@ const ProductEditor = (() => {
         board: kind === 'metal' ? 'CETS' : (picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR')), kind };
       // Проверяем допуск к обычным биржевым торгам до загрузки цены.
       // Ошибка сети тоже блокирует добавление: статус бумаги неизвестен.
-      if (asset.quoteSource !== 'manual'){
+      if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(asset)) {
+        await VIMAPI.refreshAsset(asset);
+      } else if (asset.quoteSource !== 'manual'){
         await MoexAPI.assertTradable(asset.secid, kind);
         await MoexAPI.refreshAsset(asset);
       }
@@ -989,8 +992,12 @@ const ProductEditor = (() => {
       if (asset.moexInactive) throw new Error(asset.moexStatusText || 'Инструмент больше не торгуется');
       pendingAsset = asset;
       if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
-      $('bondPreview').textContent = asset.quoteSource === 'manual'
-        ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} ₽ на ${asset.navDate}. История: ${asset.historyMonths} мес.; годовой темп рассчитан по этому периоду. Котировка обновляется вручную.`
+      $('bondPreview').textContent = asset.quoteSource === 'vim'
+        ? 'Официальная стоимость пая ВИМ: ' + fmtMoney(asset.lastPrice) + ' ₽ на ' + asset.navDate +
+          '. СЧА: ' + (asset.nav == null ? 'нет данных' : fmtMoney(asset.nav) + ' ₽') +
+          '. История: ' + (asset.historyMonths || '—') + ' мес.; автоматическое обновление.'
+        : asset.quoteSource === 'manual'
+        ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} ₽ на ${asset.navDate}. История: ${asset.historyMonths} мес.; котировка обновляется вручную.`
         : kind === 'bond'
           ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}`
           : kind === 'fund' && asset.moexInactive
@@ -1020,7 +1027,7 @@ const ProductEditor = (() => {
         : 'Укажите целое положительное количество и цену покупки в рублях'); return;
     }
     try {
-      if (pendingAsset.quoteSource !== 'manual'){
+      if (pendingAsset.quoteSource !== 'manual' && !(typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(pendingAsset))){
         await MoexAPI.assertTradable(pendingAsset.secid, kind);
         if (pendingAsset.moexInactive) throw new Error('Инструмент закрыт или снят с торгов');
       }
@@ -1069,6 +1076,33 @@ const ProductEditor = (() => {
     return String(asset?.customName || official || sourceName || asset?.secid || 'Актив').trim();
   }
 
+  function vimHistoryHtml(asset){
+    const points = (asset.vimHistory || []).filter(p => Number(p.price) > 0).slice(-180);
+    if (!points.length) return '';
+    const prices = points.map(p => Number(p.price));
+    const min = Math.min(...prices), max = Math.max(...prices);
+    const span = max - min || 1;
+    const coords = prices.map((price, i) => {
+      const x = points.length < 2 ? 150 : 4 + i * 292 / (points.length - 1);
+      const y = 78 - (price - min) / span * 68;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    const first = points[0], last = points[points.length - 1];
+    const totalPct = (last.price / first.price - 1) * 100;
+    const recent = points.slice(-8).reverse().map(p =>
+      '<div class="op-meta" style="display:flex;justify-content:space-between;gap:12px"><span>' +
+      escapeHtml(p.date.split('-').reverse().join('.')) + '</span><b>' + fmtMoney(p.price) + ' ₽</b></div>'
+    ).join('');
+    return '<details class="vim-history-details"><summary>График и история стоимости пая</summary>' +
+      '<div style="padding:8px 0"><svg viewBox="0 0 300 88" role="img" aria-label="График стоимости инвестиционного пая" style="display:block;width:100%;max-width:420px;height:auto;overflow:visible">' +
+      '<line x1="4" y1="78" x2="296" y2="78" stroke="currentColor" opacity=".18"/>' +
+      '<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="' + coords + '"/>' +
+      '</svg><div class="op-meta">За весь доступный период: <b class="' + (totalPct >= 0 ? 'green' : 'red') + '">' +
+      Utils.fmtPct(totalPct) + '</b> · ' + escapeHtml(first.date.split('-').reverse().join('.')) + ' — ' +
+      escapeHtml(last.date.split('-').reverse().join('.')) + '</div>' +
+      '<div style="margin-top:8px">' + recent + '</div></div></details>';
+  }
+
   // Отдельная запись актива: вся подробная информация (как раньше)
   function assetDetailsHtml(a){
     const price = Bonds.price(a);
@@ -1081,7 +1115,9 @@ const ProductEditor = (() => {
       : `${a.qty} шт × ${fmtMoney(price)}`;
     // Историческое изменение цены за полгода — основа сценарного прогноза
     // для акций, фондов, облигаций и металлов.
-    const yieldTxt = a.quoteSource === 'manual'
+    const yieldTxt = a.quoteSource === 'vim'
+      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? 'нет данных' : fmtMoney(a.nav) + ' ₽'} · история ${a.historyMonths || '—'} мес. · автоматическое обновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
+      : a.quoteSource === 'manual'
       ? `<div class="op-meta">Последняя официальная стоимость пая: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · история ${a.historyMonths || 1} мес. · котировка обновляется вручную</div>`
       : a.moexInactive
       ? `<div class="op-meta">Фонд закрыт и не торгуется; динамика за последние 6 мес. отсутствует, рост в прогнозе не предполагается</div>`
@@ -1091,7 +1127,9 @@ const ProductEditor = (() => {
     const quoteTime = Date.parse(a.moexUpdatedAt || '');
     const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;
     const visibleQuoteError = quoteUsable || a.moexInactive ? '' : (a.moexError || a.moexQuoteStatus || '');
-    const quoteTxt = a.moexInactive
+    const quoteTxt = a.quoteSource === 'vim'
+      ? `<div class="op-meta">Источник: <a href="https://www.wealthim.ru/products/pif/opif/${a.rulesNumber === '8000' ? 'wimyao' : 'wimyo'}/" target="_blank" rel="noopener">ВИМ Инвестиции</a> · получено ${a.vimFetchedAt ? new Date(a.vimFetchedAt).toLocaleString('ru-RU') : 'ещё не обновлялось'}</div>`
+      : a.moexInactive
       ? `<div class="op-meta">${escapeHtml(a.moexStatusText || 'Биржевые торги прекращены; актуальной котировки MOEX нет')}</div>`
       : `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${visibleQuoteError ? ' · ' + escapeHtml(visibleQuoteError) : ''}</div>`;
     const couponTxt = a.kind === 'bond' ? `
@@ -1111,7 +1149,7 @@ const ProductEditor = (() => {
           <span class="badge">${escapeHtml(a.secid)}</span>${a.legacySecid ? `<span class="badge">бывш. ${escapeHtml(a.legacySecid)}</span>` : ''}</div>
         <div class="op-meta">${qtyTxt}
           = ${fmtMoney(total)}
-          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${couponTxt}
+          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${a.quoteSource === 'vim' ? vimHistoryHtml(a) : ''}${couponTxt}
       </div>
       <div class="asset-detail-actions">
         <button type="button" class="btn small" data-asset-rename="${a.id}" title="Изменить отображаемое название">Переименовать</button>
@@ -1154,7 +1192,7 @@ const ProductEditor = (() => {
     }
     return `<details class="asset-item">
       <summary>
-        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.quoteSource === 'manual' ? ('Правила ПИФ ' + first.rulesNumber) : (first.secid || ''))}</span></span>
+        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(['manual','vim'].includes(first.quoteSource) ? ('Правила ПИФ ' + first.rulesNumber) : (first.secid || ''))}</span></span>
         <span class="ai-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
         ${extra}
       </summary>

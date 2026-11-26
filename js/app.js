@@ -161,7 +161,15 @@ const App = (() => {
     for (const p of Storage.all()){
       if (p.type !== 'investment' || !Array.isArray(p.assets)) continue;
       for (const a of p.assets){
-        if (a.redeemed || a.quoteSource === 'manual') continue;
+        if (a.redeemed) continue;
+        if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(a)) {
+          if (a.yieldMonth !== month) {
+            try { const before = JSON.stringify(a); await VIMAPI.refreshAsset(a); if (before !== JSON.stringify(a)) changed = true; }
+            catch { /* ВИМ недоступен — сохраняем последнюю подтверждённую цену */ }
+          }
+          continue;
+        }
+        if (a.quoteSource === 'manual') continue;
         if (['stock','fund','bond','metal'].includes(a.kind) && (a.yieldMonth !== month || (a.kind === 'fund' && ['VTBL','RSHL'].includes(a.secid) && !a.moexInactive))){
           try {
             const before = JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
@@ -480,6 +488,18 @@ ${rows}
           await Promise.all(assets.slice(i, i + 4).map(async a => {
             if (a.redeemed) return;
             const now = Date.now();
+            if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(a)) {
+              const updated = Date.parse(a.vimFetchedAt || '');
+              const attempted = Date.parse(a.vimAttemptAt || '');
+              if (Number.isFinite(updated) && now - updated < 12 * 60 * 60 * 1000) return;
+              if (Number.isFinite(attempted) && now - attempted < 30 * 60 * 1000) return;
+              const before = JSON.stringify(a);
+              try { await VIMAPI.refreshAsset(a); a.vimError = null; }
+              catch (error) { a.vimError = String(error?.message || 'Ошибка запроса ВИМ').slice(0,180); }
+              a.vimAttemptAt = new Date().toISOString();
+              if (before !== JSON.stringify(a)) changed = true;
+              return;
+            }
             const updatedAt = Date.parse(a.moexUpdatedAt || '');
             const attemptedAt = Date.parse(a.moexAttemptAt || '');
             // Цена младше 30 дней остаётся пригодной для баланса. Ошибка
