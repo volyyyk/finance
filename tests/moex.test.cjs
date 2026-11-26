@@ -406,3 +406,68 @@ test('all MOEX upstream URLs use HTTP, with HTTPS only for relay hosts', async (
     assert.ok(requested.every(url=>!url.startsWith('https://iss.moex.com')));
   } finally { global.fetch=originalFetch; }
 });
+
+
+test('tradable security validation accepts an active normal TQ board', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok:true, json:async()=>({
+    boards:{columns:['engine','market','boardid','is_primary','is_traded'],
+      data:[['stock','shares','TQBR',1,1],['stock','shares','LIQR',0,1]]}
+  })});
+  try {
+    assert.deepEqual(await MoexAPI.assertTradable('TEST_ACTIVE_TQ','stock'),
+      {engine:'stock',market:'shares',board:'TQBR'});
+  } finally { global.fetch=originalFetch; }
+});
+
+test('closed security is rejected even if a repo board remains technically active', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok:true, json:async()=>({
+    boards:{columns:['engine','market','boardid','is_primary','is_traded'],
+      data:[['stock','shares','LIQR',1,1],['stock','shares','TQBR',0,0]]}
+  })});
+  try {
+    await assert.rejects(MoexAPI.assertTradable('TEST_CLOSED_TQ','fund'),
+      /Закрытые или снятые с торгов инструменты добавить нельзя/);
+  } finally { global.fetch=originalFetch; }
+});
+
+test('LQDT ISIN overrides a stale legacy ticker and never marks the fund inactive', async () => {
+  const originalFetch = global.fetch;
+  const requested=[];
+  global.fetch = async url => {
+    requested.push(String(url));
+    if (String(url).includes('/securities/LQDT/boards.json')) return {ok:true,json:async()=>({
+      boards:{columns:['engine','market','boardid','is_primary','is_traded'],
+        data:[['stock','shares','TQBR',1,1]]}
+    })};
+    return {ok:true,json:async()=>({
+      marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',2.13]]},
+      securities:{columns:['FACEVALUE'],data:[[1]]}
+    })};
+  };
+  try {
+    const asset={kind:'fund',secid:'VTBL',isin:'ru000a1014l8',lastPrice:2,avgPrice:2};
+    await MoexAPI.refreshAsset(asset);
+    assert.equal(asset.secid,'LQDT');
+    assert.equal(asset.isin,'RU000A1014L8');
+    assert.equal(asset.moexInactive,false);
+    assert.equal(asset.lastPrice,2.13);
+    assert.ok(requested.some(url=>url.includes('/securities/LQDT/boards.json')));
+    assert.ok(requested.some(url=>url.includes('/markets/shares/securities/LQDT.json')));
+  } finally { global.fetch=originalFetch; }
+});
+
+test('security search preserves and normalizes ISIN for safe identity matching', async () => {
+  const originalFetch=global.fetch;
+  global.fetch=async()=>({ok:true,json:async()=>({
+    securities:{columns:['SECID','SHORTNAME','TYPE','PRIMARY_BOARDID','ISIN'],
+      data:[['LQDT','Ликвидность','exchange_ppif','TQBR','RU000A1014L8']]}
+  })});
+  try {
+    const rows=await MoexAPI.searchSecurity('RU000A1014L8');
+    assert.equal(rows[0].secid,'LQDT');
+    assert.equal(rows[0].shortname,'Ликвидность');
+    assert.equal(rows[0].isin,'RU000A1014L8');
+  } finally { global.fetch=originalFetch; }
+});
