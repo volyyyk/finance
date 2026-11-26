@@ -162,7 +162,14 @@ const MoexAPI = (() => {
   async function searchSecurity(q){
     const url = `${ISS}/securities.json?q=${encodeURIComponent(q)}&iss.meta=off&limit=15`;
     const json = await fetchJSON(url);
-    return requireRows(json, 'securities');
+    return requireRows(json, 'securities').map(row => ({
+      ...row,
+      secid: row.secid ?? row.SECID,
+      shortname: row.shortname ?? row.SHORTNAME ?? row.name ?? row.NAME ?? row.secid ?? row.SECID,
+      type: row.type ?? row.TYPE ?? '',
+      primary_boardid: row.primary_boardid ?? row.PRIMARY_BOARDID ?? row.primary_board ?? '',
+      isin: String(row.isin ?? row.ISIN ?? row.isin_code ?? row.ISINCODE ?? '').trim().toUpperCase()
+    }));
   }
 
   function parseBlock(block){
@@ -210,6 +217,41 @@ const MoexAPI = (() => {
       || usable[0];
   }
 
+  async function tradableMarkets(secid, kind){
+    if (!['stock','fund','bond'].includes(kind)) return [];
+    const expectedMarket = kind === 'bond' ? 'bonds' : 'shares';
+    const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}/boards.json?iss.meta=off`, 8000);
+    const available = requireRows(json, 'boards').filter(row => {
+      const engine = String(row.engine ?? row.ENGINE ?? '').toLowerCase();
+      const market = String(row.market ?? row.MARKET ?? '').toLowerCase();
+      const board = String(row.boardid ?? row.BOARDID ?? '').toUpperCase();
+      const traded = row.is_traded ?? row.IS_TRADED;
+      // Только обычные биржевые режимы TQ*. Активные режимы РЕПО
+      // не означают, что бумагу можно купить/продать на основном рынке.
+      return engine === 'stock' && market === expectedMarket && /^TQ[A-Z0-9]+$/.test(board)
+        && (traded === true || Number(traded) === 1);
+    });
+    available.sort((a,b) => Number(b.is_primary === 1 || b.is_primary === true)
+      - Number(a.is_primary === 1 || a.is_primary === true));
+    const unique = [];
+    for (const row of available){
+      const engine = String(row.engine ?? row.ENGINE).toLowerCase();
+      const market = String(row.market ?? row.MARKET).toLowerCase();
+      const board = String(row.boardid ?? row.BOARDID).toUpperCase();
+      if (!unique.some(x => x.engine === engine && x.market === market && x.board === board))
+        unique.push({ engine, market, board });
+    }
+    return unique;
+  }
+
+  async function assertTradable(secid, kind){
+    if (!['stock','fund','bond'].includes(kind)) return true;
+    const markets = await tradableMarkets(secid, kind);
+    if (!markets.length)
+      throw new Error('MOEX не допускает эту бумагу к обычным биржевым торгам. Закрытые или снятые с торгов инструменты добавить нельзя.');
+    return markets[0];
+  }
+
   async function resolveMarkets(secid, preferredBoard, kind){
     const fallback = kind === 'metal'
       ? [{ engine:'currency', market:'selt', board:preferredBoard || 'CETS' }]
@@ -217,27 +259,13 @@ const MoexAPI = (() => {
           board:preferredBoard || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR') }];
     if (kind !== 'fund') return fallback;
     try {
-      const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}/boards.json?iss.meta=off`, 5000);
-      const available = requireRows(json, 'boards').filter(row =>
-        row.engine && row.market && row.boardid && Number(row.is_traded ?? 1) !== 0
-      );
-      available.sort((a,b) => Number(b.is_primary === 1 || b.is_primary === true)
-        - Number(a.is_primary === 1 || a.is_primary === true));
-      const ordered = [
-        ...available.filter(row => row.is_primary === 1 || row.is_primary === true),
-        ...available.filter(row => row.boardid === preferredBoard && !(row.is_primary === 1 || row.is_primary === true)),
-        ...available.filter(row => row.boardid !== preferredBoard && !(row.is_primary === 1 || row.is_primary === true))
-      ];
-      const unique = [];
-      for (const row of ordered){
-        if (!unique.some(x => x.engine === row.engine && x.market === row.market && x.board === row.boardid))
-          unique.push({ engine:row.engine, market:row.market, board:row.boardid });
-      }
-      if (unique.length) return unique;
+      const available = await tradableMarkets(secid, kind);
+      // Успешный ответ без действующих TQ-режимов означает, что торги прекращены.
+      return available;
     } catch (error) {
       console.warn('MOEX board discovery failed for ' + secid, error);
+      return fallback;
     }
-    return fallback;
   }
   async function resolveMarket(secid, preferredBoard, kind){
     return (await resolveMarkets(secid, preferredBoard, kind))[0];
@@ -438,9 +466,18 @@ const MoexAPI = (() => {
   }
 
   async function refreshAsset(asset){
-    // VTBL был переименован в RSHL, а с 26.12.2023 фонд преобразован
-    // в закрытый ЗПИФ-А: биржевые торги прекращены. Сохраняем связь кодов,
-    // но не выдаём цену покупки за свежую котировку и не опрашиваем мёртвый тикер.
+    // ISIN — устойчивый идентификатор выпуска: у ВИМ «Ликвидность»
+    // RU000A1014L8 исторические коды VTBM/LQDT, но это не закрытый VTBL/RSHL.
+    const isin = String(asset.isin || asset.ISIN || '').trim().toUpperCase();
+    if (asset.kind === 'fund' && isin === 'RU000A1014L8'){
+      if (asset.secid !== 'LQDT') asset.legacySecid = asset.secid || null;
+      asset.isin = isin;
+      asset.secid = 'LQDT';
+      asset.moexInactive = false;
+      delete asset.moexStatusText;
+    }
+    // VTBL/RSHL — другой, действительно закрытый фонд. Без совпадающего ISIN
+    // он не должен быть перепутан с ВИМ «Ликвидность».
     if (asset.kind === 'fund' && (asset.secid === 'VTBL' || asset.secid === 'RSHL')){
       if (asset.secid === 'VTBL') asset.legacySecid = 'VTBL';
       asset.secid = 'RSHL';
@@ -501,6 +538,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, historyClose, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, historyClose, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets, tradableMarkets, assertTradable };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
