@@ -34,10 +34,10 @@ const App = (() => {
         const age = stamp ? (Date.now() - Date.parse(stamp)) / 86400000 : Infinity;
         const checkSince = Date.parse(a.moexErrorSince || a.moexCheckStartedAt || a.moexAttemptAt || '');
         const checkMatured = Number.isFinite(checkSince) && Date.now() - checkSince >= 30000;
-        const errorMatured = !!a.moexError && checkMatured;
         const quoteStale = (!Number.isFinite(age) || age > 30) && checkMatured;
-        if (errorMatured || (!a.moexError && quoteStale)){
-          quoteProblems.push({name:a.shortname || a.secid, error:errorMatured ? a.moexError : ''});
+        // Ошибка старого запроса не должна перечёркивать свежую сохранённую цену.
+        if (quoteStale){
+          quoteProblems.push({name:a.shortname || a.secid, error:a.moexError || ''});
         }
       });
     });
@@ -476,17 +476,33 @@ ${rows}
             const updatedAt = Date.parse(a.moexUpdatedAt || '');
             const attemptedAt = Date.parse(a.moexAttemptAt || '');
             // Публичный ISS обновляется с задержкой: проверяем цену раз в 15 минут.
-            // После ошибки повторяем запрос через 5 минут.
-            if (Number.isFinite(updatedAt) && now - updatedAt < 15 * 60 * 1000) return;
+            // Если цена свежая, старую ошибку запроса очищаем без лишнего запроса.
+            if (Number.isFinite(updatedAt) && now - updatedAt < 15 * 60 * 1000) {
+              if (a.moexError || a.moexErrorSince){
+                a.moexError = null;
+                a.moexErrorSince = null;
+                a.moexCheckStartedAt = null;
+                changed = true;
+              }
+              return;
+            }
             if (Number.isFinite(attemptedAt) && now - attemptedAt < (a.moexError ? 5 : 1) * 60 * 1000) return;
             const before = JSON.stringify(a);
             const attemptStartedAt = Date.now();
             a.moexCheckStartedAt = new Date(attemptStartedAt).toISOString();
             try {
+              const previousQuoteAt = a.moexUpdatedAt || null;
               await MoexAPI.refreshAsset(a);
-              // A valid ISS response without a new trade is not a request failure.
-              a.moexError = null;
-              a.moexErrorSince = null;
+              const quoteAt = Date.parse(a.moexUpdatedAt || '');
+              const quoteIsFresh = Number.isFinite(quoteAt) && Date.now() - quoteAt < 30 * 86400000;
+              if (quoteIsFresh){
+                a.moexError = null;
+                a.moexErrorSince = null;
+              } else if (!a.moexError && !previousQuoteAt){
+                // ISS может успешно ответить без LAST (например, нет сделок).
+                // Это не HTTP-ошибка, но и цену покупки не выдаём за котировку.
+                a.moexQuoteStatus = 'MOEX ответил, но актуальная цена пока недоступна';
+              }
             } catch (error) {
               a.moexError = String(error?.message || 'Ошибка запроса MOEX').slice(0, 180);
               if (!a.moexErrorSince) a.moexErrorSince = new Date(attemptStartedAt).toISOString();
