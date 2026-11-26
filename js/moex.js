@@ -91,7 +91,7 @@ const MoexAPI = (() => {
     const path = queryAt >= 0 ? withoutHash.slice(0, queryAt) : withoutHash;
     const query = queryAt >= 0 ? withoutHash.slice(queryAt + 1) : '';
     const params = query.split('&').filter(part =>
-      part && !/^iss\\.(json|version)=/i.test(part));
+      part && !part.startsWith('iss.json=') && !part.startsWith('iss.version='));
     params.push('iss.json=compact', 'iss.version=on');
     return path + '?' + params.join('&') + hash;
   }
