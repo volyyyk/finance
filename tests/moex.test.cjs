@@ -211,3 +211,83 @@ test('proxy URL validation accepts HTTPS origins only', () => {
   assert.equal(MoexAPI.normalizeProxyUrl('https://finapp.workers.dev/iss'), '');
   assert.equal(MoexAPI.normalizeProxyUrl('not a url'), '');
 });
+
+
+test('ISS parser accepts compact and extended block objects and positional blocks', () => {
+  const compact = { columns: ['SECID', 'LAST'], data: [['VTBR', 56.2]] };
+  const extended = { metadata: [{ name: 'SECID', type: 'string' }], columns: ['SECID', 'LAST'], data: [['SBER', 300]] };
+  const positional = [['SECID', 'LAST'], [['GAZP', 120]]];
+  assert.deepEqual(MoexAPI.parseBlock(compact), { columns: ['SECID', 'LAST'], data: [['VTBR', 56.2]] });
+  assert.deepEqual(MoexAPI.parseBlock(extended), { columns: ['SECID', 'LAST'], data: [['SBER', 300]] });
+  assert.deepEqual(MoexAPI.parseBlock(positional), { columns: ['SECID', 'LAST'], data: [['GAZP', 120]] });
+  assert.equal(MoexAPI.parseBlock({ columns: ['SECID'], rows: [] }), null);
+});
+
+test('MOEX requests explicitly ask for compact JSON and response version headers', async () => {
+  const originalFetch = global.fetch;
+  let requestedUrl = '';
+  global.fetch = async url => {
+    requestedUrl = String(url);
+    return {
+      ok: true,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({
+        marketdata: { columns: ['BOARDID', 'LAST'], data: [['TQBR', 42]] },
+        securities: { columns: ['FACEVALUE'], data: [[1]] }
+      })
+    };
+  };
+  try {
+    const result = await MoexAPI.lastPrice('TEST_COMPACT_URL_1', 'TQBR', 'stock');
+    const parsed = new URL(requestedUrl);
+    assert.equal(parsed.searchParams.get('iss.json'), 'compact');
+    assert.equal(parsed.searchParams.get('iss.version'), 'on');
+    assert.equal(result.last, 42);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('HTTP error diagnostics include Worker upstream status and response body', async () => {
+  const originalFetch = global.fetch;
+  const originalStorage = global.localStorage;
+  global.localStorage = { getItem: key => key === 'moex_proxy_url' ? 'https://finapp-test.workers.dev' : null };
+  global.fetch = async () => ({
+    ok: false,
+    status: 502,
+    headers: { get: name => name.toLowerCase() === 'x-moex-upstream-status' ? '503' : null },
+    text: async () => JSON.stringify({ error: 'MOEX ISS returned HTTP 503', detail: 'upstream temporarily unavailable' })
+  });
+  try {
+    await assert.rejects(
+      MoexAPI.lastPrice('TEST_WORKER_502_DETAIL_1', 'TQBR', 'stock'),
+      error => {
+        assert.match(error.message, /Cloudflare Worker: HTTP 502/);
+        assert.match(error.message, /MOEX upstream 503/);
+        assert.match(error.message, /upstream temporarily unavailable/);
+        return true;
+      }
+    );
+  } finally {
+    global.fetch = originalFetch;
+    if (originalStorage === undefined) delete global.localStorage;
+    else global.localStorage = originalStorage;
+  }
+});
+
+test('successful HTTP response with HTML instead of JSON is diagnosed as a format error', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    headers: { get: () => 'text/html' },
+    text: async () => '<html>proxy error page</html>'
+  });
+  try {
+    await assert.rejects(
+      MoexAPI.lastPrice('TEST_HTML_INSTEAD_JSON_1', 'TQBR', 'stock'),
+      /Ответ не является JSON.*text\/html.*proxy error page/
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
