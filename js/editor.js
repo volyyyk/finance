@@ -200,6 +200,11 @@ const ProductEditor = (() => {
                 <input type="number" id="assetAvgPrice" step="0.01" min="0" placeholder="Цена покупки ₽">
                 <button type="button" class="btn small" id="addAssetBtn" disabled>+ Добавить</button>
               </div>
+              <div class="field asset-human-name-field">
+                <label for="assetHumanName">Название актива</label>
+                <input type="text" id="assetHumanName" maxlength="100" placeholder="Например: ВТБ — Ликвидность">
+                <div class="op-meta">Можно оставить биржевое название или указать своё. Тикер и ISIN сохраняются отдельно.</div>
+              </div>
               <div id="bondExtra" style="display:none;margin-top:8px">
                 <label for="assetPurchaseDate">Дата покупки (купоны до неё не начисляются)</label>
                 <input type="date" id="assetPurchaseDate">
@@ -664,6 +669,18 @@ const ProductEditor = (() => {
     box.innerHTML = '<div class="op-meta">Идёт поиск…</div>';
     try {
       const rows = await MoexAPI.searchSecurity(q);
+      const normalize = value => String(value || '').toLocaleLowerCase('ru').replace(/[ё]/g,'е').replace(/[^a-zа-я0-9]/gi,'');
+      const needle = normalize(q);
+      const score = row => {
+        const ticker = normalize(row.secid), short = normalize(row.shortname), full = normalize(row.fullname), isin = normalize(row.isin);
+        if (ticker === needle || isin === needle) return 100;
+        if (short === needle || full === needle) return 90;
+        if (ticker.startsWith(needle)) return 80;
+        if (short.startsWith(needle) || full.startsWith(needle)) return 70;
+        if (ticker.includes(needle) || short.includes(needle) || full.includes(needle) || isin.includes(needle)) return 50;
+        return 0;
+      };
+      rows.sort((a,b) => score(b)-score(a));
       searchResults = rows;
       if (!rows.length){
         box.innerHTML = '<div class="op-meta">Ничего не найдено</div>';
@@ -688,8 +705,9 @@ const ProductEditor = (() => {
           html += filtered.map((r, i) =>
             `<div class="op-row" data-pick="${i}" style="cursor:pointer">
                <div class="op-body">
-                 <div><b>${escapeHtml(r.shortname)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
-                 <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}</div>
+                 <div><b>${escapeHtml(r.shortname || r.fullname || r.secid)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
+                 ${r.fullname && r.fullname !== r.shortname ? `<div class="op-meta">${escapeHtml(r.fullname)}</div>` : ''}
+                 <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}${r.isin ? ' · ' + escapeHtml(r.isin) : ''}</div>
                </div>
              </div>`).join('');
         } else if (!quickMetals.length){
@@ -713,8 +731,9 @@ const ProductEditor = (() => {
       box.innerHTML = filtered.map((r, i) =>
         `<div class="op-row" data-pick="${i}" style="cursor:pointer">
            <div class="op-body">
-             <div><b>${escapeHtml(r.shortname)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
-             <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}</div>
+             <div><b>${escapeHtml(r.shortname || r.fullname || r.secid)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
+             ${r.fullname && r.fullname !== r.shortname ? `<div class="op-meta">${escapeHtml(r.fullname)}</div>` : ''}
+             <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}${r.isin ? ' · ' + escapeHtml(r.isin) : ''}</div>
            </div>
          </div>`).join('');
       box.querySelectorAll('[data-pick]').forEach(el=>{
@@ -732,8 +751,11 @@ const ProductEditor = (() => {
     pendingAsset = null;
     $('addAssetBtn').disabled = true;
     const box = $('searchResults');
+    const pickedName = picked.customName || picked.shortname || picked.fullname || picked.secid;
+    if ($('assetHumanName')) $('assetHumanName').value = pickedName;
     box.innerHTML = `<div class="op-row"><div class="op-body">
-      <b>Выбрано:</b> ${escapeHtml(picked.shortname || picked.secid)} (${escapeHtml(picked.secid)})
+      <b>Выбрано:</b> ${escapeHtml(pickedName)} (${escapeHtml(picked.secid)})
+      ${picked.fullname && picked.fullname !== pickedName ? `<div class="op-meta">${escapeHtml(picked.fullname)}</div>` : ''}
     </div></div>`;
     if ($('bondExtra')) $('bondExtra').style.display = kind === 'bond' ? '' : 'none';
     $('assetPurchaseDate').value = Bonds.today();
@@ -789,8 +811,9 @@ const ProductEditor = (() => {
     if (kind === 'bond' && (purchaseDate > Bonds.today() || (pendingAsset.maturityDate && purchaseDate >= pendingAsset.maturityDate))) {
       alert('Дата покупки должна быть не позже сегодняшней даты и раньше погашения'); return;
     }
+    const customName = ($('assetHumanName')?.value || '').trim();
     const asset = {
-      ...pendingAsset, id:uid(), qty, avgPrice,
+      ...pendingAsset, ...(customName ? { customName } : {}), id:uid(), qty, avgPrice,
       accountingFrom:Bonds.today(), purchaseDate,
       paidEvents:{}, redeemed:false,
     };
@@ -802,8 +825,13 @@ const ProductEditor = (() => {
     $('searchResults').innerHTML = '';
     $('assetQuery').value = '';
     $('assetAvgPrice').value = '';
+    if ($('assetHumanName')) $('assetHumanName').value = '';
     renderAssets();
     renderEffectPreview();
+  }
+
+  function assetDisplayName(asset){
+    return String(asset?.customName || asset?.shortname || asset?.fullname || asset?.secid || 'Актив').trim();
   }
 
   // Отдельная запись актива: вся подробная информация (как раньше)
@@ -841,14 +869,17 @@ const ProductEditor = (() => {
         `<div>${fmtDate(c.date)} · ${c.type === 'coupon' ? 'Купон' : 'Основной долг'} · ${c.value == null ? 'сумма не объявлена' : fmtMoney(c.value * (a.qty || 0))}${a.paidEvents?.[c.key] ? ' · зачислено' : ''}</div>`).join('') || 'График пока недоступен'}</div></details>` : '';
     return `<div class="op-row">
       <div class="op-body">
-        <div><b>${escapeHtml(a.shortname || a.secid)}</b>
+        <div class="asset-detail-title"><b class="asset-name-track">${escapeHtml(assetDisplayName(a))}</b>
           <span class="badge">${kindLabel}</span>
           <span class="badge">${escapeHtml(a.secid)}</span>${a.legacySecid ? `<span class="badge">бывш. ${escapeHtml(a.legacySecid)}</span>` : ''}</div>
         <div class="op-meta">${qtyTxt}
           = ${fmtMoney(total)}
           ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${couponTxt}
       </div>
-      <button type="button" class="op-del" data-asset-del="${a.id}" title="Убрать этот актив из портфеля">Убрать</button>
+      <div class="asset-detail-actions">
+        <button type="button" class="btn small" data-asset-rename="${a.id}" title="Изменить отображаемое название">Переименовать</button>
+        <button type="button" class="op-del" data-asset-del="${a.id}" title="Убрать этот актив из портфеля">Убрать</button>
+      </div>
     </div>`;
   }
 
@@ -857,7 +888,7 @@ const ProductEditor = (() => {
   // если в этот же день облигация погашается). Для фондов — доходность.
   function assetNameGroupHtml(kind, grp){
     const first = grp[0];
-    const name = first.shortname || first.secid;
+    const name = assetDisplayName(first);
     const qtyTotal = grp.reduce((s,a) => s + (a.qty || 0), 0);
     const costTotal = grp.reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0);
     const qtyTxt = kind === 'metal' ? `${qtyTotal} г` : `${qtyTotal} шт`;
@@ -886,7 +917,7 @@ const ProductEditor = (() => {
     }
     return `<details class="asset-item">
       <summary>
-        <span class="ai-name"><b>${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.secid || '')}</span></span>
+        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.secid || '')}</span></span>
         <span class="ai-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
         ${extra}
       </summary>
@@ -932,6 +963,18 @@ const ProductEditor = (() => {
         draftAssets = draftAssets.filter(a => a.id !== b.dataset.assetDel);
         renderAssets();
         renderEffectPreview();
+      };
+    });
+    el.querySelectorAll('[data-asset-rename]').forEach(b=>{
+      b.onclick = () => {
+        const asset = draftAssets.find(a => a.id === b.dataset.assetRename);
+        if (!asset) return;
+        const next = prompt('Название актива для отображения:', assetDisplayName(asset));
+        if (next === null) return;
+        const value = next.trim().slice(0,100);
+        if (value) asset.customName = value;
+        else delete asset.customName;
+        renderAssets();
       };
     });
   }
