@@ -13,6 +13,8 @@ const ProductEditor = (() => {
   let pendingAsset = null;
   let searchResults = [];
   let previousFocus;
+  let wizardMode = false;
+  let wizardStep = 1;
 
   // Подходит ли бумага выбранному виду актива.
   // Российские биржевые фонды приходят с MOEX с type «exchange_ppif»
@@ -262,10 +264,116 @@ const ProductEditor = (() => {
     take('#investmentBlock', activity.body);
     const operationsSection = form.querySelector(':scope > .ops-section');
     if (operationsSection) activity.body.appendChild(operationsSection);
+    const wizard = document.createElement('div');
+    wizard.id = 'productWizard';
+    wizard.className = 'product-wizard';
+    wizard.innerHTML = `
+      <div class="wizard-progress"><span data-wiz-progress="1"></span><span data-wiz-progress="2"></span><span data-wiz-progress="3"></span><span data-wiz-progress="4"></span></div>
+      <div class="wizard-step-label" id="wizardStepLabel">Шаг 1 из 4 · Выберите категорию</div>
+      <div class="wizard-type-grid" id="wizardTypeGrid"></div>
+      <div class="wizard-actions" id="wizardActions">
+        <button type="button" class="btn" id="wizardBack" hidden>Назад</button>
+        <span></span><button type="button" class="btn primary" id="wizardNext">Продолжить</button>
+      </div>`;
+    if (hidden) hidden.after(wizard);
+    wizard.querySelector('#wizardBack').onclick = () => setWizardStep(wizardStep - 1);
+    wizard.querySelector('#wizardNext').onclick = () => {
+      if (wizardStep < 4) setWizardStep(wizardStep + 1);
+      else {
+        ['editorBasics','editorConditions','editorActivity'].forEach(id => { const x=$(id); if(x) x.open=true; });
+        $('productForm').requestSubmit();
+      }
+    };
+    wizard.querySelector('#wizardTypeGrid').innerHTML = Object.entries(Config.TYPES).map(([key,t]) =>
+      `<button type="button" class="wizard-type-card" data-wiz-type="${key}">
+        <span class="wizard-type-icon">${t.icon}</span><b>${t.label}</b>
+        <small>${key==='deposit'?'Сбережения и проценты':key==='investment'?'Брокерский счёт и активы':key==='debit_card'?'Деньги на карте или счёте':key==='credit_card'?'Лимит и задолженность':key==='loan'?'Кредит и выплаты':key==='apartment'?'Стоимость и аренда':'Регулярные платежи'}</small>
+      </button>`).join('');
+    wizard.querySelectorAll('[data-wiz-type]').forEach(btn => btn.onclick = () => {
+      $('f_type').value = btn.dataset.wizType;
+      updateVisibility();
+      wizard.querySelectorAll('.wizard-type-card').forEach(x => x.classList.toggle('selected', x === btn));
+      setWizardStep(2);
+    });
+    $('f_type').closest('.field').classList.add('wizard-type-select');
+    const preview = document.createElement('div');
+    preview.id = 'productEffectPreview';
+    preview.className = 'product-effect-preview';
+    preview.setAttribute('aria-live','polite');
+    preview.innerHTML = '<span>Ожидаемый эффект за год</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму и ставку</small>';
+    const amountField = $('f_amount')?.closest('.field');
+    if (amountField) amountField.after(preview);
+    ['f_amount','f_rate','f_rentPrice','f_upkeepRate','f_rented','f_type'].forEach(id => {
+      const input = $(id);
+      if (input) { input.addEventListener('input', renderEffectPreview); input.addEventListener('change', renderEffectPreview); }
+    });
     const note = document.createElement('p');
     note.className = 'editor-footnote';
     note.textContent = 'Дополнительные параметры можно раскрыть ниже. Ничего важного не удалено.';
     basics.body.appendChild(note);
+  }
+
+  function setWizardStep(step){
+    wizardStep = Math.max(1, Math.min(4, step));
+    const labels = ['Выберите категорию','Основные данные','Условия и доходность','Операции и состав'];
+    const wizard = $('productWizard');
+    if (!wizard) return;
+    $('wizardStepLabel').textContent = `Шаг ${wizardStep} из 4 · ${labels[wizardStep-1]}`;
+    $('wizardTypeGrid').hidden = wizardStep !== 1;
+    $('editorBasics').hidden = wizardStep !== 2;
+    $('editorConditions').hidden = wizardStep !== 3;
+    $('editorActivity').hidden = wizardStep !== 4;
+    $('editorBasics').open = wizardStep === 2;
+    $('editorConditions').open = wizardStep === 3;
+    $('editorActivity').open = wizardStep === 4;
+    $('wizardBack').hidden = wizardStep === 1;
+    $('wizardNext').textContent = wizardStep === 4 ? 'Сохранить продукт' : 'Продолжить';
+    $('wizardTypeGrid').querySelectorAll('[data-wiz-type]').forEach(btn =>
+      btn.classList.toggle('selected', btn.dataset.wizType === $('f_type').value));
+    wizard.querySelectorAll('[data-wiz-progress]').forEach((bar,i) => bar.classList.toggle('done', i < wizardStep));
+    const typeField = $('f_type')?.closest('.field');
+    if (typeField) typeField.hidden = wizardMode;
+    const note = document.querySelector('.editor-footnote'); if (note) note.hidden = wizardMode;
+    const actions = $('productForm').querySelector('.modal-actions'); if (actions) actions.hidden = wizardMode;
+  }
+  function setWizard(enabled){
+    wizardMode = enabled;
+    const wizard = $('productWizard'); if (wizard) wizard.hidden = !enabled;
+    if (enabled) setWizardStep(1);
+    else {
+      ['editorBasics','editorConditions','editorActivity'].forEach(id => {
+        const el = $(id); if (el) { el.hidden = false; el.open = id === 'editorBasics'; }
+      });
+      const typeField = $('f_type')?.closest('.field'); if (typeField) typeField.hidden = false;
+      const note = document.querySelector('.editor-footnote'); if (note) note.hidden = false;
+      const actions = $('productForm').querySelector('.modal-actions'); if (actions) actions.hidden = false;
+    }
+  }
+  function renderEffectPreview(){
+    const money = $('effectMoney'), pct = $('effectPercent'); if (!money || !pct) return;
+    const type = $('f_type')?.value || 'deposit';
+    const amount = Number($('f_amount')?.value) || 0;
+    const rate = Number($('f_rate')?.value) || 0;
+    let annual = amount * rate / 100;
+    if (type === 'expense') annual = -amount * 12;
+    if (type === 'credit_card' || type === 'loan') annual = -Math.abs(annual);
+    if (type === 'apartment') annual = amount * rate / 100
+      + ($('f_rented')?.checked ? (Number($('f_rentPrice')?.value)||0)*12 : 0)
+      - amount * (Number($('f_upkeepRate')?.value)||2) / 100;
+    if (type === 'investment'){
+      const assets = draftAssets.length ? draftAssets : (editingId ? (Storage.get(editingId)?.assets || []) : []);
+      annual = assets.reduce((sum,a) => {
+        if (a.kind === 'bond') return sum + Simulator.annualCouponForAsset(a);
+        if (a.kind === 'fund' && a.sixMonthPct != null && 1+a.sixMonthPct/100>0)
+          return sum + a.qty * Bonds.price(a) * (Math.pow(1+a.sixMonthPct/100,2)-1);
+        if (a.kind === 'stock') return sum + a.qty * Bonds.price(a) * rate/100;
+        return sum;
+      }, 0);
+    }
+    const pctValue = amount > 0 ? annual / amount * 100 : 0;
+    money.textContent = (annual >= 0 ? '+' : '−') + Utils.fmtMoney(Math.abs(annual));
+    money.className = annual >= 0 ? 'green' : 'red';
+    pct.textContent = amount > 0 ? `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(2)}% от текущей суммы · ориентир, не гарантия` : 'Укажите сумму и ставку';
   }
 
   function updateVisibility(){
@@ -336,6 +444,7 @@ const ProductEditor = (() => {
     populateDebtTargets();
 
     if (id){
+      setWizard(false);
       const p = Storage.get(id);
       if (!p){ close(); return; }
       if ($('modalTitle')) $('modalTitle').textContent = 'Редактировать продукт';
@@ -373,6 +482,8 @@ const ProductEditor = (() => {
     }
 
     updateVisibility();
+    if (!id) setWizard(true);
+    renderEffectPreview();
     renderOps();
     renderEndActions();
     renderAssets();
@@ -672,12 +783,14 @@ const ProductEditor = (() => {
     };
 
     draftAssets.push(asset);
+    renderEffectPreview();
     pendingAsset = null;
     $('addAssetBtn').disabled = true;
     $('searchResults').innerHTML = '';
     $('assetQuery').value = '';
     $('assetAvgPrice').value = '';
     renderAssets();
+    renderEffectPreview();
   }
 
   // Отдельная запись актива: вся подробная информация (как раньше)
@@ -796,12 +909,14 @@ const ProductEditor = (() => {
       b.onclick = () => {
         draftAssets = draftAssets.filter(a => a.id !== b.dataset.assetDel);
         renderAssets();
+        renderEffectPreview();
       };
     });
   }
 
   function handleSubmit(e){
     e.preventDefault();
+    if (wizardMode && wizardStep !== 4) { setWizardStep(4); return; }
     const id = $('f_id').value || uid();
     const type = $('f_type').value;
     const isApartment = type === 'apartment';
@@ -844,6 +959,7 @@ const ProductEditor = (() => {
   }
 
   function close(){
+    setWizard(false);
     if ($('modalBg')) $('modalBg').classList.remove('show');
     document.body.classList.remove('editor-open');
     previousFocus?.focus();
