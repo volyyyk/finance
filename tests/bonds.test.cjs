@@ -82,13 +82,13 @@ test('MOEX six-month history uses the correct month even when today is the 31st'
     constructor(...args) { super(...(args.length ? args : ['2026-05-31T12:00:00Z'])); }
     static now() { return new Date('2026-05-31T12:00:00Z').getTime(); }
   }
-  let historyUrl = '';
+  let candlesUrl = '';
   const sandbox = {
     navigator: { onLine: true }, AbortSignal, Map, Date: FixedDate,
     fetch: async url => {
-      if (String(url).includes('/history/')) {
-        historyUrl = String(url);
-        return { ok: true, json: async () => ({ history: { columns: ['TRADEDATE', 'CLOSE'], data: [['2025-11-01', 100]] } }) };
+      if (String(url).includes('/candles.json')) {
+        candlesUrl = String(url);
+        return { ok: true, json: async () => ({ candles: { columns: ['begin', 'close'], data: [['2025-11-01 00:00:00', 100]] } }) };
       }
       return { ok: true, json: async () => ({
         marketdata: { columns: ['LAST'], data: [[110]] },
@@ -100,7 +100,7 @@ test('MOEX six-month history uses the correct month even when today is the 31st'
   vm.runInContext(fs.readFileSync('js/moex.js', 'utf8') + '\nglobalThis.api=MoexAPI;', sandbox);
   const fund = { kind: 'fund', secid: 'TEST_FUND_MONTH_EDGE', board: 'TQTF' };
   await sandbox.api.refreshSixMonth(fund);
-  assert.ok(historyUrl.includes('from=2025-10-18') && historyUrl.includes('till=2025-11-01'), historyUrl);
+  assert.ok(candlesUrl.includes('from=2025-10-18') && candlesUrl.includes('till=2025-11-01'), candlesUrl);
   assert.equal(fund.yieldMonth, '2026-05');
   assert.ok(Math.abs(fund.sixMonthPct - 10) < 1e-9, String(fund.sixMonthPct));
 });

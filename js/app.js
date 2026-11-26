@@ -157,11 +157,11 @@ const App = (() => {
       if (p.type !== 'investment' || !Array.isArray(p.assets)) continue;
       for (const a of p.assets){
         if (a.redeemed) continue;
-        if (['stock','fund','bond','metal'].includes(a.kind) && a.yieldMonth !== month){
+        if (['stock','fund','bond','metal'].includes(a.kind) && (a.yieldMonth !== month || (a.kind === 'fund' && ['VTBL','RSHL'].includes(a.secid) && !a.moexInactive))){
           try {
-            const before = JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
+            const before = JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
             await MoexAPI.refreshSixMonth(a);
-            if (before !== JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
+            if (before !== JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
           } catch { /* Нет сети или данных MOEX — повторим при следующем заходе */ }
         }
       }

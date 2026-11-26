@@ -20,11 +20,11 @@ test('cashback action accordions are collapsed on first render', () => {
 });
 
 test('cashback accordion stack has consistent spacing and unified card styling', () => {
-  const stack = styles.lastIndexOf('.cb-bottom-accordions{');
-  const accordion = styles.lastIndexOf('.cb-accordion{');
-  assert.ok(stack >= 0 && accordion > stack);
-  assert.match(styles.slice(stack, accordion), /gap:\s*10px/);
-  assert.match(styles.slice(accordion, styles.indexOf('.cb-accordion>summary', accordion)), /border-radius:\s*15px/);
+  assert.ok(styles.includes('.cb-bottom-accordions{margin-top:18px;gap:8px}'));
+  assert.ok(styles.includes('.cb-accordion,.cb-accordion.edge-glow-purple,.cb-accordion.edge-glow-red,'));
+  assert.ok(styles.includes('border:1px solid var(--border);border-radius:13px;background:var(--surface-2)'));
+  assert.ok(styles.includes('.cb-group.cb-l-low .cb-val,.cb-group.cb-l-mid .cb-val,.cb-group.cb-l-high .cb-val'));
+  assert.ok(styles.includes('color:var(--text)'));
 });
 
 test('cashback first-use state explains the setup and offers two clear paths', () => {

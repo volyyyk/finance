@@ -80,8 +80,8 @@ test('lastPrice retries a browser network/CORS failure through the public-data r
     const result = await MoexAPI.lastPrice('TEST_CORS_RELAY_1', 'TQBR', 'stock');
     assert.equal(result.last, 321.5);
     assert.equal(requested.length, 2);
-    assert.match(requested[0], /^https:\/\/iss\.moex\.com\/iss\//);
-    assert.match(requested[1], /^https:\/\/proxy\.cors\.dev\/https:\/\/iss\.moex\.com\/iss\//);
+    assert.match(requested[0], /^http:\/\/iss\.moex\.com\/iss\//);
+    assert.match(requested[1], /^https:\/\/proxy\.cors\.dev\/http:\/\/iss\.moex\.com\/iss\//);
   } finally {
     global.fetch = originalFetch;
   }
@@ -196,7 +196,7 @@ test('configured Worker failure falls back to direct ISS and public relay', asyn
     const result = await MoexAPI.lastPrice('TEST_WORKER_FALLBACK_1','TQBR','stock');
     assert.equal(result.last,57.3);
     assert.match(requested[0], /^https:\/\/finapp-test\.workers\.dev\/iss\//);
-    assert.match(requested[1], /^https:\/\/iss\.moex\.com\/iss\//);
+    assert.match(requested[1], /^http:\/\/iss\.moex\.com\/iss\//);
   } finally {
     global.fetch = originalFetch;
     if (originalStorage === undefined) delete global.localStorage;
@@ -261,7 +261,7 @@ test('HTTP error diagnostics include Worker upstream status and response body', 
     await assert.rejects(
       MoexAPI.lastPrice('TEST_WORKER_502_DETAIL_1', 'TQBR', 'stock'),
       error => {
-        assert.match(error.message, /Cloudflare Worker: HTTP 502/);
+        assert.match(error.message, /Cloudflare Worker \(HTTP upstream\): HTTP 502/);
         assert.match(error.message, /MOEX upstream 503/);
         assert.match(error.message, /upstream temporarily unavailable/);
         return true;
@@ -333,5 +333,76 @@ test('refreshAsset migrates the legacy PDDRUB_TOM alias to MOEX palladium ticker
     assert.equal(asset.secid,'PLDRUB_TOM');
     assert.equal(asset.lastPrice,3210.5);
     assert.ok(requestedUrl.includes('/engines/currency/markets/selt/boards/CETS/securities/PLDRUB_TOM.json'));
+  } finally { global.fetch=originalFetch; }
+});
+
+
+test('historyClose uses public daily candles instead of subscriber-only history', async () => {
+  const originalFetch = global.fetch;
+  const requested = [];
+  global.fetch = async url => {
+    requested.push(String(url));
+    return { ok:true, json:async()=>({
+      candles:{columns:['begin','close'],data:[
+        ['2026-05-18 00:00:00',100],
+        ['2026-05-19 00:00:00',102]
+      ]}
+    }) };
+  };
+  try {
+    const close = await MoexAPI.historyClose('TEST_CANDLES_1','TQBR','stock','2026-05-10','2026-05-20',null);
+    assert.equal(close,102);
+    assert.match(requested[0],/candles\.json/);
+    assert.match(requested[0],/interval=24/);
+    assert.match(requested[0],/candles\.columns=begin%2Cclose|candles\.columns=begin,close/);
+    assert.doesNotMatch(requested[0],/\/history\//);
+  } finally { global.fetch=originalFetch; }
+});
+
+test('historyClose returns bond candle close converted from percent to nominal rubles', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok:true, json:async()=>({
+    candles:{columns:['begin','close'],data:[['2026-05-19 00:00:00',87.5]]}
+  }) });
+  try {
+    assert.equal(await MoexAPI.historyClose('TEST_BOND_CANDLE','TQOB','bond','2026-05-10','2026-05-20',1000),875);
+  } finally { global.fetch=originalFetch; }
+});
+
+test('legacy VTBL is identified as closed-end RSHL and is not requested as a live quote', async () => {
+  const originalFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => { calls++; throw new Error('must not call MOEX for inactive fund'); };
+  try {
+    const asset={secid:'VTBL',kind:'fund',lastPrice:2,avgPrice:2};
+    await MoexAPI.refreshAsset(asset);
+    assert.equal(asset.secid,'RSHL');
+    assert.equal(asset.legacySecid,'VTBL');
+    assert.equal(asset.moexInactive,true);
+    assert.equal(asset.yieldMonth,MoexAPI.monthKey());
+    assert.equal(asset.lastPrice,undefined);
+    assert.equal(asset.avgPrice,2,'цена покупки остаётся доступной для оценки позиции');
+    assert.equal(calls,0);
+    await MoexAPI.refreshSixMonth(asset);
+    assert.equal(asset.sixMonthPct,null);
+  } finally { global.fetch=originalFetch; }
+});
+
+test('all MOEX upstream URLs use HTTP, with HTTPS only for relay hosts', async () => {
+  const originalFetch = global.fetch;
+  const requested=[];
+  global.fetch=async url=>{
+    requested.push(String(url));
+    if(requested.length===1) throw new TypeError('Failed to fetch');
+    return {ok:true,json:async()=>({
+      marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',10]]},
+      securities:{columns:['FACEVALUE'],data:[[1]]}
+    })};
+  };
+  try {
+    await MoexAPI.lastPrice('TEST_HTTP_ONLY_1','TQBR','stock');
+    assert.match(requested[0],/^http:\/\/iss\.moex\.com/);
+    assert.match(requested[1],/^https:\/\/proxy\.cors\.dev\/http:\/\/iss\.moex\.com/);
+    assert.ok(requested.every(url=>!url.startsWith('https://iss.moex.com')));
   } finally { global.fetch=originalFetch; }
 });

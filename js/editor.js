@@ -747,8 +747,10 @@ const ProductEditor = (() => {
       $('bondPreview').textContent =
         kind === 'bond'
           ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}`
+          : kind === 'fund' && asset.moexInactive
+          ? asset.moexStatusText
           : kind === 'fund'
-          ? `Цена пая: ${fmtMoney(asset.lastPrice || 0)} · данные MOEX`
+          ? (asset.lastPrice != null ? `Цена пая: ${fmtMoney(asset.lastPrice)} · данные MOEX` : 'Свежая цена MOEX пока не получена; цену покупки можно указать вручную.')
           : kind === 'metal'
           ? `Цена за грамм: ${fmtMoney(asset.lastPrice || 0)} · унция: ${fmtMoney(asset.ouncePrice || 0)} · данные MOEX`
           : '';
@@ -803,13 +805,17 @@ const ProductEditor = (() => {
       : `${a.qty} шт × ${fmtMoney(price)}`;
     // Историческое изменение цены за полгода — основа сценарного прогноза
     // для акций, фондов, облигаций и металлов.
-    const yieldTxt = a.sixMonthPct != null
+    const yieldTxt = a.moexInactive
+      ? `<div class="op-meta">Фонд закрыт и не торгуется; динамика за последние 6 мес. отсутствует, рост в прогнозе не предполагается</div>`
+      : a.sixMonthPct != null
       ? `<div class="op-meta">Изменение цены за 6 мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · учтено в прогнозе</div>`
       : `<div class="op-meta">История цены за 6 мес. пока недоступна · рост не предполагается</div>`;
     const quoteTime = Date.parse(a.moexUpdatedAt || '');
     const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;
-    const visibleQuoteError = quoteUsable ? '' : (a.moexError || a.moexQuoteStatus || '');
-    const quoteTxt = `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${visibleQuoteError ? ' · ' + escapeHtml(visibleQuoteError) : ''}</div>`;
+    const visibleQuoteError = quoteUsable || a.moexInactive ? '' : (a.moexError || a.moexQuoteStatus || '');
+    const quoteTxt = a.moexInactive
+      ? `<div class="op-meta">${escapeHtml(a.moexStatusText || 'Биржевые торги прекращены; актуальной котировки MOEX нет')}</div>`
+      : `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${visibleQuoteError ? ' · ' + escapeHtml(visibleQuoteError) : ''}</div>`;
     const couponTxt = a.kind === 'bond' ? `
       <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
       · купон ${a.couponAmount == null ? 'не объявлен' : fmtMoney(a.couponAmount)}
@@ -824,7 +830,7 @@ const ProductEditor = (() => {
       <div class="op-body">
         <div><b>${escapeHtml(a.shortname || a.secid)}</b>
           <span class="badge">${kindLabel}</span>
-          <span class="badge">${escapeHtml(a.secid)}</span></div>
+          <span class="badge">${escapeHtml(a.secid)}</span>${a.legacySecid ? `<span class="badge">бывш. ${escapeHtml(a.legacySecid)}</span>` : ''}</div>
         <div class="op-meta">${qtyTxt}
           = ${fmtMoney(total)}
           ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${couponTxt}

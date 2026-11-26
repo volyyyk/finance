@@ -778,9 +778,9 @@ test('MoexAPI.refreshAsset: котировка металла — руб. за �
 
 test('MoexAPI.refreshSixMonth: historical share return is measured against the live quote', async () => {
   const sb = moexSandbox(async url => {
-    if (url.includes('/history/')){
-      assert.ok(url.includes('/markets/shares/boards/TQBR/securities/SBER.json'));
-      return {ok:true,json:async()=>({history:{columns:['TRADEDATE','CLOSE'],data:[['2026-05-29',90]]}})};
+    if (url.includes('/candles.json')){
+      assert.ok(url.includes('/markets/shares/boards/TQBR/securities/SBER/candles.json'));
+      return {ok:true,json:async()=>({candles:{columns:['begin','close'],data:[['2026-04-30 00:00:00',90]]}})};
     }
     return {ok:true,json:async()=>({
       marketdata:{columns:['LAST'],data:[[100]]},
@@ -798,9 +798,9 @@ test('MoexAPI.refreshSixMonth: historical share return is measured against the l
 test('MoexAPI.refreshSixMonth: bond clean-price history is converted from percent of nominal to rubles', async () => {
   const secid='RU000A105SD4';
   const sb = moexSandbox(async url => {
-    if (url.includes('/history/')){
-      assert.ok(url.includes('/markets/bonds/boards/TQOB/securities/'+secid+'.json'));
-      return {ok:true,json:async()=>({history:{columns:['TRADEDATE','CLOSE'],data:[['2026-05-29',95]]}})};
+    if (url.includes('/candles.json')){
+      assert.ok(url.includes('/markets/bonds/boards/TQOB/securities/'+secid+'/candles.json'));
+      return {ok:true,json:async()=>({candles:{columns:['begin','close'],data:[['2026-04-30 00:00:00',95]]}})};
     }
     if (url.includes('bondization')){
       const block=url.includes('coupons')?'coupons':'amortizations';
@@ -831,9 +831,9 @@ test('MoexAPI.refreshSixMonth: bond clean-price history is converted from percen
 
 test('MoexAPI.refreshSixMonth: доходность металла без искажения унцией', async () => {
   const sb = moexSandbox(async (url) => {
-    if (url.includes('/history/')){
+    if (url.includes('/candles.json')){
       return { ok: true, json: async () => ({
-        history: { columns: ['TRADEDATE','CLOSE'], data: [['2026-05-30', 9800]] },
+        candles: { columns: ['begin','close'], data: [['2026-04-30 00:00:00', 9800]] },
       }) };
     }
     return { ok: true, json: async () => ({

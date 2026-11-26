@@ -3,7 +3,7 @@
    ============================================================ */
 
 const MoexAPI = (() => {
-  const ISS = 'https://iss.moex.com/iss';
+  const ISS = 'http://iss.moex.com/iss';
   const CBR_KEY_RATE = 'https://www.cbr-xml-daily.ru/keyrate.json';
   const CACHE_TTL = 10 * 60 * 1000;
   const cache = new Map();
@@ -106,10 +106,14 @@ const MoexAPI = (() => {
     const requestUrl = compactIssUrl(url);
     const proxy = getProxyUrl();
     const targets = [];
-    if (proxy) targets.push({ name: 'Cloudflare Worker', url: proxy + '/iss' + requestUrl.slice(ISS.length) });
-    targets.push({ name: 'MOEX ISS', url: requestUrl });
-    targets.push({ name: 'cors.dev', url: 'https://proxy.cors.dev/' + requestUrl });
-    targets.push({ name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(requestUrl) });
+    // Все обращения к самому MOEX используют HTTP (официальный протокол ISS).
+    // На HTTPS-странице браузер блокирует прямой fetch к HTTP как mixed content,
+    // поэтому сначала идём через HTTPS Worker, который обращается к MOEX по HTTP.
+    if (proxy) targets.push({ name: 'Cloudflare Worker (HTTP upstream)', url: proxy + '/iss' + requestUrl.slice(ISS.length) });
+    targets.push({ name: 'MOEX ISS HTTP (direct; may be blocked by mixed-content policy)', url: requestUrl });
+    // Резервные HTTPS-реле также получают именно HTTP-адрес MOEX как upstream.
+    targets.push({ name: 'cors.dev (HTTP upstream)', url: 'https://proxy.cors.dev/' + requestUrl });
+    targets.push({ name: 'AllOrigins (HTTP upstream)', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(requestUrl) });
 
     const failures = [];
     const deadline = Date.now() + Math.max(1000, timeout);
@@ -300,21 +304,46 @@ const MoexAPI = (() => {
     });
   }
 
-  // Цена закрытия из истории торгов (ближайшая торговая дата до dateTo).
-  // Для облигаций MOEX отдаёт цену в процентах от номинала; переводим в рубли.
+  // Дневное закрытие берём из публичного интерфейса свечей ISS.
+  // /iss/history для большинства бумаг доступен только подписчикам MOEX,
+  // поэтому анонимный клиент получал пустые блоки даже при исправной сети.
+  // Candles возвращает begin/close; для фондов запрашиваем рынок целиком,
+  // чтобы не зависеть от одного режима торгов (TQTE/TQTF и т.п.).
   async function historyClose(secid, board, kind, dateFrom, dateTo, nominal){
-    const metal = kind === 'metal';
-    const market = metal ? null : await resolveMarket(secid, board, kind);
-    const url = metal
-      ? `${ISS}/history/engines/currency/markets/selt/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,CLOSE&from=${dateFrom}&till=${dateTo}`
-      : `${ISS}/history/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,CLOSE&from=${dateFrom}&till=${dateTo}`;
-    const json = await fetchJSON(url, 12000);
-    const page = requireRows(json, 'history');
-    for (let i = page.length - 1; i >= 0; i--){
-      const close = number(page[i].CLOSE);
-      if (close != null && close > 0) return kind === 'bond'
-        ? close * (Number(nominal) || 1000) / 100
-        : close;
+    const markets = kind === 'metal'
+      ? [{ engine:'currency', market:'selt', board:board || 'CETS' }]
+      : await resolveMarkets(secid, board, kind);
+    const visited = new Set();
+    for (const market of markets){
+      const key = market.engine + '/' + market.market + '/' + (market.board || board || '');
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const selectedBoard = market.board || board;
+      if (!selectedBoard) continue;
+      const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(selectedBoard)}/securities/${encodeURIComponent(secid)}/candles.json`;
+      const params = [
+        'iss.meta=off', 'iss.only=candles', 'candles.columns=begin,close',
+        'interval=24', 'from=' + encodeURIComponent(dateFrom),
+        'till=' + encodeURIComponent(dateTo)
+      ];
+      try {
+        const json = await fetchJSON(base + '?' + params.join('&'), 12000);
+        const candles = requireRows(json, 'candles')
+          .map(row => ({
+            date: String(row.begin || row.BEGIN || '').slice(0,10),
+            close: number(row.close ?? row.CLOSE)
+          }))
+          .filter(row => row.date && row.date <= dateTo && row.date >= dateFrom && row.close > 0)
+          .sort((a,b) => b.date.localeCompare(a.date));
+        if (candles.length){
+          const close = candles[0].close;
+          return kind === 'bond'
+            ? close * (Number(nominal) || 1000) / 100
+            : close;
+        }
+      } catch (error) {
+        console.warn('MOEX candles lookup failed for ' + secid + ' on ' + key, error);
+      }
     }
     return null;
   }
@@ -326,7 +355,12 @@ const MoexAPI = (() => {
   // Изменение цены за последние 6 месяцев. Применяется к акциям,
   // фондам, облигациям и металлам; облигационные купоны моделируются отдельно.
   async function refreshSixMonth(asset){
-    if (!['stock','fund','bond','metal'].includes(asset.kind)) return asset;
+    if (!['stock','fund','bond','metal'].includes(asset.kind) || asset.moexInactive) return asset;
+    // Сначала проверяем известные закрытые/переименованные инструменты:
+    // сохранённая свежая дата старой котировки не должна обходить миграцию.
+    if (asset.kind === 'fund' && (asset.secid === 'VTBL' || asset.secid === 'RSHL'))
+      await refreshAsset(asset);
+    if (asset.moexInactive) return asset;
     const now = new Date();
     const target = new Date(now.getFullYear(), now.getMonth() - 6, 1);
     const from = new Date(target);
@@ -335,6 +369,7 @@ const MoexAPI = (() => {
     const quoteAlreadyFresh = Number.isFinite(quoteTimeBefore) && Date.now() - quoteTimeBefore < 10 * 60 * 1000;
     // refreshAsset populates missing bond nominal/board metadata as well as a live quote.
     if (!quoteAlreadyFresh) await refreshAsset(asset);
+    if (asset.moexInactive) return asset;
     const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
     const quoteTime = Date.parse(asset.moexUpdatedAt || '');
     const quoteIsFresh = Number.isFinite(quoteTime) && Date.now() - quoteTime < 10 * 60 * 1000;
@@ -403,6 +438,24 @@ const MoexAPI = (() => {
   }
 
   async function refreshAsset(asset){
+    // VTBL был переименован в RSHL, а с 26.12.2023 фонд преобразован
+    // в закрытый ЗПИФ-А: биржевые торги прекращены. Сохраняем связь кодов,
+    // но не выдаём цену покупки за свежую котировку и не опрашиваем мёртвый тикер.
+    if (asset.kind === 'fund' && (asset.secid === 'VTBL' || asset.secid === 'RSHL')){
+      if (asset.secid === 'VTBL') asset.legacySecid = 'VTBL';
+      asset.secid = 'RSHL';
+      asset.moexInactive = true;
+      delete asset.lastPrice;
+      asset.moexUpdatedAt = null;
+      delete asset.moexError;
+      delete asset.moexQuoteStatus;
+      asset.moexStatusText = 'Бывший VTBL (RSHL): с 26.12.2023 закрытый ЗПИФ-А, биржевые торги прекращены. Актуальной биржевой котировки нет.';
+      asset.sixMonthBase = null;
+      asset.sixMonthPct = null;
+      asset.sixMonthBaseDate = null;
+      asset.yieldMonth = monthKey();
+      return asset;
+    }
     // PDDRUB_TOM was an erroneous legacy alias in the quick-add list;
     // MOEX's palladium spot ticker is PLDRUB_TOM.
     if (asset.kind === 'metal' && asset.secid === 'PDDRUB_TOM') asset.secid = 'PLDRUB_TOM';
@@ -448,6 +501,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, historyClose, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
