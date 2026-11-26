@@ -739,9 +739,14 @@ const ProductEditor = (() => {
     $('assetPurchaseDate').value = Bonds.today();
     $('bondPreview').textContent = 'Загрузка данных MOEX…';
     try {
-      const asset = { ...picked, board: kind === 'metal' ? 'CETS' : (picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR')), kind };
+      const asset = { ...picked, isin: String(picked.isin || picked.ISIN || '').trim().toUpperCase(),
+        board: kind === 'metal' ? 'CETS' : (picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR')), kind };
+      // Проверяем допуск к обычным биржевым торгам до загрузки цены.
+      // Ошибка сети тоже блокирует добавление: статус бумаги неизвестен.
+      await MoexAPI.assertTradable(asset.secid, kind);
       await MoexAPI.refreshAsset(asset);
       if (myPick !== pickSeq) return;
+      if (asset.moexInactive) throw new Error(asset.moexStatusText || 'Инструмент больше не торгуется');
       pendingAsset = asset;
       if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
       $('bondPreview').textContent =
@@ -757,8 +762,9 @@ const ProductEditor = (() => {
       $('addAssetBtn').disabled = false;
     } catch (e) {
       if (myPick !== pickSeq) return;
-      $('bondPreview').textContent = 'Не удалось загрузить данные: ' + e.message + '. Повторите поиск.';
-      if (kind !== 'bond') $('addAssetBtn').disabled = false;
+      pendingAsset = null;
+      $('addAssetBtn').disabled = true;
+      $('bondPreview').textContent = 'Не удалось подтвердить, что бумага торгуется: ' + e.message + '. Добавление заблокировано. Повторите проверку позже.';
     }
   }
 
@@ -771,6 +777,13 @@ const ProductEditor = (() => {
       alert(kind === 'metal'
         ? 'Укажите вес в граммах (можно дробный) и цену покупки в рублях за грамм'
         : 'Укажите целое положительное количество и цену покупки в рублях'); return;
+    }
+    try {
+      await MoexAPI.assertTradable(pendingAsset.secid, kind);
+      if (pendingAsset.moexInactive) throw new Error('Инструмент закрыт или снят с торгов');
+    } catch (error) {
+      alert('Нельзя добавить бумагу: не удалось подтвердить действующий допуск к торгам. ' + error.message);
+      return;
     }
     const purchaseDate = $('assetPurchaseDate').value || Bonds.today();
     if (kind === 'bond' && (purchaseDate > Bonds.today() || (pendingAsset.maturityDate && purchaseDate >= pendingAsset.maturityDate))) {
