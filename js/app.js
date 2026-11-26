@@ -159,9 +159,9 @@ const App = (() => {
         if (a.redeemed) continue;
         if (['stock','fund','bond','metal'].includes(a.kind) && a.yieldMonth !== month){
           try {
-            const before = JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
+            const before = JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
             await MoexAPI.refreshSixMonth(a);
-            if (before !== JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
+            if (before !== JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
           } catch { /* Нет сети или данных MOEX — повторим при следующем заходе */ }
         }
       }
