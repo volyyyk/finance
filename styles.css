@@ -1270,3 +1270,25 @@ main{gap:16px}
   .product-row>.prod-icon{width:34px;height:34px}
   .product-row [data-edit]{padding:6px 8px;font-size:11px}
 }
+
+/* Stage 1–2: backup status and compact financial health panel */
+.backup-status{margin:2px 4px 8px;color:var(--muted);font-size:11px;line-height:1.4}
+.financial-check{padding:16px 18px}
+.financial-check-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.financial-check-head h2{font-size:15px;margin:0 0 3px}
+.financial-check-head p{font-size:11px;color:var(--muted);margin:0}
+.financial-check-count{font-size:10px;font-weight:650;white-space:nowrap;padding:5px 8px;border-radius:999px;background:var(--bg);color:var(--muted)}
+.financial-check-count.needs-attention{color:var(--orange,#b7791f)}
+.financial-check-count.all-good{color:var(--green)}
+.financial-check-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--border)}
+.financial-check-item .fc-icon{width:25px;height:25px;flex:0 0 25px;border-radius:8px;display:grid;place-items:center;background:var(--bg);font-weight:700;color:var(--muted)}
+.financial-check-item>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.financial-check-item b{font-size:12px}
+.financial-check-item small,.financial-check-more{font-size:11px;line-height:1.4;color:var(--muted)}
+.financial-check-ok{padding:9px 0;border-top:1px solid var(--border);font-size:12px;color:var(--green)}
+.financial-check .btn{margin-top:9px}
+@media(max-width:600px){
+  .financial-check{padding:13px 14px}
+  .financial-check-head h2{font-size:14px}
+  .financial-check-item{padding:8px 0}
+}

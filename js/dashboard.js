@@ -226,24 +226,7 @@ const ProductList = (() => {
         const isApartment = p.type === 'apartment';
 
         const value = isInvest ? Simulator.portfolioValue(p) : (p.amount || 0);
-        const fundAnnual = isInvest
-          ? (p.assets || []).filter(a => a.kind === 'fund').reduce((s,a) => {
-              const pct = a.sixMonthPct;
-              if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) return s;
-              return s + a.qty * Bonds.price(a) * (Math.pow(1 + pct/100, 2) - 1);
-            }, 0)
-          : 0;
-        const annual = isExpense
-          ? (p.amount || 0) * 12
-          : isInvest
-            ? (p.assets || []).reduce((s,a)=> s+Simulator.annualCouponForAsset(a), 0)
-              + (p.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + a.qty * Bonds.price(a), 0) * (p.rate || 0) / 100
-              + fundAnnual
-            : isApartment
-              ? value * (p.rate || 0) / 100
-                + (p.rented ? (p.rentPrice || 0) * 12 : 0)
-                - value * (p.upkeepRate || 0) / 100
-            : value * (p.rate || 0) / 100;
+        const annual = Simulator.annualNet(p);
         const sign = (t.liability || isExpense) ? '−' : '+';
 
         const ev = nextEventFor(p);

@@ -45,7 +45,8 @@
       </select>
     </div>
     <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему">🌙 Тёмная тема</button>
-    <button class="btn ghost" id="exportBtn" title="Скачать все данные в JSON">⤓ Экспорт</button>
+    <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения">⤓ Полная резервная копия</button>
+    <p class="backup-status" id="backupStatus" role="status">Проверка резервной копии…</p>
     <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом">⤓ Экспорт в Excel</button>
     <button class="btn ghost" id="importBtn" title="Загрузить из JSON">⤒ Импорт</button>
     <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js">↺ Сброс к seed</button>
@@ -77,8 +78,9 @@
   <span id="alertsMessage"></span>
 </aside>
 <main id="modeMain">
-  <section class="card goal-card" id="goalCard" hidden></section>
   <section class="stats" id="stats"></section>
+  <section class="card financial-check" id="financialCheck" hidden aria-live="polite"></section>
+  <section class="card goal-card" id="goalCard" hidden></section>
   <section class="card welcome-card" id="welcomeCard" hidden aria-labelledby="welcomeTitle">
     <div class="welcome-visual" aria-hidden="true"><span>₽</span><i>✦</i></div>
     <div class="welcome-content">
@@ -287,6 +289,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/product-insights.js"></script>
 <script src="js/notifications.js"></script>
+<script src="js/backup.js"></script>
 <script src="js/app.js"></script>
 <script src="js/pwa.js"></script>
 </body>
