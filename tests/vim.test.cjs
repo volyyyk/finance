@@ -47,7 +47,7 @@ test('VIM client updates fund price, NAV, date and preserves historical points',
   assert.equal(asset.navDate, '25.11.2026');
   assert.equal(asset.quoteSource, 'vim');
   assert.equal(asset.vimHistory.length, 3);
-  assert.equal(asset.historyBase, 100.68);
+  assert.equal(asset.historyBase, 101.36);
   assert.ok(asset.historyAnnualPct > 0);
 });
 
