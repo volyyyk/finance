@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const fs = require('node:fs');
 const MoexAPI = require('../js/moex.js');
 
 test('chooseMarketRow prefers the saved board when it has a current quote', () => {
