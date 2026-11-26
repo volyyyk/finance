@@ -1321,6 +1321,23 @@ test('Simulator: six-month price trend projects shares, funds, metals and bonds 
 });
 
 
+test('Simulator: погашение облигации ниже номинала даёт доход только на разницу', () => {
+  const maturity = new Date();
+  maturity.setDate(maturity.getDate() + 5);
+  const date = maturity.toISOString().slice(0,10);
+  const { mods } = simMods([{
+    id:'bond-discount-redemption',type:'investment',amount:0,operations:[],
+    assets:[{
+      id:'bond-discount',kind:'bond',secid:'BOND',qty:1,lastPrice:700,priceUnit:'rub',nominal:1000,
+      accountingFrom:new Date().toISOString().slice(0,10),maturityDate:date,
+      coupons:[],amortizations:[],paidEvents:{}
+    }]
+  }]);
+  const month=mods.Simulator.simulateProduct(mods.Storage.get('bond-discount-redemption'),1).history[1];
+  assert.equal(month.value,1000,'в портфеле остаётся выплаченный номинал');
+  assert.equal(month.cumIncome,300,'доход — только 1000 − 700, возврат тела не считается доходом');
+});
+
 test('Simulator: bond maturity converts the market premium/discount without counting principal as income', () => {
   const maturity = new Date();
   maturity.setDate(maturity.getDate() + 5);
