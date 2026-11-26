@@ -289,9 +289,7 @@ const MoexAPI = (() => {
     const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
     await refreshAsset(asset);
     const cur = asset.lastPrice ?? null;
-    const base = asset.kind === 'bond' && baseRaw != null
-      ? baseRaw
-      : baseRaw;
+    const base = baseRaw;
     asset.sixMonthBase = base;
     asset.sixMonthBaseDate = base != null ? iso(target) : null;
     asset.sixMonthPct = (base != null && base > 0 && cur != null && cur > 0)
