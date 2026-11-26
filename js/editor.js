@@ -331,10 +331,11 @@ const ProductEditor = (() => {
     preview.id = 'productEffectPreview';
     preview.className = 'product-effect-preview';
     preview.setAttribute('aria-live','polite');
-    preview.innerHTML = '<span>Ожидаемый эффект за год</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму и ставку</small>';
-    const amountField = $('f_amount')?.closest('.field');
-    if (amountField) amountField.after(preview);
-    ['f_amount','f_rate','f_rentPrice','f_upkeepRate','f_rented','f_type'].forEach(id => {
+    preview.hidden = true;
+    preview.innerHTML = '<span>Ориентировочный доход за срок</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму, ставку и срок</small>';
+    const endDateField = $('field_end');
+    if (endDateField) endDateField.after(preview);
+    ['f_amount','f_rate','f_start','f_end','f_rentPrice','f_upkeepRate','f_rented','f_type'].forEach(id => {
       const input = $(id);
       if (input) { input.addEventListener('input', renderEffectPreview); input.addEventListener('change', renderEffectPreview); }
     });
@@ -381,28 +382,71 @@ const ProductEditor = (() => {
     }
   }
   function renderEffectPreview(){
-    const money = $('effectMoney'), pct = $('effectPercent'); if (!money || !pct) return;
+    const preview = $('productEffectPreview');
+    const money = $('effectMoney'), pct = $('effectPercent');
+    if (!preview || !money || !pct) return;
     const type = $('f_type')?.value || 'deposit';
     const amount = Number($('f_amount')?.value) || 0;
     const rate = Number($('f_rate')?.value) || 0;
-    let annual = amount * rate / 100;
-    if (type === 'expense') annual = -amount * 12;
-    if (type === 'credit_card' || type === 'loan') annual = -Math.abs(annual);
-    if (type === 'apartment') annual = amount * rate / 100
-      + ($('f_rented')?.checked ? (Number($('f_rentPrice')?.value)||0)*12 : 0)
-      - amount * (Number($('f_upkeepRate')?.value)||2) / 100;
-    let baseValue = amount;
-    if (type === 'investment'){
+    let income = 0, baseValue = amount, label = 'Ориентировочный доход за срок';
+    let detail = '';
+
+    // Для вкладов и кредитов с датой окончания показываем доход/стоимость
+    // именно за выбранный срок, а не абстрактную годовую доходность.
+    if (type === 'deposit' || type === 'loan'){
+      const startValue = $('f_start')?.value;
+      const endValue = $('f_end')?.value;
+      if (!(amount > 0 && rate > 0 && startValue && endValue)){
+        preview.hidden = true;
+        return;
+      }
+      const startDate = new Date(startValue + 'T00:00:00');
+      const endDate = new Date(endValue + 'T00:00:00');
+      const days = Math.round((endDate - startDate) / 86400000);
+      if (!(days > 0)){
+        preview.hidden = true;
+        return;
+      }
+      income = amount * rate / 100 * days / 365;
+      if (type === 'loan') income = -income;
+      detail = `${days} дн. · простые проценты, без капитализации и налогов`;
+    } else if (type === 'expense'){
+      if (!(amount > 0)) { preview.hidden = true; return; }
+      income = -amount * 12;
+      label = 'Расходы за год';
+      detail = 'По текущей ежемесячной сумме';
+    } else if (type === 'credit_card'){
+      if (!(amount > 0 && rate > 0)) { preview.hidden = true; return; }
+      income = -Math.abs(amount * rate / 100);
+      label = 'Ориентировочная стоимость долга за год';
+      detail = 'Без учёта льготного периода и погашений';
+    } else if (type === 'apartment'){
+      if (!(amount > 0 && rate > 0)) { preview.hidden = true; return; }
+      income = amount * rate / 100
+        + ($('f_rented')?.checked ? (Number($('f_rentPrice')?.value)||0)*12 : 0)
+        - amount * (Number($('f_upkeepRate')?.value)||2) / 100;
+      label = 'Ориентировочный эффект за год';
+      detail = 'Рост стоимости, аренда и обслуживание';
+    } else if (type === 'investment'){
       const assets = draftAssets.length ? draftAssets : (editingId ? (Storage.get(editingId)?.assets || []) : []);
       const previewProduct = { id:'investment-preview', type:'investment', amount, assets, operations:[] };
       const year = Simulator.simulateProduct(previewProduct, 12).history[12];
-      annual = year ? (year.cumIncome || 0) - (year.cumExpense || 0) : 0;
+      income = year ? (year.cumIncome || 0) - (year.cumExpense || 0) : 0;
       baseValue = Simulator.portfolioValue(previewProduct);
+      label = 'Ориентировочный эффект за год';
+      detail = 'Сценарий по истории портфеля';
+      if (!(baseValue > 0)) { preview.hidden = true; return; }
+    } else {
+      preview.hidden = true;
+      return;
     }
-    const pctValue = baseValue > 0 ? annual / baseValue * 100 : 0;
-    money.textContent = (annual >= 0 ? '+' : '−') + Utils.fmtMoney(Math.abs(annual));
-    money.className = annual >= 0 ? 'green' : 'red';
-    pct.textContent = baseValue > 0 ? `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(2)}% от всего портфеля · сценарий по данным за 6 мес., не гарантия` : 'Укажите сумму или добавьте активы';
+
+    const pctValue = baseValue > 0 ? income / baseValue * 100 : 0;
+    preview.querySelector('span').textContent = label;
+    money.textContent = (income >= 0 ? '+' : '−') + Utils.fmtMoney(Math.abs(income));
+    money.className = income >= 0 ? 'green' : 'red';
+    pct.textContent = detail + (baseValue > 0 ? ` · ${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(2)}% от суммы` : '');
+    preview.hidden = false;
   }
 
   function updateVisibility(){
