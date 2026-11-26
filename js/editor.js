@@ -537,7 +537,7 @@ const ProductEditor = (() => {
       return;
     }
     el.innerHTML = draftOps.map(op=>{
-      const sign = op.direction === 'in' ? '⬇️ Пополнить' : '⬆️ Снять';
+      const sign = op.direction === 'in' ? `${Utils.iconSvg('arrow-down-left',14)} Пополнить` : `${Utils.iconSvg('arrow-up-right',14)} Снять`;
       const cls  = op.direction === 'in' ? 'in' : 'out';
       const fLabel = Config.FREQUENCIES[op.frequency]?.label || op.frequency;
       const endTxt = op.endDate ? ` до ${fmtDate(op.endDate)}` : '';
