@@ -369,40 +369,57 @@ const MoexAPI = (() => {
   // поэтому анонимный клиент получал пустые блоки даже при исправной сети.
   // Candles возвращает begin/close; для фондов запрашиваем рынок целиком,
   // чтобы не зависеть от одного режима торгов (TQTE/TQTF и т.п.).
+  // Дневные свечи доступны в публичном ISS namespace. Для фондов сначала
+  // запрашиваем свечи на уровне рынка (без board): разные ETF/БПИФ могут
+  // иметь нестандартный или меняющийся режим торгов TQTF/TQTE, а board-level
+  // endpoint в таком случае возвращает пустой candles.data при живых котировках.
+  // Если рыночный endpoint пуст, последовательно пробуем конкретные boards.
   async function historyClose(secid, board, kind, dateFrom, dateTo, nominal){
     const markets = kind === 'metal'
       ? [{ engine:'currency', market:'selt', board:board || 'CETS' }]
       : await resolveMarkets(secid, board, kind);
-    const visited = new Set();
-    for (const market of markets){
-      const key = market.engine + '/' + market.market + '/' + (market.board || board || '');
-      if (visited.has(key)) continue;
-      visited.add(key);
-      const selectedBoard = market.board || board;
-      if (!selectedBoard) continue;
-      const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(selectedBoard)}/securities/${encodeURIComponent(secid)}/candles.json`;
-      const params = [
-        'iss.meta=off', 'iss.only=candles', 'candles.columns=begin,close',
-        'interval=24', 'from=' + encodeURIComponent(dateFrom),
-        'till=' + encodeURIComponent(dateTo)
-      ];
-      try {
-        const json = await fetchJSON(base + '?' + params.join('&'), 12000);
-        const candles = requireRows(json, 'candles')
-          .map(row => ({
-            date: String(row.begin || row.BEGIN || '').slice(0,10),
-            close: number(row.close ?? row.CLOSE)
-          }))
-          .filter(row => row.date && row.date <= dateTo && row.date >= dateFrom && row.close > 0)
-          .sort((a,b) => b.date.localeCompare(a.date));
-        if (candles.length){
-          const close = candles[0].close;
-          return kind === 'bond'
-            ? close * (Number(nominal) || 1000) / 100
-            : close;
+    const candidates = markets.length ? markets : (kind === 'fund'
+      ? [{ engine:'stock', market:'shares', board:board || 'TQTF' }]
+      : []);
+    const visitedMarkets = new Set(), visitedBoards = new Set();
+
+    async function readCandles(market, selectedBoard){
+      const root = `\u0024{ISS}/engines/\u0024{encodeURIComponent(market.engine)}/markets/\u0024{encodeURIComponent(market.market)}`;
+      const route = selectedBoard ? `/boards/\u0024{encodeURIComponent(selectedBoard)}` : '';
+      const base = `\u0024{root}\u0024{route}/securities/\u0024{encodeURIComponent(secid)}/candles.json`;
+      const params = ['iss.meta=off','iss.only=candles','candles.columns=begin,close',
+        'interval=24','start=0','from='+encodeURIComponent(dateFrom),'till='+encodeURIComponent(dateTo)];
+      const json = await fetchJSON(base+'?'+params.join('&'),12000);
+      return requireRows(json,'candles').map(row=>({
+        date:String(row.begin||row.BEGIN||'').slice(0,10),close:number(row.close??row.CLOSE)
+      })).filter(row=>row.date&&row.date<=dateTo&&row.date>=dateFrom&&row.close>0)
+        .sort((a,b)=>b.date.localeCompare(a.date));
+    }
+
+    for(const market of candidates){
+      const marketKey=market.engine+'/'+market.market;
+      if(kind==='fund'&&!visitedMarkets.has(marketKey)){
+        visitedMarkets.add(marketKey);
+        try{
+          const candles=await readCandles(market,null);
+          if(candles.length)return candles[0].close;
+        }catch(error){
+          console.warn('MOEX market-level candles lookup failed for '+secid+' on '+marketKey,error);
         }
-      } catch (error) {
-        console.warn('MOEX candles lookup failed for ' + secid + ' on ' + key, error);
+      }
+      const selectedBoard=market.board||board;
+      if(!selectedBoard)continue;
+      const boardKey=marketKey+'/'+selectedBoard;
+      if(visitedBoards.has(boardKey))continue;
+      visitedBoards.add(boardKey);
+      try{
+        const candles=await readCandles(market,selectedBoard);
+        if(candles.length){
+          const close=candles[0].close;
+          return kind==='bond'?close*(Number(nominal)||1000)/100:close;
+        }
+      }catch(error){
+        console.warn('MOEX board-level candles lookup failed for '+secid+' on '+boardKey,error);
       }
     }
     return null;

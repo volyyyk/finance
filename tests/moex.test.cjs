@@ -361,6 +361,30 @@ test('historyClose uses public daily candles instead of subscriber-only history'
   } finally { global.fetch=originalFetch; }
 });
 
+test('historyClose checks fund candles at market level before board-specific endpoints', async () => {
+  const originalFetch = global.fetch;
+  const requested = [];
+  global.fetch = async url => {
+    requested.push(String(url));
+    const value = String(url);
+    if (value.includes('/securities/TEST_FUND_CANDLES/boards.json')) return { ok:true, json:async()=>({
+      boards:{columns:['engine','market','boardid','is_primary','is_traded'],
+        data:[['stock','shares','TQTF',1,1],['stock','shares','TQTE',0,1]]}
+    })};
+    if (value.includes('/markets/shares/securities/TEST_FUND_CANDLES/candles.json')) return { ok:true, json:async()=>({
+      candles:{columns:['begin','close'],data:[['2026-05-19 00:00:00',2.345]]}
+    })};
+    throw new Error('Unexpected route: '+value);
+  };
+  try {
+    const close = await MoexAPI.historyClose('TEST_FUND_CANDLES','TQTF','fund','2026-05-10','2026-05-20',null);
+    assert.equal(close,2.345);
+    assert.ok(requested.some(url=>url.includes('/markets/shares/securities/TEST_FUND_CANDLES/candles.json')));
+    assert.ok(!requested.some(url=>url.includes('/boards/TQTF/securities/TEST_FUND_CANDLES/candles.json')),
+      'market-level result should be used before board-specific fallback');
+  } finally { global.fetch=originalFetch; }
+});
+
 test('historyClose returns bond candle close converted from percent to nominal rubles', async () => {
   const originalFetch = global.fetch;
   global.fetch = async () => ({ ok:true, json:async()=>({
