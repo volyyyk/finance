@@ -303,7 +303,7 @@ const ProductEditor = (() => {
     preview.innerHTML = '<span>Ожидаемый эффект за год</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму и ставку</small>';
     const amountField = $('f_amount')?.closest('.field');
     if (amountField) amountField.after(preview);
-    ['f_amount','f_rate','f_rentPrice','f_upkeepRate'].forEach(id => {
+    ['f_amount','f_rate','f_rentPrice','f_upkeepRate','f_rented','f_type'].forEach(id => {
       const input = $(id);
       if (input) { input.addEventListener('input', renderEffectPreview); input.addEventListener('change', renderEffectPreview); }
     });
@@ -783,6 +783,7 @@ const ProductEditor = (() => {
     };
 
     draftAssets.push(asset);
+    renderEffectPreview();
     pendingAsset = null;
     $('addAssetBtn').disabled = true;
     $('searchResults').innerHTML = '';
