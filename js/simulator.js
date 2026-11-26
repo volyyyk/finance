@@ -47,15 +47,12 @@ const Simulator = (() => {
     return false;
   }
 
-  // Стоимость портфеля инвестиций (кэш + стоимость акций/облигаций)
+  // Полная рыночная стоимость брокерского счёта:
+  // свободные деньги + все позиции (акции, облигации, фонды, металлы).
   function portfolioValue(product){
-    if (product.type !== 'investment'){
-      return product.amount || 0;
-    }
-    const assets = product.assets || [];
-    const stocks = assets.reduce((s,a) =>
-      s + (a.qty || 0) * Bonds.price(a), 0);
-    return (product.amount || 0) + stocks;
+    if (product.type !== 'investment') return product.amount || 0;
+    return (product.amount || 0) + (product.assets || []).reduce((sum,a) =>
+      sum + (a.redeemed ? 0 : (a.qty || 0) * Bonds.price(a)), 0);
   }
 
   // Дата месяца m от «сейчас» — та же точка месяца, что в simulateProduct.
@@ -160,24 +157,26 @@ const Simulator = (() => {
     // продукта (месяц, получатель, сумма) — см. блок обработки окончания.
     const transfers = [];
 
-    // Разделяем кэш, акции, фонды, металлы и облигации для инвестиций.
-    // Фонды растут по своей доходности за полгода (sixMonthPct),
-    // металлы в прогнозе не растут — только справочно показывают изменение.
+    // Все позиции прогнозируются отдельно по фактической динамике цены
+    // за последние 6 месяцев. Купоны и погашения облигаций учитываются
+    // отдельно, чтобы возврат номинала не считался инвестиционным доходом.
     let cash = isInvest ? (product.amount || 0) : 0;
-    let stocks = isInvest ? (product.assets || []).filter(a => a.kind === 'stock').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0) : 0;
-    let metals = isInvest ? (product.assets || []).filter(a => a.kind === 'metal').reduce((s,a) => s + (a.qty || 0) * Bonds.price(a), 0) : 0;
-    const fundItems = isInvest ? (product.assets || []).filter(a => a.kind === 'fund')
+    const makeItems = kind => isInvest ? (product.assets || [])
+      .filter(a => a.kind === kind && !a.redeemed)
       .map(a => ({ a, value: (a.qty || 0) * Bonds.price(a) })) : [];
-    let funds = fundItems.reduce((s,f) => s + f.value, 0);
-    let bonds = isInvest ? value - cash - stocks - funds - metals : 0;
-    const resetInvest = () => { cash = 0; stocks = 0; funds = 0; metals = 0; bonds = 0; fundItems.forEach(f => f.value = 0); };
+    const stockItems = makeItems('stock');
+    const fundItems = makeItems('fund');
+    const metalItems = makeItems('metal');
+    const bondList = makeItems('bond').map(item => ({
+      ...item, pays: Bonds.payments(item.a)
+    }));
+    const priceItems = [...stockItems, ...fundItems, ...metalItems, ...bondList];
+    const assetValue = () => priceItems.reduce((sum,item) => sum + item.value, 0);
+    const resetInvest = () => {
+      cash = 0;
+      priceItems.forEach(item => { item.value = 0; });
+    };
     let previousDate = Utils.dateKey(now);
-    const principalPaid = new Map();
-    // Выплаты облигаций считаются один раз на весь прогноз, а не для
-    // каждого месяца заново (график выплат не меняется в рамках расчёта).
-    const bondList = isInvest ? (product.assets || [])
-      .filter(a => a.kind === 'bond' && !a.redeemed)
-      .map(a => ({ a, pays: Bonds.payments(a) })) : [];
 
     for (let m=1; m<=months; m++){
       const monthDate = new Date(now);
@@ -190,42 +189,40 @@ const Simulator = (() => {
         cumExpense += product.amount || 0;
       } else {
         if (isInvest) {
-          // Проценты капают ТОЛЬКО на акции
-          const interest = stocks * rate / 100 / 12;
-          stocks += interest;
-          // Фонды растут по своей доходности за полгода:
-          // месячный множитель = (1 + доходность/100)^(1/6)
-          let fundGrowth = 0;
-          for (const f of fundItems){
-            const pct = f.a.sixMonthPct;
+          // Повторяем месячный темп, соответствующий изменению за 6 месяцев.
+          // Это сценарная экстраполяция, а не обещание будущей доходности.
+          let priceGrowth = 0;
+          for (const item of priceItems){
+            const pct = item.a.sixMonthPct;
             if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) continue;
-            const newValue = f.value * Math.pow(1 + pct/100, 1/6);
-            fundGrowth += newValue - f.value;
-            f.value = newValue;
+            const nextValue = item.value * Math.pow(1 + pct/100, 1/6);
+            priceGrowth += nextValue - item.value;
+            item.value = nextValue;
           }
-          funds += fundGrowth;
-          let coupon = 0;
+          let coupon = 0, realizedPriceResult = 0;
           const through = Utils.dateKey(monthDate);
-          for (const { a, pays } of bondList){
+          for (const bond of bondList){
+            const { a, pays } = bond;
             for (const pay of pays){
               if (pay.date <= previousDate || pay.date > through || pay.value == null || a.paidEvents?.[pay.key]) continue;
+              if (pay.type !== 'coupon' && noEvents) continue; // без событий тело облигации не возвращается
               const amount = pay.value * (a.qty || 0);
-              if (pay.type !== 'coupon' && noEvents) continue; // без событий долг облигации не возвращается
               cash += amount;
               if (pay.type === 'coupon') coupon += amount;
               else {
-                const paid = principalPaid.get(a.id) || 0;
-                const base = (a.qty || 0) * Bonds.price(a);
-                const deduction = a.maturityDate === pay.date ? base - paid
-                  : Math.min(base - paid, base * pay.value / (a.nominal || 1));
-                bonds -= deduction;
-                principalPaid.set(a.id, paid + deduction);
+                const deduction = a.maturityDate === pay.date
+                  ? bond.value
+                  : Math.min(bond.value, bond.value * pay.value / (a.nominal || 1));
+                bond.value = Math.max(0, bond.value - deduction);
+                // Разница между выплатой номинала и рыночной стоимостью
+                // погашенной части — реализованный ценовой результат.
+                realizedPriceResult += amount - deduction;
               }
             }
           }
           previousDate = through;
-          value = cash + stocks + funds + bonds + metals;
-          cumIncome += interest + coupon + fundGrowth;
+          value = cash + assetValue();
+          cumIncome += priceGrowth + coupon + realizedPriceResult;
         } else if (isCredit) {
           // Кредитная карта: проценты на остаток долга не начисляются
         } else if (isApartment) {

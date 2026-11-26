@@ -360,20 +360,18 @@ const ProductEditor = (() => {
     if (type === 'apartment') annual = amount * rate / 100
       + ($('f_rented')?.checked ? (Number($('f_rentPrice')?.value)||0)*12 : 0)
       - amount * (Number($('f_upkeepRate')?.value)||2) / 100;
+    let baseValue = amount;
     if (type === 'investment'){
       const assets = draftAssets.length ? draftAssets : (editingId ? (Storage.get(editingId)?.assets || []) : []);
-      annual = assets.reduce((sum,a) => {
-        if (a.kind === 'bond') return sum + Simulator.annualCouponForAsset(a);
-        if (a.kind === 'fund' && a.sixMonthPct != null && 1+a.sixMonthPct/100>0)
-          return sum + a.qty * Bonds.price(a) * (Math.pow(1+a.sixMonthPct/100,2)-1);
-        if (a.kind === 'stock') return sum + a.qty * Bonds.price(a) * rate/100;
-        return sum;
-      }, 0);
+      const previewProduct = { id:'investment-preview', type:'investment', amount, assets, operations:[] };
+      const year = Simulator.simulateProduct(previewProduct, 12).history[12];
+      annual = year ? (year.cumIncome || 0) - (year.cumExpense || 0) : 0;
+      baseValue = Simulator.portfolioValue(previewProduct);
     }
-    const pctValue = amount > 0 ? annual / amount * 100 : 0;
+    const pctValue = baseValue > 0 ? annual / baseValue * 100 : 0;
     money.textContent = (annual >= 0 ? '+' : '−') + Utils.fmtMoney(Math.abs(annual));
     money.className = annual >= 0 ? 'green' : 'red';
-    pct.textContent = amount > 0 ? `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(2)}% от текущей суммы · ориентир, не гарантия` : 'Укажите сумму и ставку';
+    pct.textContent = baseValue > 0 ? `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(2)}% от всего портфеля · сценарий по данным за 6 мес., не гарантия` : 'Укажите сумму или добавьте активы';
   }
 
   function updateVisibility(){
@@ -803,9 +801,11 @@ const ProductEditor = (() => {
     const qtyTxt = a.kind === 'metal'
       ? `${a.qty} г × ${fmtMoney(price)}/г`
       : `${a.qty} шт × ${fmtMoney(price)}`;
-    // Доходность фондов (учтена в прогнозе) и металлов (справочно) за полгода
-    const yieldTxt = ((a.kind === 'fund' || a.kind === 'metal') && a.sixMonthPct != null)
-      ? `<div class="op-meta">Изменение за полгода: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b>${a.kind === 'fund' ? ' · учтено в прогнозе' : ' · справочно'}</div>` : '';
+    // Историческое изменение цены за полгода — основа сценарного прогноза
+    // для акций, фондов, облигаций и металлов.
+    const yieldTxt = a.sixMonthPct != null
+      ? `<div class="op-meta">Изменение цены за 6 мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · учтено в прогнозе</div>`
+      : `<div class="op-meta">История цены за 6 мес. пока недоступна · рост не предполагается</div>`;
     const quoteTxt = `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${a.moexError ? ' · ' + escapeHtml(a.moexError) : ''}</div>`;
     const couponTxt = a.kind === 'bond' ? `
       <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
@@ -856,7 +856,7 @@ const ProductEditor = (() => {
       extra = nextDate
         ? `<span class="ag-extra${closesThatDay ? ' red' : ''}">${Utils.iconSvg('calendar',13)} ${fmtDate(nextDate)} · ${fmtMoney(couponSum)}${closesThatDay ? ' · погашение в этот день' : ''}</span>`
         : grp.every(a => a.redeemed) ? '<span class="ag-extra">погашена</span>' : '';
-    } else if (kind === 'fund'){
+    } else {
       const pct = grp.map(a => a.sixMonthPct).find(p => p != null && Number.isFinite(p));
       extra = pct != null
         ? `<span class="ag-extra ${pct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(pct)}/6 мес</span>`

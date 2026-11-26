@@ -146,7 +146,7 @@ const App = (() => {
     afterThemeChange();
   }
 
-  // ===== Ежемесячное обновление доходности фондов и металлов =====
+  // ===== Ежемесячное обновление исторической доходности всех бумаг =====
   // Изменение цены за полгода пересчитывается не чаще 1 раза в месяц:
   // если в этом месяце обновления не было — обновляем, если было — не трогаем.
   async function refreshMonthlyYields(){
@@ -157,7 +157,7 @@ const App = (() => {
       if (p.type !== 'investment' || !Array.isArray(p.assets)) continue;
       for (const a of p.assets){
         if (a.redeemed) continue;
-        if ((a.kind === 'fund' || a.kind === 'metal') && a.yieldMonth !== month){
+        if (['stock','fund','bond','metal'].includes(a.kind) && a.yieldMonth !== month){
           try {
             const before = JSON.stringify([a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
             await MoexAPI.refreshSixMonth(a);
