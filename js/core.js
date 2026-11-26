@@ -65,6 +65,25 @@ const Utils = (() => {
   }
   function parseDate(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); const dt=new Date(y,m-1,d); return isNaN(dt)?null:dt; }
   function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  const OFFICIAL_FUND_NAMES = {
+    'RU000A1045N8': 'БПИФ Альфа Капитал Золото',
+    'RU000A101PN3': 'БПИФ Альфа Управляем облигации',
+    'RU000A102E78': 'БПИФ Альфа Управляем Акции',
+    'RU000A1014L8': 'БПИФ Ликвидность УК ВИМ'
+  };
+  function officialAssetName(asset){
+    if (!asset || asset.kind !== 'fund') return '';
+    const isin = String(asset.isin || asset.ISIN || '').trim().toUpperCase();
+    if (isin && OFFICIAL_FUND_NAMES[isin]) return OFFICIAL_FUND_NAMES[isin];
+    const ticker = String(asset.secid || '').trim().toUpperCase();
+    const byTicker = {
+      AKGD: 'БПИФ Альфа Капитал Золото',
+      AKMB: 'БПИФ Альфа Управляем облигации',
+      AKME: 'БПИФ Альфа Управляем Акции',
+      LQDT: 'БПИФ Ликвидность УК ВИМ'
+    };
+    return byTicker[ticker] || '';
+  }
   function fmtMoney(n){ return new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n); }
   function fmtPct(n){ return (n>=0?'+':'') + n.toFixed(2) + '%'; }
   function fmtDate(d){
@@ -76,7 +95,7 @@ const Utils = (() => {
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
-  return { uid, $, parseDate, dateKey, fmtMoney, fmtPct, fmtDate, escapeHtml, iconSvg };
+  return { uid, $, parseDate, dateKey, fmtMoney, fmtPct, fmtDate, escapeHtml, iconSvg, officialAssetName };
 })();
 
 const Storage = (() => {
