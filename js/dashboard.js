@@ -116,7 +116,7 @@ const ProductList = (() => {
     return evs.sort((a,b)=>a-b)[0];
   }
 
-  function render(onEdit){
+  function render(onEdit, onOpen){
     const el = $('productsList');
     const list = Storage.all();
     const search = $('productSearch');
@@ -221,8 +221,8 @@ const ProductList = (() => {
     }
     if (typeof window.scrollTo === 'function') window.scrollTo(0, viewState.scrollY);
 
-    el.querySelectorAll('[data-edit]').forEach(b=>{
-      b.onclick = () => onEdit(b.dataset.edit);
+    el.querySelectorAll('[data-open]').forEach(b=>{
+      b.onclick = () => { if (typeof onOpen === 'function') onOpen(b.dataset.open); else onEdit(b.dataset.open); };
     });
     el.querySelectorAll('[data-refresh]').forEach(b=>{
       b.onclick = async () => {
@@ -329,7 +329,7 @@ const ProductList = (() => {
             </div>
             ${isInvest ? `<button class="btn small" data-refresh="${p.id}"
                             aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">${Utils.iconSvg('refresh',15)}</button>` : ''}
-            <button class="btn small" data-edit="${p.id}">Открыть</button>
+            <button class="btn small product-open-btn" data-open="${p.id}">Открыть</button>
           </div>
           <div class="product-extra" hidden><div class="prod-sub">${subParts.join(' · ')}</div></div>
         </div>`;
