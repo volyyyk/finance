@@ -47,7 +47,7 @@
     <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему"><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg> Тёмная тема</button>
     <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Полная резервная копия</button>
     <p class="backup-status" id="backupStatus" role="status">Проверка резервной копии…</p>
-    <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом">${Utils.iconSvg('download',15)} Экспорт в Excel</button>
+    <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Экспорт в Excel</button>
     <button class="btn ghost" id="importBtn" title="Загрузить из JSON"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-5 5 5-5 5 5M4 17v4h16v-4"/></svg> Импорт</button>
     <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js">↺ Сброс к seed</button>
     <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg> Сбросить всё (до нуля)</button>
@@ -131,7 +131,7 @@
   </details>
 
   <details class="dashboard-fold">
-    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h17m-14-4 4-4 3 2 6-7"/></svg></span><span class="fold-title">Графики финансового результата</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h17m-14-4 4-4 3 2 6-7"/></svg></span><span class="fold-title">Графики финансового результата</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
     <section class="charts-row">
       <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
       <div class="chart-card"><h3>Финансовый результат (накопленный)</h3><canvas id="chartIncome"></canvas></div>
@@ -140,7 +140,7 @@
 
 
   <details class="dashboard-fold">
-    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><span class="fold-title">Прогноз динамики капитала</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><span class="fold-title">Прогноз динамики капитала</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
     <section class="card forecast-card">
       <div class="forecast-grid">
         <div class="forecast-col">
