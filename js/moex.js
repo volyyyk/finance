@@ -296,8 +296,10 @@ const MoexAPI = (() => {
     if (kind !== 'fund') return fallback;
     try {
       const available = await tradableMarkets(secid, kind);
-      // Успешный ответ без действующих TQ-режимов означает, что торги прекращены.
-      return available;
+      // Если справочник площадок пуст, lastPrice/history всё равно должны
+      // попробовать стандартный маршрут TQTF; пустой массив ломал доступ
+      // к markets[0] и преждевременно обрывал обновление.
+      return available.length ? available : fallback;
     } catch (error) {
       console.warn('MOEX board discovery failed for ' + secid, error);
       return fallback;
