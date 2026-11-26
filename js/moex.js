@@ -538,6 +538,8 @@ const MoexAPI = (() => {
       if (meta.shortname) asset.shortname = meta.shortname;
       if (meta.fullname) asset.fullname = meta.fullname;
       if (!asset.isin && meta.isin) asset.isin = meta.isin;
+      const officialName = Utils.officialAssetName(asset);
+      if (officialName) asset.fullname = officialName;
     } catch (error) {
       console.warn('MOEX security name lookup failed for ' + asset.secid, error);
     }
