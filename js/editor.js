@@ -77,6 +77,17 @@ const ProductEditor = (() => {
     if ($('addEndActionBtn')) $('addEndActionBtn').addEventListener('click', addEndAction);
     if ($('searchAssetBtn')) $('searchAssetBtn').addEventListener('click', searchAsset);
     if ($('addAssetBtn')) $('addAssetBtn').addEventListener('click', addAssetFromPending);
+    if ($('showAssetAddBtn')) $('showAssetAddBtn').addEventListener('click', () => {
+      const panel = $('assetAddPanel');
+      if (!panel) return;
+      const expanded = panel.hidden;
+      panel.hidden = !expanded;
+      $('showAssetAddBtn').setAttribute('aria-expanded', String(expanded));
+      $('showAssetAddBtn').innerHTML = expanded
+        ? '<span aria-hidden="true">−</span> Скрыть добавление'
+        : '<span aria-hidden="true">＋</span> Добавить актив';
+      if (expanded) $('assetQuery')?.focus();
+    });
     if ($('cancelBtn')) $('cancelBtn').addEventListener('click', close);
     if ($('modalBg')) $('modalBg').addEventListener('click', e=>{ if (e.target.id==='modalBg') close(); });
     if ($('productForm')) $('productForm').addEventListener('submit', handleSubmit);
@@ -180,11 +191,14 @@ const ProductEditor = (() => {
         div.id = 'investmentBlock';
         div.style.display = 'none';
         div.innerHTML = `
-          <div class="ops-section">
+          <div class="ops-section investment-assets-section">
             <h4>Активы в портфеле</h4>
             <div id="assetsList"></div>
-            <div class="add-op">
-              <div class="row-3">
+            <button type="button" class="btn primary add-asset-launch" id="showAssetAddBtn" aria-expanded="false">
+              <span aria-hidden="true">＋</span> Добавить актив
+            </button>
+            <div class="add-op asset-add-panel" id="assetAddPanel" hidden>
+              <div class="row-3 asset-search-row">
                 <input type="text" id="assetQuery" placeholder="Тикер, название или ваше имя">
                 <select id="assetKind">
                   <option value="stock">Акция</option>
@@ -195,10 +209,10 @@ const ProductEditor = (() => {
                 <button type="button" class="btn small" id="searchAssetBtn">Найти</button>
               </div>
               <div id="searchResults" style="margin:6px 0"></div>
-              <div class="row-3">
+              <div class="row-3 asset-quantity-row">
                 <input type="number" id="assetQty" step="1" min="1" placeholder="Кол-во" value="1">
                 <input type="number" id="assetAvgPrice" step="0.01" min="0" placeholder="Цена покупки ₽">
-                <button type="button" class="btn small" id="addAssetBtn" disabled>+ Добавить</button>
+                <button type="button" class="btn small" id="addAssetBtn" disabled>Добавить в портфель</button>
               </div>
               <div class="field asset-human-name-field">
                 <label for="assetHumanName">Название актива</label>
@@ -427,13 +441,14 @@ const ProductEditor = (() => {
         : 'Текущая сумма (₽)';
     }
     if ($('f_rate')) {
-      $('f_rate').required = !isExpense;
+      // Для брокерского портфеля ручная ставка не используется:
+      // динамика каждой бумаги уже рассчитывается по истории котировок.
+      $('f_rate').required = !isExpense && !isInvest;
       if ($('f_rate').parentElement) {
-        $('f_rate').parentElement.style.display = isExpense ? 'none' : '';
+        $('f_rate').parentElement.style.display = (isExpense || isInvest) ? 'none' : '';
         const label = $('f_rate').parentElement.querySelector('label');
         if (label) {
           label.textContent = isCredit ? 'Ставка по долгу (% годовых)'
-            : isInvest ? 'Ожидаемый рост акций (% годовых)'
             : isApartment ? 'Рост стоимости квартиры (% в год)'
             : 'Ставка (% годовых)';
         }
@@ -457,6 +472,11 @@ const ProductEditor = (() => {
     $('addAssetBtn').disabled = true;
     $('searchResults').textContent = '';
     $('bondExtra').style.display = 'none';
+    if ($('assetAddPanel')) $('assetAddPanel').hidden = true;
+    if ($('showAssetAddBtn')) {
+      $('showAssetAddBtn').setAttribute('aria-expanded','false');
+      $('showAssetAddBtn').innerHTML = '<span aria-hidden="true">＋</span> Добавить актив';
+    }
     if ($('productForm')) $('productForm').reset();
     populateDebtTargets();
 
@@ -891,6 +911,12 @@ const ProductEditor = (() => {
     if ($('assetHumanName')) $('assetHumanName').value = '';
     renderAssets();
     renderEffectPreview();
+    // После успешного добавления возвращаем компактный вид портфеля.
+    if ($('assetAddPanel')) $('assetAddPanel').hidden = true;
+    if ($('showAssetAddBtn')) {
+      $('showAssetAddBtn').setAttribute('aria-expanded','false');
+      $('showAssetAddBtn').innerHTML = '<span aria-hidden="true">＋</span> Добавить актив';
+    }
   }
 
   function assetDisplayName(asset){

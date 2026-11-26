@@ -176,6 +176,20 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
 .op-del:hover{color:var(--red)}
 .add-op{border:1px dashed var(--border);border-radius:7px;padding:10px;margin-top:8px}
 .add-op .row-3,.add-op .row-2{margin-bottom:8px}
+.investment-assets-section>#assetsList{margin-bottom:10px}
+.add-asset-launch{
+  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  min-height:48px;border-radius:13px;font-size:14px;font-weight:650;
+  box-shadow:0 3px 10px color-mix(in srgb,var(--blue) 16%,transparent);
+}
+.add-asset-launch>span{font-size:20px;line-height:1;font-weight:400}
+.asset-add-panel{margin-top:10px;padding:12px;border-style:solid;background:var(--bg)}
+.asset-add-panel .asset-search-row{grid-template-columns:minmax(0,1fr) minmax(105px,.55fr) auto}
+.asset-add-panel .asset-quantity-row{grid-template-columns:minmax(0,.8fr) minmax(0,1fr) auto}
+.asset-add-panel .asset-human-name-field{margin:10px 0 0}
+@media(max-width:600px){
+  .asset-add-panel .asset-search-row,.asset-add-panel .asset-quantity-row{grid-template-columns:1fr}
+}
 .add-op-actions{display:flex;gap:8px;justify-content:flex-end}
 @media (max-width:900px){
   .stats{grid-template-columns:repeat(2,1fr)}
