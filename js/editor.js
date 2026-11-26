@@ -612,8 +612,9 @@ const ProductEditor = (() => {
     if (typeof MoexAPI === 'undefined') return;
     for (const a of draftAssets){
       try {
-        await MoexAPI.refreshAsset(a);
-      } catch(e){ /* тихо */ }
+        if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(a)) await VIMAPI.refreshAsset(a);
+        else if (a.quoteSource !== 'manual') await MoexAPI.refreshAsset(a);
+      } catch(e){ /* тихо: сохраняем последнюю подтверждённую цену */ }
     }
     renderAssets();
   }
@@ -828,7 +829,7 @@ const ProductEditor = (() => {
   // Новые открытые ПИФы Яндекс Пэй / ВИМ: не торгуются на MOEX,
   // поэтому добавляются из локального каталога по номеру правил/названию.
   const LOCAL_YANDEX_FUNDS = [
-    {kind:'fund',quoteSource:'manual',secid:'PIF8000',rulesNumber:'8000',
+    {kind:'fund',quoteSource:'vim',secid:'PIF8000',rulesNumber:'8000',
       shortname:'Яндекс Пэй — Фонд акций и облигаций',
       fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд акций и облигаций»',
       customName:'Яндекс Пэй — Фонд акций и облигаций',
@@ -836,7 +837,7 @@ const ProductEditor = (() => {
       historyMonths:1,historyBase:100.68,historyBaseDate:'2026-08-31',
       sixMonthPct:(101.36/100.68-1)*100,historyPct:(101.36/100.68-1)*100,historyAnnualPct:(Math.pow(101.36/100.68,12)-1)*100,
       navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'},
-    {kind:'fund',quoteSource:'manual',secid:'PIF8002',rulesNumber:'8002',
+    {kind:'fund',quoteSource:'vim',secid:'PIF8002',rulesNumber:'8002',
       shortname:'Яндекс Пэй — Фонд рублёвых облигаций',
       fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд рублёвых облигаций»',
       customName:'Яндекс Пэй — Фонд рублёвых облигаций',
@@ -981,7 +982,9 @@ const ProductEditor = (() => {
         board: kind === 'metal' ? 'CETS' : (picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR')), kind };
       // Проверяем допуск к обычным биржевым торгам до загрузки цены.
       // Ошибка сети тоже блокирует добавление: статус бумаги неизвестен.
-      if (asset.quoteSource !== 'manual'){
+      if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(asset)) {
+        await VIMAPI.refreshAsset(asset);
+      } else if (asset.quoteSource !== 'manual'){
         await MoexAPI.assertTradable(asset.secid, kind);
         await MoexAPI.refreshAsset(asset);
       }
