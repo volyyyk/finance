@@ -288,7 +288,9 @@ const MoexAPI = (() => {
     from.setDate(from.getDate() - 14);
     const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
     await refreshAsset(asset);
-    const cur = asset.lastPrice ?? null;
+    const quoteTime = Date.parse(asset.moexUpdatedAt || '');
+    const quoteIsFresh = Number.isFinite(quoteTime) && Date.now() - quoteTime < 10 * 60 * 1000;
+    const cur = quoteIsFresh ? (asset.lastPrice ?? null) : null;
     const base = baseRaw;
     asset.sixMonthBase = base;
     asset.sixMonthBaseDate = base != null ? iso(target) : null;
