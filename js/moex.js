@@ -195,7 +195,7 @@ const MoexAPI = (() => {
   async function securityMetadata(secid){
     return cached(`security-meta:${secid}`, 24 * 60 * 60 * 1000, async () => {
       const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`);
-      const info = Object.fromEntries(rows(json.securities).map(row => [row.name, row.value]));
+      const info = rows(json.securities)[0] || {};
       return {
         shortname: info.SHORTNAME || info.SHORTNAME_RUS || '',
         fullname: info.SECNAME || info.FULLNAME || '',
