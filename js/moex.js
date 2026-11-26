@@ -40,14 +40,45 @@ const MoexAPI = (() => {
           credentials: 'omit'
         });
         if (!res.ok) {
-          const error = new Error('HTTP ' + res.status);
+          let detail = '';
+          try {
+            const body = await res.text();
+            if (body) {
+              try {
+                const parsed = JSON.parse(body);
+                detail = parsed.detail || parsed.error || parsed.message || body;
+              } catch { detail = body; }
+            }
+          } catch {}
+          const upstream = res.headers?.get?.('X-MOEX-Upstream-Status');
+          const suffix = String(detail || '').replace(/\\s+/g, ' ').slice(0, 240);
+          const error = new Error('HTTP ' + res.status
+            + (upstream ? ' (MOEX upstream ' + upstream + ')' : '')
+            + (suffix ? ': ' + suffix : ''));
           error.status = res.status;
+          error.upstreamStatus = upstream ? Number(upstream) : null;
           throw error;
         }
-        return await res.json();
+        const body = await res.text();
+        let data;
+        try { data = JSON.parse(body); }
+        catch {
+          const contentType = res.headers?.get?.('content-type') || 'не указан';
+          throw new Error('Ответ не является JSON (Content-Type: ' + contentType + '): '
+            + String(body).replace(/\\s+/g, ' ').slice(0, 180));
+        }
+        if (!data || typeof data !== 'object') throw new Error('MOEX ISS вернул пустой или некорректный JSON');
+        return data;
       })(),
       timedOut
     ]);
+  }
+
+  function compactIssUrl(value){
+    const parsed = new URL(value);
+    parsed.searchParams.set('iss.json', 'compact');
+    parsed.searchParams.set('iss.version', 'on');
+    return parsed.toString();
   }
 
   async function fetchJSON(url, timeout = 12000){
@@ -55,23 +86,22 @@ const MoexAPI = (() => {
     const isMoex = url.startsWith(ISS + '/');
     if (!isMoex) return requestJSON(url, timeout);
 
-    // При наличии личного Worker сначала идём через него: серверный fetch
-    // устраняет зависимость от CORS на стороне MOEX. Прокси получает только
-    // публичный URL ISS, никогда не данные портфеля или количество бумаг.
+    // Фиксируем документированный формат compact; версия ответа помогает
+    // диагностировать изменения схемы на стороне ISS.
+    const requestUrl = compactIssUrl(url);
     const proxy = getProxyUrl();
     const targets = [];
-    if (proxy) targets.push({ name: 'Cloudflare Worker', url: proxy + '/iss' + url.slice(ISS.length) });
-    targets.push({ name: 'MOEX ISS', url });
-    targets.push({ name: 'cors.dev', url: 'https://proxy.cors.dev/' + url });
-    targets.push({ name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) });
+    if (proxy) targets.push({ name: 'Cloudflare Worker', url: proxy + '/iss' + requestUrl.slice(ISS.length) });
+    targets.push({ name: 'MOEX ISS', url: requestUrl });
+    targets.push({ name: 'cors.dev', url: 'https://proxy.cors.dev/' + requestUrl });
+    targets.push({ name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(requestUrl) });
 
     const failures = [];
-    for (let i = 0; i < targets.length; i++){
-      const target = targets[i];
+    for (const target of targets){
       try {
         return await requestJSON(target.url, Math.max(timeout, target.name === 'MOEX ISS' ? timeout : 10000));
       } catch (error) {
-        failures.push(target.name + ': ' + String(error?.message || error).slice(0, 90));
+        failures.push(target.name + ': ' + String(error?.message || error).slice(0, 260));
         const retryable = error instanceof TypeError
           || error?.code === 'ETIMEDOUT'
           || error?.name === 'AbortError'
@@ -82,16 +112,17 @@ const MoexAPI = (() => {
         if (!retryable) throw error;
       }
     }
-    throw new Error('Не удалось получить данные MOEX: ' + failures.join('; '));
+    throw new Error('Не удалось получить данные MOEX. Проверены: ' + failures.join(' | '));
   }
 
   async function testProxy(value){
     const proxy = normalizeProxyUrl(value);
     if (!proxy) throw new Error('Укажите корректный HTTPS-адрес Cloudflare Worker без пути');
     const data = await requestJSON(proxy + '/iss/engines/stock/markets/shares/securities/VTBR.json?iss.meta=off&iss.only=marketdata', 12000);
-    if (!data || !data.marketdata || !Array.isArray(data.marketdata.columns) || !Array.isArray(data.marketdata.data))
-      throw new Error('Worker ответил, но формат данных MOEX некорректен');
-    return { ok:true, rows:data.marketdata.data.length };
+    const marketdata = parseBlock(data?.marketdata);
+    if (!marketdata)
+      throw new Error('Worker ответил, но блок marketdata не соответствует формату ISS compact/extended');
+    return { ok:true, rows:marketdata.data.length };
   }
 
   function cached(key, ttl, loader){
@@ -108,13 +139,41 @@ const MoexAPI = (() => {
   async function searchSecurity(q){
     const url = `${ISS}/securities.json?q=${encodeURIComponent(q)}&iss.meta=off&limit=15`;
     const json = await fetchJSON(url);
-    const cols = json.securities.columns;
-    const rows = json.securities.data || [];
-    return rows.map(r => Object.fromEntries(cols.map((c,i)=>[c, r[i]])));
+    return requireRows(json, 'securities');
   }
 
-  const rows = block => (block?.data || []).map(r =>
-    Object.fromEntries(block.columns.map((c,i) => [c, r[i]])));
+  function parseBlock(block){
+    // Обычный ISS JSON (compact и extended): { columns: [], data: [] }.
+    if (block && !Array.isArray(block)
+      && Array.isArray(block.columns) && Array.isArray(block.data)
+      && block.columns.every(column => typeof column === 'string')
+      && block.data.every(row => Array.isArray(row))) {
+      return { columns: block.columns, data: block.data };
+    }
+    // Совместимость с компактным позиционным представлением [columns, data].
+    if (Array.isArray(block) && block.length >= 2
+      && Array.isArray(block[0]) && block[0].every(column => typeof column === 'string')
+      && Array.isArray(block[1]) && block[1].every(row => Array.isArray(row))) {
+      return { columns: block[0], data: block[1] };
+    }
+    return null;
+  }
+
+  const rows = block => {
+    const parsed = parseBlock(block);
+    return parsed ? parsed.data.map(row =>
+      Object.fromEntries(parsed.columns.map((column, index) => [column, row[index]]))) : [];
+  };
+
+  function requireRows(json, blockName){
+    const parsed = parseBlock(json?.[blockName]);
+    if (!parsed) {
+      const keys = json && typeof json === 'object' ? Object.keys(json).join(', ') : 'нет';
+      throw new Error('MOEX ISS: блок "' + blockName + '" отсутствует или имеет неизвестную структуру (получены блоки: ' + keys + ')');
+    }
+    return parsed.data.map(row =>
+      Object.fromEntries(parsed.columns.map((column, index) => [column, row[index]])));
+  }
   const number = v => v == null || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null;
 
   function chooseMarketRow(marketRows, preferredBoard){
@@ -138,8 +197,8 @@ const MoexAPI = (() => {
         ? `${ISS}/engines/currency/markets/selt/securities/${encodeURIComponent(secid)}.json?iss.meta=off`
         : `${ISS}/engines/stock/markets/${bond ? 'bonds' : 'shares'}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
       const json = await fetchJSON(url);
-      const md = chooseMarketRow(rows(json.marketdata), board);
-      const security = rows(json.securities)[0] || {};
+      const md = chooseMarketRow(requireRows(json, 'marketdata'), board);
+      const security = requireRows(json, 'securities')[0] || {};
       // PREVPRICE/PREVLEGALCLOSEPRICE — прошлое закрытие, не текущая цена.
       const quoted = md
         ? [md.LAST, md.LCURRENTPRICE, md.MARKETPRICE, md.WAPRICE]
@@ -167,7 +226,7 @@ const MoexAPI = (() => {
       ? `${ISS}/history/engines/currency/markets/selt/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,CLOSE&from=${dateFrom}&till=${dateTo}`
       : `${ISS}/history/engines/stock/markets/shares/boards/${encodeURIComponent(board || 'TQTF')}/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,CLOSE&from=${dateFrom}&till=${dateTo}`;
     const json = await fetchJSON(url, 12000);
-    const page = rows(json.history);
+    const page = requireRows(json, 'history');
     for (let i = page.length - 1; i >= 0; i--){
       const close = number(page[i].CLOSE);
       if (close != null && close > 0) return close;
@@ -298,6 +357,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, normalizeProxyUrl, getProxyUrl, testProxy };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
