@@ -911,6 +911,12 @@ const ProductEditor = (() => {
     if ($('assetHumanName')) $('assetHumanName').value = '';
     renderAssets();
     renderEffectPreview();
+    // После успешного добавления возвращаем компактный вид портфеля.
+    if ($('assetAddPanel')) $('assetAddPanel').hidden = true;
+    if ($('showAssetAddBtn')) {
+      $('showAssetAddBtn').setAttribute('aria-expanded','false');
+      $('showAssetAddBtn').innerHTML = '<span aria-hidden="true">＋</span> Добавить актив';
+    }
   }
 
   function assetDisplayName(asset){
