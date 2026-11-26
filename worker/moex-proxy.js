@@ -29,34 +29,33 @@ const VIM_FUNDS = {
 // The table is a first-party fallback when the chart's JS data is not embedded in HTML.
 function parseVimTable(html) {
   const clean = value => String(value || '')
-    .replace(/<br\\s*\\/?\\s*>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
     .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'")
-    .replace(/\\s+/g, ' ').trim();
+    .replace(/\s+/g, ' ').trim();
   const numeric = value => {
-    const normalized = clean(value).replace(/\\s/g, '').replace(',', '.').replace(/[^0-9.+-]/g, '');
+    const normalized = clean(value).replace(/\s/g, '').replace(',', '.').replace(/[^0-9.+-]/g, '');
     const n = Number(normalized);
     return Number.isFinite(n) ? n : null;
   };
-  for (const tableMatch of html.matchAll(/<table\\b[^>]*>([\\s\\S]*?)<\\/table>/gi)) {
+  for (const tableMatch of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)) {
     const table = tableMatch[1];
-    const rows = [...table.matchAll(/<tr\\b[^>]*>([\\s\\S]*?)<\\/tr>/gi)].map(row =>
-      [...row[1].matchAll(/<t[dh]\\b[^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(cell => clean(cell[1]))
+    const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(row =>
+      [...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(cell => clean(cell[1]))
     );
     const headerIndex = rows.findIndex(cells => cells.some(x => /дата/i.test(x)) && cells.some(x => /стоимость пая/i.test(x)));
     if (headerIndex < 0) continue;
     const history = [];
     for (const cells of rows.slice(headerIndex + 1)) {
-      const dateText = cells.find(x => /^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(x));
+      const dateText = cells.find(x => /^\d{2}\.\d{2}\.\d{4}$/.test(x));
       if (!dateText) continue;
       const dateParts = dateText.split('.');
       const date = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0];
-      const priceIndex = cells.findIndex(x => /^\\d[\\d\\s]*(?:[.,]\\d+)?$/.test(x.replace(/\\s/g, '')) && Number(x.replace(/\\s/g, '').replace(',', '.')) > 0);
+      const priceIndex = cells.findIndex(x => /^\d[\d\s]*(?:[.,]\d+)?$/.test(x) && Number(x.replace(/\s/g, '').replace(',', '.')) > 0);
       if (priceIndex < 0) continue;
       const price = numeric(cells[priceIndex]);
-      // In the official table the NAV column follows price and daily price change.
       const nav = numeric(cells[priceIndex + 2]);
       if (!(price > 0)) continue;
       history.push({ date, price, nav: nav > 0 ? nav : null });
