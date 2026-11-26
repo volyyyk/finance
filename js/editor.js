@@ -30,7 +30,7 @@ const ProductEditor = (() => {
   // «золот» — только золото, «SLV» — только серебро, мусор — ничего.
   const METALS = [
     ['GLDRUB_TOM', 'Золото'], ['SLVRUB_TOM', 'Серебро'],
-    ['PLDRUB_TOM', 'Платина'], ['PDDRUB_TOM', 'Палладий'],
+    ['PLDRUB_TOM', 'Палладий'], ['PLTRUB_TOM', 'Платина'],
   ];
   function metalQuickList(q){
     const ql = (q || '').trim().toLowerCase();
@@ -674,7 +674,7 @@ const ProductEditor = (() => {
       const kind = $('assetKind').value;
       const filtered = rows.filter(r =>
         kind === 'metal'
-          ? /^(GLD|SLVR|PLD|PDD)RUB/.test(r.secid || '')
+          ? /^(GLD|SLV|PLD|PLT)RUB/.test(r.secid || '')
           : typeMatches(r.type, kind));
 
       if (kind === 'metal'){
@@ -741,7 +741,7 @@ const ProductEditor = (() => {
     $('assetPurchaseDate').value = Bonds.today();
     $('bondPreview').textContent = 'Загрузка данных MOEX…';
     try {
-      const asset = { ...picked, board: picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR'), kind };
+      const asset = { ...picked, board: kind === 'metal' ? 'CETS' : (picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR')), kind };
       await MoexAPI.refreshAsset(asset);
       if (myPick !== pickSeq) return;
       pendingAsset = asset;

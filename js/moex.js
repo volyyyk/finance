@@ -96,7 +96,7 @@ const MoexAPI = (() => {
     return path + '?' + params.join('&') + hash;
   }
 
-  async function fetchJSON(url, timeout = 12000){
+  async function fetchJSON(url, timeout = 30000){
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Нет подключения к интернету');
     const isMoex = url.startsWith(ISS + '/');
     if (!isMoex) return requestJSON(url, timeout);
@@ -112,9 +112,12 @@ const MoexAPI = (() => {
     targets.push({ name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(requestUrl) });
 
     const failures = [];
+    const deadline = Date.now() + Math.max(1000, timeout);
     for (const target of targets){
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
       try {
-        return await requestJSON(target.url, Math.max(timeout, target.name === 'MOEX ISS' ? timeout : 10000));
+        return await requestJSON(target.url, Math.min(8000, remaining));
       } catch (error) {
         failures.push(target.name + ': ' + String(error?.message || error).slice(0, 260));
         const retryable = error instanceof TypeError
@@ -127,7 +130,8 @@ const MoexAPI = (() => {
         if (!retryable) throw error;
       }
     }
-    throw new Error('Не удалось получить данные MOEX. Проверены: ' + failures.join(' | '));
+    const elapsed = Math.max(0, timeout - Math.max(0, deadline - Date.now()));
+    throw new Error('Не удалось получить данные MOEX за ' + Math.ceil(elapsed / 1000) + ' с. Проверены: ' + failures.join(' | '));
   }
 
   async function testProxy(value){
@@ -202,17 +206,34 @@ const MoexAPI = (() => {
       || usable[0];
   }
 
+  async function resolveMarket(secid, preferredBoard, kind){
+    const fallback = kind === 'metal'
+      ? { engine:'currency', market:'selt', board:preferredBoard || 'CETS' }
+      : { engine:'stock', market:kind === 'bond' ? 'bonds' : 'shares', board:preferredBoard || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR') };
+    if (kind !== 'fund') return fallback;
+    try {
+      const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}/boards.json?iss.meta=off`, 5000);
+      const available = requireRows(json, 'boards').filter(row =>
+        row.engine && row.market && row.boardid && Number(row.is_traded ?? 1) !== 0
+      );
+      const selected = available.find(row => row.boardid === preferredBoard)
+        || available.find(row => row.is_primary === 1 || row.is_primary === true)
+        || available[0];
+      if (selected) return { engine:selected.engine, market:selected.market, board:selected.boardid };
+    } catch (error) {
+      // If board metadata is unavailable, retain the conventional market route.
+      console.warn('MOEX board discovery failed for ' + secid, error);
+    }
+    return fallback;
+  }
+
   async function lastPrice(secid, board, kind){
     return cached(`price:${kind}:${board || ''}:${secid}`, CACHE_TTL, async () => {
-      const metal = kind === 'metal';
       const bond = kind === 'bond';
-      // Берём данные по инструменту на всём рынке, а не привязываемся
-      // к одному BOARDID: режим торгов может отличаться у разных бумаг.
-      const url = metal
-        ? `${ISS}/engines/currency/markets/selt/securities/${encodeURIComponent(secid)}.json?iss.meta=off`
-        : `${ISS}/engines/stock/markets/${bond ? 'bonds' : 'shares'}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
-      const json = await fetchJSON(url);
-      const md = chooseMarketRow(requireRows(json, 'marketdata'), board);
+      const market = await resolveMarket(secid, board, kind);
+      const url = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
+      const json = await fetchJSON(url, kind === 'fund' ? 25000 : 30000);
+      const md = chooseMarketRow(requireRows(json, 'marketdata'), market.board);
       const security = requireRows(json, 'securities')[0] || {};
       // PREVPRICE/PREVLEGALCLOSEPRICE — прошлое закрытие, не текущая цена.
       const quoted = md
@@ -227,7 +248,7 @@ const MoexAPI = (() => {
         accruedInterest: number(security.ACCRUEDINT),
         maturityDate: security.MATDATE || null,
         currency: security.FACEUNIT || 'RUB',
-        board: md?.BOARDID || board || null,
+        board: md?.BOARDID || market.board || board || null,
         quoteTime: md?.SYSTIME || md?.UPDATETIME || md?.TIME || null,
         updatedAt: last != null ? new Date().toISOString() : null,
       };
@@ -331,7 +352,11 @@ const MoexAPI = (() => {
   }
 
   async function refreshAsset(asset){
-    const board = asset.board || (asset.kind === 'bond' ? 'TQOB' : asset.kind === 'fund' ? 'TQTF' : 'TQBR');
+    // PDDRUB_TOM was an erroneous legacy alias in the quick-add list;
+    // MOEX's palladium spot ticker is PLDRUB_TOM.
+    if (asset.kind === 'metal' && asset.secid === 'PDDRUB_TOM') asset.secid = 'PLDRUB_TOM';
+    const board = asset.kind === 'metal' ? 'CETS' : (asset.board || (asset.kind === 'bond' ? 'TQOB' : asset.kind === 'fund' ? 'TQTF' : 'TQBR'));
+    if (asset.kind === 'metal') asset.board = 'CETS';
     if (asset.kind === 'bond') {
       const details = await bondDetails(asset.secid, board);
       // Не заменяем сохранённую рублёвую цену пустой котировкой.
@@ -372,6 +397,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
