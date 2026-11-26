@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v52';
+const CACHE_NAME = 'finance-cache-v53';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
@@ -14,7 +14,7 @@ const ASSET_URLS = {};
 ASSET_NAMES.forEach(n => { ASSET_URLS[n] = new URL(n, BASE).toString(); });
 const META_CACHE = 'finance-meta';
 const META_URL = new URL('./meta', BASE).toString();
-const ICON_URL = new URL('./icons/icon-192.png', BASE).toString();
+const ICON_URL = new URL('./icons/finapp.svg', BASE).toString();
 const DAY_MS = 86400000;
 
 self.addEventListener('install', event => {

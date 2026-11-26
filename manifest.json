@@ -4,8 +4,8 @@
   "description": "Личный финансовый учёт, инвестиции и кешбэк",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f3f6fa",
-  "theme_color": "#234e78",
+  "background_color": "#071b38",
+  "theme_color": "#0b2b55",
   "icons": [
     {
       "src": "./icons/finapp.svg",
