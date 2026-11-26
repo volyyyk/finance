@@ -120,12 +120,13 @@ const Bonds = (() => {
           if (alreadyPaid){
             // Миграция старых записей: ранее на дату погашения могла быть
             // учтена только частичная амортизация, а остаток номинала терялся.
-            if (pay.type === 'principal' && pay.date === a.maturityDate
-              && Number(alreadyPaid.amount) < amount){
-              const difference = money(amount - Math.max(0, Number(alreadyPaid.amount) || 0));
+            const paidAmount = Math.max(0, Number(alreadyPaid.amount) || 0);
+            if (pay.type === 'principal' && pay.date === a.maturityDate && paidAmount < amount){
+              const difference = money(amount - paidAmount);
               p.amount = money((p.amount || 0) + difference);
-              alreadyPaid.amount = amount;
-              alreadyPaid.reconciled = true;
+              a.paidEvents[pay.key] = {
+                date:pay.date, amount, type:pay.type, reconciled:true
+              };
               changed = true;
             }
             continue;
