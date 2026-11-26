@@ -747,8 +747,10 @@ const ProductEditor = (() => {
       $('bondPreview').textContent =
         kind === 'bond'
           ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}`
+          : kind === 'fund' && asset.moexInactive
+          ? asset.moexStatusText
           : kind === 'fund'
-          ? `Цена пая: ${fmtMoney(asset.lastPrice || 0)} · данные MOEX`
+          ? (asset.lastPrice != null ? `Цена пая: ${fmtMoney(asset.lastPrice)} · данные MOEX` : 'Свежая цена MOEX пока не получена; цену покупки можно указать вручную.')
           : kind === 'metal'
           ? `Цена за грамм: ${fmtMoney(asset.lastPrice || 0)} · унция: ${fmtMoney(asset.ouncePrice || 0)} · данные MOEX`
           : '';
