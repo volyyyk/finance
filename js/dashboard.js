@@ -502,7 +502,7 @@ const GoalBar = (() => {
         <span class="goal-title">${Utils.iconSvg('target',17)} ${g.name ? escapeHtml(g.name) + ' · ' : ''}${fmtMoney(g.amount)}</span>
         <span class="goal-eta">${etaText(net, g.amount, s.netMonthly)}</span>
         <span class="goal-actions">
-          <button class="op-del" id="goalEdit" title="Изменить цель">✎</button>
+          <button class="op-del" id="goalEdit" title="Изменить цель">${Utils.iconSvg('pencil',14)}</button>
           <button class="op-del" id="goalDel" title="Удалить цель">×</button>
         </span>
       </div>
