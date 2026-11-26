@@ -268,7 +268,17 @@ const ProductEditor = (() => {
     ['#creditCardBlock','#apartmentBlock','#offBudgetBlock'].forEach(sel => take(sel, conditions.body));
     take('#investmentBlock', activity.body);
     const operationsSection = form.querySelector(':scope > .ops-section');
-    if (operationsSection) activity.body.appendChild(operationsSection);
+    if (operationsSection) {
+      // Операции нужны нечасто: отдельная сворачиваемая секция закрыта
+      // по умолчанию и не занимает место в обычном сценарии редактирования.
+      const operationsDetails = document.createElement('details');
+      operationsDetails.className = 'editor-ops-details';
+      const operationsSummary = document.createElement('summary');
+      operationsSummary.innerHTML = '<b>Пополнения и снятия</b><small>Регулярные и разовые операции</small><span aria-hidden="true">⌄</span>';
+      operationsDetails.appendChild(operationsSummary);
+      operationsDetails.appendChild(operationsSection);
+      activity.body.appendChild(operationsDetails);
+    }
     const wizard = document.createElement('div');
     wizard.id = 'productWizard';
     wizard.className = 'product-wizard';

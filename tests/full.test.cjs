@@ -1295,6 +1295,10 @@ test('Utils.officialAssetName: maps known MOEX funds by ISIN and ticker', () => 
   assert.equal(mods.Utils.officialAssetName({kind:'fund',secid:'AKME'}), 'БПИФ Альфа Управляем Акции');
   assert.equal(mods.Utils.officialAssetName({kind:'fund',secid:'LQDT'}), 'БПИФ Ликвидность УК ВИМ');
   assert.equal(mods.Utils.officialAssetName({kind:'stock',secid:'AKGD'}), '');
+  assert.equal(mods.Utils.officialAssetName({kind:'metal',secid:'GLDRUB_TOM'}), 'Золото');
+  assert.equal(mods.Utils.officialAssetName({kind:'metal',secid:'SLVRUB_TOM'}), 'Серебро');
+  assert.equal(mods.Utils.officialAssetName({kind:'metal',secid:'PLDRUB_TOM'}), 'Палладий');
+  assert.equal(mods.Utils.officialAssetName({kind:'metal',secid:'PLTRUB_TOM'}), 'Платина');
 });
 
 test('Simulator: negative broker cash is a liability, while securities remain assets', () => {
