@@ -48,7 +48,7 @@ export default {
           return new Response(upstream.body, { status: upstream.status, headers });
         }
 
-        const detail = (await upstream.text().catch(() => '')).replace(/\\s+/g, ' ').slice(0, 900);
+        const detail = (await upstream.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 900);
         lastFailure = {
           error: 'MOEX ISS returned HTTP ' + upstream.status,
           upstreamStatus: upstream.status,
