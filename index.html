@@ -94,7 +94,11 @@
   </section>
 
   <section class="card">
-    <div class="section-heading"><div><h2>Активы и обязательства</h2><p>Все счета, вклады, долги и инвестиционные портфели</p></div><span class="section-kicker">МОЙ ПОРТФЕЛЬ</span></div>
+    <div class="section-heading"><div><h2>Активы и обязательства</h2><p>Все счета, вклады, долги и инвестиционные портфели</p></div><div class="section-heading-actions"><button class="btn small chart-toggle" id="portfolioChartBtn" aria-expanded="false" aria-controls="portfolioInsights" title="Структура портфеля по категориям">◔</button><span class="section-kicker">МОЙ ПОРТФЕЛЬ</span></div></div>
+    <section class="portfolio-insights" id="portfolioInsights" hidden>
+      <div class="portfolio-insights-top"><div><b>Структура портфеля</b><small>Распределение по типам продуктов</small></div><button class="btn small" id="portfolioInsightClose" type="button" aria-label="Закрыть диаграмму">×</button></div>
+      <div class="portfolio-insights-grid"><div class="portfolio-chart-wrap"><canvas id="portfolioDonut" aria-label="Круговая диаграмма состава портфеля"></canvas><div class="portfolio-legend" id="portfolioLegend"></div></div><div class="portfolio-details" id="portfolioDetails"></div></div>
+    </section>
     <label class="product-search"><span aria-hidden="true">⌕</span><input id="productSearch" type="search" placeholder="Найти счёт, банк или продукт…" autocomplete="off"></label>
     <div id="productsList"></div><div id="productSearchEmpty" class="empty search-empty" hidden>Ничего не найдено. Попробуйте другое название.</div>
     <div class="actions-bar">
@@ -281,6 +285,7 @@
 <script src="js/cashback.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="js/product-insights.js"></script>
 <script src="js/notifications.js"></script>
 <script src="js/app.js"></script>
 <script src="js/pwa.js"></script>
