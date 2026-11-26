@@ -48,9 +48,14 @@ export default {
             count++;
           }
         }
+        const scriptTags = [...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script>/gi)].slice(0,30).map(m=>m[0].slice(0,1800));
         const scripts = [...html.matchAll(/<script\b[^>]*src=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]).slice(0,40);
         const tables = [...html.matchAll(/<table\b[^>]*>/gi)].map(m=>m[0]).slice(0,20);
-        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,scripts,tables,contexts:contexts.slice(0,24)},200);
+        const chartAt = html.indexOf('pif_bay-chart--wrapper');
+        const chartBlock = chartAt >= 0 ? html.slice(Math.max(0, chartAt - 1200), Math.min(html.length, chartAt + 14000)).replace(/\\s+/g,' ') : null;
+        const dataAttrs = [...html.matchAll(/\\bdata-[\\w:-]+=["'][^"']*["']/gi)].map(m=>m[0]).slice(0,100);
+        const endpoints = [...new Set((html.match(/[^"'\\s<>]*(?:ajax|api|chart|quote|history|download)[^"'\\s<>]*/gi)||[]).filter(x=>x.length<500))].slice(0,100);
+        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||null,scripts,scriptTags,tables,dataAttrs,endpoints,chartBlock,contexts:contexts.slice(0,24)},200);
       } catch(error) {
         return jsonResponse({error:'VIM debug request failed',detail:String(error?.message||error).slice(0,200)},502);
       }
