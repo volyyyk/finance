@@ -125,9 +125,9 @@ const App = (() => {
   function applyTheme(theme){
     document.documentElement.dataset.theme = theme;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b1424' : '#2563eb');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b1424' : '#234e78');
     const btn = $('themeToggle');
-    if (btn) btn.textContent = theme === 'dark' ? '☀️ Светлая тема' : '🌙 Тёмная тема';
+    if (btn) btn.innerHTML = Utils.iconSvg(theme === 'dark' ? 'sun' : 'moon', 16) + (theme === 'dark' ? ' Светлая тема' : ' Тёмная тема');
   }
   function afterThemeChange(){
     // Цвета графиков кэшируются по CSS-переменным — при смене темы кэш сбрасывается
@@ -339,7 +339,10 @@ ${rows}
     }
 
     // 1. Сначала вешаем обработчики, чтобы кнопки работали в любом случае
-    $('addBtn').onclick  = () => ProductEditor.open(null, App.refresh);
+    $('addBtn').onclick  = () => {
+      if (localStorage.getItem('fin_mode') === 'cashback' && window.Cashback) window.Cashback.openAdd();
+      else ProductEditor.open(null, App.refresh);
+    };
     $('addBtn2').onclick = () => ProductEditor.open(null, App.refresh);
     $('deleteBtn').onclick = deleteSelected;
     $('calPrev').onclick = () => Dashboard.prevMonth();
@@ -386,8 +389,9 @@ ${rows}
         main.hidden = isCb; cbMode.hidden = !isCb;
         $('tabMain').classList.toggle('active', !isCb);
         $('tabCashback').classList.toggle('active', isCb);
-        $('addBtn').hidden = isCb;
-        $('cbBanksBtn').hidden = !isCb;
+        $('addBtn').hidden = false;
+        $('addBtn').querySelector('span').textContent = isCb ? 'Добавить кешбэк' : 'Добавить продукт';
+        $('cbBanksBtn').hidden = true;
         document.querySelectorAll('[data-mobile-nav]').forEach(button => {
           const activeTarget = isCb ? 'cashback'
             : (window.__MOBILE_NAV_TARGET__ === 'portfolio' ? 'portfolio' : 'overview');
