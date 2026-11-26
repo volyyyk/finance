@@ -603,7 +603,7 @@ const ProductEditor = (() => {
       }
       const label = a.type === 'close' ? 'Закрыть'
                   : a.type === 'transfer' ? '↔ Перевести'
-                  : '✎ Изменить условия';
+                  : 'Изменить условия';
       return `<div class="op-row" style="flex-wrap:wrap">
         <div class="op-body" style="flex:1;min-width:180px">
           <div><b>${i+1}.</b> ${label}</div>
