@@ -977,6 +977,15 @@ const ProductEditor = (() => {
         renderAssets();
       };
     });
+    el.querySelectorAll('.asset-name-track').forEach(track=>{
+      const measure = () => {
+        const container = track.parentElement;
+        const shift = Math.min(0, container.clientWidth - track.scrollWidth);
+        track.style.setProperty('--asset-shift', shift + 'px');
+      };
+      track.addEventListener('pointerenter', measure);
+      track.addEventListener('focus', measure);
+    });
   }
 
   function handleSubmit(e){
