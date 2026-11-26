@@ -656,6 +656,56 @@ const ProductEditor = (() => {
     renderEndActions();
   }
 
+  function normalizeAssetSearch(value){
+    return String(value || '').toLocaleLowerCase('ru').replace(/[ё]/g,'е').replace(/[^a-zа-я0-9]/gi,'');
+  }
+
+  // Пользовательские названия ищем во всех брокерских продуктах на этом устройстве.
+  function findSavedAssetMatches(query, kind){
+    const needle = normalizeAssetSearch(query);
+    if (!needle || typeof Storage === 'undefined' || typeof Storage.all !== 'function') return [];
+    const matches = [];
+    const seen = new Set();
+    for (const product of Storage.all()){
+      for (const asset of (product.assets || [])){
+        if (asset.kind !== kind || !asset.customName) continue;
+        if (!normalizeAssetSearch(asset.customName).includes(needle)) continue;
+        const key = String(asset.secid || '') + '|' + normalizeAssetSearch(asset.customName);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        matches.push({asset, productName:product.name || 'Брокерский счёт'});
+      }
+    }
+    return matches.slice(0,8);
+  }
+
+  function savedAssetMatchesHtml(matches){
+    if (!matches.length) return '';
+    return '<div class="op-meta" style="margin:8px 0 4px">Совпадения по вашим названиям</div>' +
+      matches.map((match,i) => {
+        const a=match.asset;
+        return '<div class="op-row" data-saved-pick="' + i + '" style="cursor:pointer">' +
+          '<div class="op-body"><div><b>' + escapeHtml(a.customName) + '</b> <span class="badge">' +
+          escapeHtml(a.secid || '') + '</span></div><div class="op-meta">' +
+          escapeHtml(match.productName) + ' · сохранённое название</div></div></div>';
+      }).join('');
+  }
+
+  function chooseSavedAsset(el, matches, kind){
+    el.querySelectorAll('[data-saved-pick]').forEach(row=>{
+      row.onclick = () => {
+        const match = matches[Number(row.dataset.savedPick)];
+        if (!match) return;
+        const a = match.asset;
+        pickAsset({
+          secid:a.secid, shortname:a.shortname, fullname:a.fullname,
+          isin:a.isin, type:a.type, primary_boardid:a.board || a.primary_boardid,
+          customName:a.customName, kind
+        });
+      };
+    });
+  }
+
   async function searchAsset(){
     if (typeof MoexAPI === 'undefined') {
       alert('Модуль MoexAPI не загружен');
@@ -666,10 +716,12 @@ const ProductEditor = (() => {
     const q = $('assetQuery').value.trim();
     if (!q) return;
     const box = $('searchResults');
+    const kind = $('assetKind').value;
+    const savedMatches = findSavedAssetMatches(q, kind);
     box.innerHTML = '<div class="op-meta">Идёт поиск…</div>';
     try {
       const rows = await MoexAPI.searchSecurity(q);
-      const normalize = value => String(value || '').toLocaleLowerCase('ru').replace(/[ё]/g,'е').replace(/[^a-zа-я0-9]/gi,'');
+      const normalize = normalizeAssetSearch;
       const needle = normalize(q);
       const score = row => {
         const ticker = normalize(row.secid), short = normalize(row.shortname), full = normalize(row.fullname), isin = normalize(row.isin);
@@ -681,66 +733,61 @@ const ProductEditor = (() => {
         return 0;
       };
       rows.sort((a,b) => score(b)-score(a));
-      searchResults = rows;
-      if (!rows.length){
-        box.innerHTML = '<div class="op-meta">Ничего не найдено</div>';
-        return;
-      }
-      const kind = $('assetKind').value;
       const filtered = rows.filter(r =>
         kind === 'metal'
           ? /^(GLD|SLV|PLD|PLT)RUB/.test(r.secid || '')
           : typeMatches(r.type, kind));
+      searchResults = filtered;
 
       if (kind === 'metal'){
-        searchResults = filtered;
         const quickMetals = metalQuickList(q);
-        let html = quickMetals.length
-          ? `<div class="op-meta" style="margin-bottom:6px">Драгметаллы MOEX (цена — за грамм):</div>` +
-            quickMetals
-              .map(([secid,label]) => `<button type="button" class="btn small" data-metal="${secid}" style="margin:0 4px 4px 0">${label} · ${secid}</button>`)
-              .join('')
-          : '';
-        if (filtered.length){
-          html += filtered.map((r, i) =>
-            `<div class="op-row" data-pick="${i}" style="cursor:pointer">
-               <div class="op-body">
-                 <div><b>${escapeHtml(r.shortname || r.fullname || r.secid)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
-                 ${r.fullname && r.fullname !== r.shortname ? `<div class="op-meta">${escapeHtml(r.fullname)}</div>` : ''}
-                 <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}${r.isin ? ' · ' + escapeHtml(r.isin) : ''}</div>
-               </div>
-             </div>`).join('');
-        } else if (!quickMetals.length){
-          html += '<div class="op-meta">Ничего не найдено. Попробуйте название (золото, серебро, платина, палладий) или тикер (GLD, SLV, PLD, PDD).</div>';
+        let html = savedAssetMatchesHtml(savedMatches);
+        if (quickMetals.length){
+          html += '<div class="op-meta" style="margin-bottom:6px">Драгметаллы MOEX (цена — за грамм):</div>' +
+            quickMetals.map(([secid,label]) =>
+              '<button type="button" class="btn small" data-metal="' + secid + '" style="margin:0 4px 4px 0">' + label + ' · ' + secid + '</button>'
+            ).join('');
         }
+        if (filtered.length){
+          html += filtered.map((r,i) =>
+            '<div class="op-row" data-pick="' + i + '" style="cursor:pointer"><div class="op-body">' +
+            '<div><b>' + escapeHtml(r.shortname || r.fullname || r.secid) + '</b> <span class="badge">' + escapeHtml(r.secid) + '</span></div>' +
+            (r.fullname && r.fullname !== r.shortname ? '<div class="op-meta">' + escapeHtml(r.fullname) + '</div>' : '') +
+            '<div class="op-meta">' + escapeHtml(r.type) + ' · ' + escapeHtml(r.primary_boardid || '') +
+            (r.isin ? ' · ' + escapeHtml(r.isin) : '') + '</div></div></div>'
+          ).join('');
+        }
+        if (!html) html = '<div class="op-meta">Ничего не найдено. Попробуйте название металла или тикер.</div>';
         box.innerHTML = html;
-        box.querySelectorAll('[data-metal]').forEach(btn => {
-          btn.onclick = () => pickAsset({ secid: btn.dataset.metal, shortname: btn.dataset.metal, kind:'metal' });
+        box.querySelectorAll('[data-metal]').forEach(btn=>{
+          btn.onclick = () => pickAsset({secid:btn.dataset.metal,shortname:btn.dataset.metal,kind:'metal'});
         });
-        box.querySelectorAll('[data-pick]').forEach(el => {
-          el.onclick = () => pickAsset({ ...searchResults[Number(el.dataset.pick)], kind:'metal' });
+        box.querySelectorAll('[data-pick]').forEach(row=>{
+          row.onclick = () => pickAsset({...searchResults[Number(row.dataset.pick)],kind:'metal'});
         });
+        chooseSavedAsset(box,savedMatches,kind);
         return;
       }
 
-      if (!filtered.length){
-        box.innerHTML = '<div class="op-meta">Нет подходящих бумаг этого типа</div>';
-        return;
-      }
-      searchResults = filtered;
-      box.innerHTML = filtered.map((r, i) =>
-        `<div class="op-row" data-pick="${i}" style="cursor:pointer">
-           <div class="op-body">
-             <div><b>${escapeHtml(r.shortname || r.fullname || r.secid)}</b> <span class="badge">${escapeHtml(r.secid)}</span></div>
-             ${r.fullname && r.fullname !== r.shortname ? `<div class="op-meta">${escapeHtml(r.fullname)}</div>` : ''}
-             <div class="op-meta">${escapeHtml(r.type)} · ${escapeHtml(r.primary_boardid || '')}${r.isin ? ' · ' + escapeHtml(r.isin) : ''}</div>
-           </div>
-         </div>`).join('');
-      box.querySelectorAll('[data-pick]').forEach(el=>{
-        el.onclick = () => pickAsset({ ...searchResults[Number(el.dataset.pick)], kind: $('assetKind').value });
+      let html = savedAssetMatchesHtml(savedMatches);
+      html += filtered.map((r,i) =>
+        '<div class="op-row" data-pick="' + i + '" style="cursor:pointer"><div class="op-body">' +
+        '<div><b>' + escapeHtml(r.shortname || r.fullname || r.secid) + '</b> <span class="badge">' + escapeHtml(r.secid) + '</span></div>' +
+        (r.fullname && r.fullname !== r.shortname ? '<div class="op-meta">' + escapeHtml(r.fullname) + '</div>' : '') +
+        '<div class="op-meta">' + escapeHtml(r.type) + ' · ' + escapeHtml(r.primary_boardid || '') +
+        (r.isin ? ' · ' + escapeHtml(r.isin) : '') + '</div></div></div>'
+      ).join('');
+      if (!html) html = '<div class="op-meta">Нет подходящих бумаг этого типа</div>';
+      box.innerHTML = html;
+      box.querySelectorAll('[data-pick]').forEach(row=>{
+        row.onclick = () => pickAsset({...searchResults[Number(row.dataset.pick)],kind});
       });
-    } catch(e){
-      box.innerHTML = `<div class="op-meta red">Ошибка: ${e.message}. Проверьте интернет.</div>`;
+      chooseSavedAsset(box,savedMatches,kind);
+    } catch(error){
+      box.innerHTML = savedAssetMatchesHtml(savedMatches) +
+        '<div class="op-meta red">MOEX недоступна: ' + escapeHtml(error.message) +
+        '. Можно выбрать совпадение по сохранённому названию выше.</div>';
+      chooseSavedAsset(box,savedMatches,kind);
     }
   }
 
