@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Финансовый учёт</title>
-<meta name="theme-color" content="#2563eb">
+<title>FinApp — личные финансы</title>
+<meta name="theme-color" content="#234e78">
 <meta name="description" content="Учёт доходов, вкладов и инвестиций с доступом без интернета">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Финансы">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="FinApp">
+<link rel="apple-touch-icon" href="icons/icon-512.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <header>
-  <h1>Финансовый учёт</h1>
+  <h1 class="brand-wordmark"><span class="brand-fin">Fin</span><span class="brand-app">App</span></h1>
   <div id="saveStatus" style="font-size:12px;color:var(--green);transition:opacity 0.3s;opacity:0;margin-left:15px;">✓ Сохранено</div>
   <div class="header-actions">
     <div class="mode-tabs" role="tablist" aria-label="Режим приложения">
@@ -44,13 +44,13 @@
         <option value="0" selected>воскресенье</option>
       </select>
     </div>
-    <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему">🌙 Тёмная тема</button>
-    <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения">⤓ Полная резервная копия</button>
+    <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему">${Utils.iconSvg('moon',16)} Тёмная тема</button>
+    <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения">${Utils.iconSvg('download',15)} Полная резервная копия</button>
     <p class="backup-status" id="backupStatus" role="status">Проверка резервной копии…</p>
-    <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом">⤓ Экспорт в Excel</button>
-    <button class="btn ghost" id="importBtn" title="Загрузить из JSON">⤒ Импорт</button>
+    <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом">${Utils.iconSvg('download',15)} Экспорт в Excel</button>
+    <button class="btn ghost" id="importBtn" title="Загрузить из JSON">${Utils.iconSvg('upload',15)} Импорт</button>
     <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js">↺ Сброс к seed</button>
-    <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления">🗑 Сбросить всё (до нуля)</button>
+    <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления">${Utils.iconSvg('trash',15)} Сбросить всё (до нуля)</button>
           <details class="card install-guide" id="installGuide">
     <summary>Установка на телефон · <span id="offlineStatus" role="status">Подготовка автономного режима…</span></summary>
     <div class="install-content">
@@ -64,7 +64,7 @@
 
       </div>
     </details>
-    <button class="btn primary" id="addBtn">+ Добавить продукт</button>
+    <button class="btn primary header-add" id="addBtn">${Utils.iconSvg('plus',16)} <span>Добавить продукт</span></button>
     <button class="btn banks" id="cbBanksBtn" hidden title="Постоянные банки и категории кешбэка">♾️ Банки</button>
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
@@ -107,12 +107,12 @@
       <button class="btn primary" id="addBtn2">+ Добавить продукт</button>
       <button class="btn danger" id="deleteBtn">Удалить выбранные</button>
     </div>
-  </section
+  </section>
 
   <section class="card" id="sinceVisitCard" hidden></section>
 
   <details class="dashboard-fold" open>
-    <summary>События и календарь</summary>
+    <summary><span class="fold-icon">${Utils.iconSvg('calendar',17)}</span><span class="fold-title">События и календарь</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
     <div class="grid-2">
       <section class="card">
         <h2>Ближайшие события</h2>
@@ -131,17 +131,16 @@
   </details>
 
   <details class="dashboard-fold">
-    <summary>Графики финансового результата</summary>
+    <summary><span class="fold-icon">${Utils.iconSvg('chart',17)}</span><span class="fold-title">Графики финансового результата</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
     <section class="charts-row">
       <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
       <div class="chart-card"><h3>Финансовый результат (накопленный)</h3><canvas id="chartIncome"></canvas></div>
     </section>
   </details>
 
->
 
   <details class="dashboard-fold">
-    <summary>Прогноз динамики капитала</summary>
+    <summary><span class="fold-icon">${Utils.iconSvg('chart-pie',17)}</span><span class="fold-title">Прогноз динамики капитала</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
     <section class="card forecast-card">
       <div class="forecast-grid">
         <div class="forecast-col">
@@ -162,7 +161,7 @@
       <div class="results-body">
         <div class="results-top">
           <div id="snapshotCurrent"></div>
-          <button class="btn primary" id="snapshotBtn" title="Сохранить текущую сумму как промежуточный результат">📌 Зафиксировать</button>
+          <button class="btn primary" id="snapshotBtn" title="Сохранить текущую сумму как промежуточный результат">${Utils.iconSvg('bookmark',15)} Зафиксировать</button>
         </div>
         <canvas id="chartSnapshots"></canvas>
         <div id="snapshotsList"></div>
@@ -171,7 +170,7 @@
   </section>
 
   <div class="actions-bar goal-create-bar">
-    <button class="btn" id="createGoalBtn">🎯 Создать цель</button>
+    <button class="btn" id="createGoalBtn">${Utils.iconSvg('target',15)} Создать цель</button>
   </div>
 </main>
 
@@ -184,9 +183,9 @@
 </main>
 
 <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Основная навигация">
-  <button type="button" data-mobile-nav="overview" aria-current="page"><span>⌂</span><small>Обзор</small></button>
-  <button type="button" data-mobile-nav="portfolio"><span>▤</span><small>Портфель</small></button>
-  <button type="button" data-mobile-nav="cashback"><span>％</span><small>Кешбэк</small></button>
+  <button type="button" data-mobile-nav="overview" aria-current="page"><span>${Utils.iconSvg('house',19)}</span><small>Обзор</small></button>
+  <button type="button" data-mobile-nav="portfolio"><span>${Utils.iconSvg('chart-pie',19)}</span><small>Портфель</small></button>
+  <button type="button" data-mobile-nav="cashback"><span>${Utils.iconSvg('percent',19)}</span><small>Кешбэк</small></button>
 </nav>
 
 <!-- Модальное окно редактора -->
