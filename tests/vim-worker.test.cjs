@@ -37,6 +37,29 @@ test('Worker rejects a graph belonging to the other fund', async () => {
   assert.equal(response.status, 502);
 });
 
+
+function tableHtml() {
+  return `<html><body><table>
+    <thead><tr><th>Дата</th><th>Стоимость пая, руб.</th><th>Изменение стоимости пая %</th><th>Стоимость чистых активов, руб.</th><th>Изменение чистых активов %</th><th>Количество выданных инвестиционных паев</th></tr></thead>
+    <tbody>
+      <tr><td>25.11.2026</td><td>104.17</td><td>0.54 %</td><td>226 272 020.37</td><td>0.21 %</td><td>2170000.00</td></tr>
+      <tr><td>24.11.2026</td><td>103.62</td><td>0.12 %</td><td>225 000 000.00</td><td>0.11 %</td><td>2160000.00</td></tr>
+    </tbody></table></body></html>`;
+}
+
+test('Worker parses official VIM history table when GRAPH JS data is absent', async () => {
+  const response = await loadWorker(tableHtml()).fetch(new Request('https://worker.test/vim/8002'));
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.fundId, '8002');
+  assert.equal(data.graphFundId, '37558766');
+  assert.equal(data.date, '2026-11-25');
+  assert.equal(data.price, 104.17);
+  assert.equal(data.nav, 226272020.37);
+  assert.equal(data.history.length, 2);
+  assert.equal(data.history[0].date, '2026-11-24');
+});
+
 test('Worker only exposes the two allowlisted VIM funds', async () => {
   const response = await loadWorker('<html></html>').fetch(new Request('https://worker.test/vim/8001'));
   assert.equal(response.status, 404);
