@@ -261,7 +261,7 @@ test('HTTP error diagnostics include Worker upstream status and response body', 
     await assert.rejects(
       MoexAPI.lastPrice('TEST_WORKER_502_DETAIL_1', 'TQBR', 'stock'),
       error => {
-        assert.match(error.message, /Cloudflare Worker \\(HTTP upstream\\): HTTP 502/);
+        assert.match(error.message, /Cloudflare Worker \(HTTP upstream\): HTTP 502/);
         assert.match(error.message, /MOEX upstream 503/);
         assert.match(error.message, /upstream temporarily unavailable/);
         return true;
