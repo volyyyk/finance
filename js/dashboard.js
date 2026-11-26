@@ -209,7 +209,7 @@ const ProductList = (() => {
         b.textContent = '…';
         await refreshProductPrices(b.dataset.refresh);
         b.disabled = false;
-        b.textContent = '⟳';
+        b.innerHTML = Utils.iconSvg('refresh',15);
       };
     });
     el.querySelectorAll('[data-details]').forEach(b=>{
@@ -300,7 +300,7 @@ const ProductList = (() => {
                 ${sign}${fmtMoney(annual)}/год</div>
             </div>
             ${isInvest ? `<button class="btn small" data-refresh="${p.id}"
-                            aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">⟳</button>` : ''}
+                            aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">${Utils.iconSvg('refresh',15)}</button>` : ''}
             <button class="btn small" data-edit="${p.id}">Открыть</button>
           </div>
           <div class="product-extra" hidden><div class="prod-sub">${subParts.join(' · ')}</div></div>
