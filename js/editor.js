@@ -1088,7 +1088,9 @@ const ProductEditor = (() => {
       : `${a.qty} шт × ${fmtMoney(price)}`;
     // Историческое изменение цены за полгода — основа сценарного прогноза
     // для акций, фондов, облигаций и металлов.
-    const yieldTxt = a.quoteSource === 'manual'
+    const yieldTxt = a.quoteSource === 'vim'
+      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? 'нет данных' : fmtMoney(a.nav) + ' ₽'} · история ${a.historyMonths || '—'} мес. · автоматическое обновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
+      : a.quoteSource === 'manual'
       ? `<div class="op-meta">Последняя официальная стоимость пая: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · история ${a.historyMonths || 1} мес. · котировка обновляется вручную</div>`
       : a.moexInactive
       ? `<div class="op-meta">Фонд закрыт и не торгуется; динамика за последние 6 мес. отсутствует, рост в прогнозе не предполагается</div>`
@@ -1098,7 +1100,9 @@ const ProductEditor = (() => {
     const quoteTime = Date.parse(a.moexUpdatedAt || '');
     const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;
     const visibleQuoteError = quoteUsable || a.moexInactive ? '' : (a.moexError || a.moexQuoteStatus || '');
-    const quoteTxt = a.moexInactive
+    const quoteTxt = a.quoteSource === 'vim'
+      ? `<div class="op-meta">Источник: <a href="https://www.wealthim.ru/products/pif/opif/${a.rulesNumber === '8000' ? 'wimyao' : 'wimyo'}/" target="_blank" rel="noopener">ВИМ Инвестиции</a> · получено ${a.vimFetchedAt ? new Date(a.vimFetchedAt).toLocaleString('ru-RU') : 'ещё не обновлялось'}</div>`
+      : a.moexInactive
       ? `<div class="op-meta">${escapeHtml(a.moexStatusText || 'Биржевые торги прекращены; актуальной котировки MOEX нет')}</div>`
       : `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${visibleQuoteError ? ' · ' + escapeHtml(visibleQuoteError) : ''}</div>`;
     const couponTxt = a.kind === 'bond' ? `
