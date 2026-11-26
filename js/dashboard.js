@@ -302,8 +302,8 @@ const ProductList = (() => {
               <button class="prod-details-toggle" type="button" data-details="${p.id}" aria-expanded="false">Подробнее ⌄</button>
             </div>
             <div class="prod-amount">
-              <div class="amount-val ${(t.liability||isExpense)?'red':''}">${fmtMoney(value)}</div>
-              <div class="amount-sub ${(t.liability||isExpense)?'red':'green'}">
+              <div class="amount-val ${(t.liability||isExpense||value<0)?'red':''}">${fmtMoney(value)}</div>
+              <div class="amount-sub ${annual < 0 ? 'red' : 'green'}">
                 ${sign}${fmtMoney(annual)}/год</div>
             </div>
             ${isInvest ? `<button class="btn small" data-refresh="${p.id}"
