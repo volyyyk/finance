@@ -16,13 +16,13 @@ function loadVim(fetchImpl) {
     localStorage: { getItem: () => null }
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(require.resolve('../js/vim.js'), 'utf8') + '\\nglobalThis.api = VIMAPI;', sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve('../js/vim.js'), 'utf8') + '\nglobalThis.api = VIMAPI;', sandbox);
   return sandbox.api;
 }
 
 test('VIM client updates fund price, NAV, date and preserves historical points', async () => {
   const api = loadVim(async url => {
-    assert.match(String(url), /\\/vim\\/8000$/);
+    assert.ok(String(url).endsWith('/vim/8000'));
     return {
       ok: true,
       text: async () => JSON.stringify({
