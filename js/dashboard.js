@@ -163,7 +163,7 @@ const ProductList = (() => {
             <span class="pg-icon">${t.icon}</span>
             <span class="pg-name">${t.label}</span>
             <span class="pg-count">${items.length} шт.</span>
-            <span class="pg-sum">${t.liability ? 'долг ' : ''}${fmtMoney(sum)}</span>
+            <span class="pg-sum">${t.liability ? 'долг ' : ''}${fmtMoney(Math.abs(sum))}</span>
           </summary>
           <div class="pg-body">${items.map(rowHtml).join('')}</div>
         </details>`;
@@ -208,6 +208,15 @@ const ProductList = (() => {
         await refreshProductPrices(b.dataset.refresh);
         b.disabled = false;
         b.textContent = '⟳';
+      };
+    });
+    el.querySelectorAll('[data-details]').forEach(b=>{
+      b.onclick = () => {
+        const extra = b.closest('.product-card')?.querySelector('.product-extra');
+        if (!extra) return;
+        extra.hidden = !extra.hidden;
+        b.setAttribute('aria-expanded', String(!extra.hidden));
+        b.textContent = extra.hidden ? '⌄' : '⌃';
       };
     });
     el.querySelectorAll('input[type=checkbox][data-id]').forEach(cb=>{
@@ -271,25 +280,28 @@ const ProductList = (() => {
         if (chainCount) subParts.push(`⚙ ${chainCount} действ.`);
 
         const searchText = [p.name, t.label, p.comment || ''].join(' ').toLocaleLowerCase('ru');
-        return `<div class="product-row" data-search="${escapeHtml(searchText)}">
-          <input type="checkbox" data-id="${p.id}" ${selected.has(p.id)?'checked':''}>
-          <div class="prod-icon">${t.icon}</div>
-          <div class="prod-main">
-            <div class="prod-name">${escapeHtml(p.name)}
-              <span class="badge">${t.label}</span>
-              ${opsCount?`<span class="badge">${opsCount} оп.</span>`:''}
-              ${assetsCount?`<span class="badge">📊 ${assetsCount}</span>`:''}
+        return `<div class="product-card">
+          <div class="product-row" data-search="${escapeHtml(searchText)}">
+            <input type="checkbox" data-id="${p.id}" ${selected.has(p.id)?'checked':''}>
+            <div class="prod-icon">${t.icon}</div>
+            <div class="prod-main">
+              <div class="prod-name">${escapeHtml(p.name)}
+                <span class="badge">${t.label}</span>
+                ${opsCount?`<span class="badge">${opsCount} оп.</span>`:''}
+                ${assetsCount?`<span class="badge">📊 ${assetsCount}</span>`:''}
+              </div>
             </div>
-            <div class="prod-sub">${subParts.join(' · ')}</div>
+            <div class="prod-amount">
+              <div class="amount-val ${(t.liability||isExpense)?'red':''}">${fmtMoney(value)}</div>
+              <div class="amount-sub ${(t.liability||isExpense)?'red':'green'}">
+                ${sign}${fmtMoney(annual)}/год</div>
+            </div>
+            <button class="btn small prod-details-toggle" type="button" data-details="${p.id}" aria-expanded="false" aria-label="Показать подробности">⌄</button>
+            ${isInvest ? `<button class="btn small" data-refresh="${p.id}"
+                            aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">⟳</button>` : ''}
+            <button class="btn small" data-edit="${p.id}">Открыть</button>
           </div>
-          <div class="prod-amount">
-            <div class="amount-val ${(t.liability||isExpense)?'red':''}">${fmtMoney(value)}</div>
-            <div class="amount-sub ${(t.liability||isExpense)?'red':'green'}">
-              ${sign}${fmtMoney(annual)}/год</div>
-          </div>
-          ${isInvest ? `<button class="btn small" data-refresh="${p.id}"
-                          aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">⟳</button>` : ''}
-          <button class="btn small" data-edit="${p.id}">Открыть</button>
+          <div class="product-extra" hidden><div class="prod-sub">${subParts.join(' · ')}</div></div>
         </div>`;
   }
 
@@ -298,12 +310,22 @@ const ProductList = (() => {
     if (!p || p.type !== 'investment') return;
     if (!navigator.onLine) { alert('Для обновления MOEX нужен интернет. Используются ранее сохранённые цены.'); return; }
     let failed = 0;
+    const failures = [];
     for (const a of (p.assets || [])){
+      if (a.redeemed) continue;
+      const previousQuoteAt = a.moexUpdatedAt || null;
       try {
         await MoexAPI.refreshAsset(a);
-      } catch(e){ failed++; }
+        a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
+          ? null : 'MOEX пока не вернул новую котировку';
+      } catch(e){
+        failed++;
+        a.moexError = String(e?.message || 'Ошибка запроса MOEX').slice(0,180);
+        failures.push(`${a.shortname || a.secid}: ${a.moexError}`);
+      }
+      a.moexAttemptAt = new Date().toISOString();
     }
-    if (failed) alert('Не все данные MOEX удалось обновить. Для недоступных данных сохранены прежние значения.');
+    if (failed) alert('Не удалось обновить ' + failed + ' актив(а). Старые цены сохранены.\\n' + failures.slice(0,4).join('\\n')); 
     Bonds.settleProduct(p);
     Storage.upsert(p);
     if (typeof window.__REFRESH__ === 'function') window.__REFRESH__();
