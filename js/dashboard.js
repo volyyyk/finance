@@ -290,13 +290,13 @@ const ProductList = (() => {
                 ${opsCount?`<span class="badge">${opsCount} оп.</span>`:''}
                 ${assetsCount?`<span class="badge">📊 ${assetsCount}</span>`:''}
               </div>
+              <button class="prod-details-toggle" type="button" data-details="${p.id}" aria-expanded="false">Подробнее ⌄</button>
             </div>
             <div class="prod-amount">
               <div class="amount-val ${(t.liability||isExpense)?'red':''}">${fmtMoney(value)}</div>
               <div class="amount-sub ${(t.liability||isExpense)?'red':'green'}">
                 ${sign}${fmtMoney(annual)}/год</div>
             </div>
-            <button class="btn small prod-details-toggle" type="button" data-details="${p.id}" aria-expanded="false" aria-label="Показать подробности">⌄</button>
             ${isInvest ? `<button class="btn small" data-refresh="${p.id}"
                             aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">⟳</button>` : ''}
             <button class="btn small" data-edit="${p.id}">Открыть</button>
