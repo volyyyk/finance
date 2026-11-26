@@ -67,7 +67,7 @@ test('lastPrice retries a browser network/CORS failure through the public-data r
   const requested = [];
   global.fetch = async url => {
     requested.push(String(url));
-    if (requested.length === 1) throw new TypeError('Failed to fetch');
+    if (requested.length <= 2) throw new TypeError('Failed to fetch');
     return {
       ok: true,
       json: async () => ({
@@ -79,9 +79,10 @@ test('lastPrice retries a browser network/CORS failure through the public-data r
   try {
     const result = await MoexAPI.lastPrice('TEST_CORS_RELAY_1', 'TQBR', 'stock');
     assert.equal(result.last, 321.5);
-    assert.equal(requested.length, 2);
-    assert.match(requested[0], /^http:\/\/iss\.moex\.com\/iss\//);
-    assert.match(requested[1], /^https:\/\/proxy\.cors\.dev\/http:\/\/iss\.moex\.com\/iss\//);
+    assert.equal(requested.length, 3);
+    assert.match(requested[0], /^https:\/\/autumn-mouse-2e3f\.kudrin-dim11\.workers\.dev\/iss\//);
+    assert.match(requested[1], /^http:\/\/iss\.moex\.com\/iss\//);
+    assert.match(requested[2], /^https:\/\/proxy\.cors\.dev\/http:\/\/iss\.moex\.com\/iss\//);
   } finally {
     global.fetch = originalFetch;
   }
@@ -92,8 +93,8 @@ test('lastPrice tries AllOrigins when the first CORS relay returns HTTP 502', as
   const requested = [];
   global.fetch = async url => {
     requested.push(String(url));
-    if (requested.length === 1) throw new TypeError('Failed to fetch');
-    if (requested.length === 2) return { ok:false, status:502 };
+    if (requested.length <= 2) throw new TypeError('Failed to fetch');
+    if (requested.length === 3) return { ok:false, status:502 };
     return {
       ok:true,
       json:async()=>({
@@ -105,9 +106,10 @@ test('lastPrice tries AllOrigins when the first CORS relay returns HTTP 502', as
   try {
     const result = await MoexAPI.lastPrice('TEST_RELAY_CHAIN_1','TQBR','stock');
     assert.equal(result.last,777.25);
-    assert.equal(requested.length,3);
-    assert.match(requested[1],/^https:\/\/proxy\.cors\.dev\//);
-    assert.match(requested[2],/^https:\/\/api\.allorigins\.win\/raw\?/);
+    assert.equal(requested.length,4);
+    assert.match(requested[0],/^https:\/\/autumn-mouse-2e3f\.kudrin-dim11\.workers\.dev\//);
+    assert.match(requested[2],/^https:\/\/proxy\.cors\.dev\//);
+    assert.match(requested[3],/^https:\/\/api\.allorigins\.win\/raw\?/);
   } finally {
     global.fetch=originalFetch;
   }
@@ -393,7 +395,7 @@ test('all MOEX upstream URLs use HTTP, with HTTPS only for relay hosts', async (
   const requested=[];
   global.fetch=async url=>{
     requested.push(String(url));
-    if(requested.length===1) throw new TypeError('Failed to fetch');
+    if(requested.length<=2) throw new TypeError('Failed to fetch');
     return {ok:true,json:async()=>({
       marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',10]]},
       securities:{columns:['FACEVALUE'],data:[[1]]}
@@ -401,8 +403,9 @@ test('all MOEX upstream URLs use HTTP, with HTTPS only for relay hosts', async (
   };
   try {
     await MoexAPI.lastPrice('TEST_HTTP_ONLY_1','TQBR','stock');
-    assert.match(requested[0],/^http:\/\/iss\.moex\.com/);
-    assert.match(requested[1],/^https:\/\/proxy\.cors\.dev\/http:\/\/iss\.moex\.com/);
+    assert.match(requested[0],/^https:\/\/autumn-mouse-2e3f\.kudrin-dim11\.workers\.dev/);
+    assert.match(requested[1],/^http:\/\/iss\.moex\.com/);
+    assert.match(requested[2],/^https:\/\/proxy\.cors\.dev\/http:\/\/iss\.moex\.com/);
     assert.ok(requested.every(url=>!url.startsWith('https://iss.moex.com')));
   } finally { global.fetch=originalFetch; }
 });
