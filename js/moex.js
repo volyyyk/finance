@@ -192,6 +192,18 @@ const MoexAPI = (() => {
     return rows.sort((a,b) => score(b)-score(a));
   }
 
+  async function securityMetadata(secid){
+    return cached(`security-meta:${secid}`, 24 * 60 * 60 * 1000, async () => {
+      const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`);
+      const info = Object.fromEntries(rows(json.securities).map(row => [row.name, row.value]));
+      return {
+        shortname: info.SHORTNAME || info.SHORTNAME_RUS || '',
+        fullname: info.SECNAME || info.FULLNAME || '',
+        isin: String(info.ISIN || '').trim().toUpperCase()
+      };
+    });
+  }
+
   function parseBlock(block){
     // Обычный ISS JSON (compact и extended): { columns: [], data: [] }.
     if (block && !Array.isArray(block)
@@ -518,6 +530,18 @@ const MoexAPI = (() => {
     if (asset.kind === 'metal' && asset.secid === 'PDDRUB_TOM') asset.secid = 'PLDRUB_TOM';
     const board = asset.kind === 'metal' ? 'CETS' : (asset.board || (asset.kind === 'bond' ? 'TQOB' : asset.kind === 'fund' ? 'TQTF' : 'TQBR'));
     if (asset.kind === 'metal') asset.board = 'CETS';
+    // Подтягиваем человекочитаемое имя для старых позиций, где сохранён
+    // только тикер. Ошибка справочника не должна мешать обновлению цены.
+    if (!asset.shortname || asset.shortname === asset.secid || !asset.fullname){
+      try {
+        const meta = await securityMetadata(asset.secid);
+        if (meta.shortname) asset.shortname = meta.shortname;
+        if (meta.fullname) asset.fullname = meta.fullname;
+        if (!asset.isin && meta.isin) asset.isin = meta.isin;
+      } catch (error) {
+        console.warn('MOEX security name lookup failed for ' + asset.secid, error);
+      }
+    }
     if (asset.kind === 'bond') {
       const details = await bondDetails(asset.secid, board);
       // Не заменяем сохранённую рублёвую цену пустой котировкой.
