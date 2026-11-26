@@ -9,7 +9,7 @@ const ProductInsights = (() => {
     if(p.type==='expense')return -(Number(p.amount)||0)*12;
     if(p.type==='credit_card'||p.type==='loan')return -v*r/100;
     if(p.type==='apartment')return v*r/100+(p.rented?(Number(p.rentPrice)||0)*12:0)-v*(Number(p.upkeepRate)||2)/100;
-    if(p.type==='investment')return v*r/100+(p.assets||[]).reduce((s,a)=>s+(a.kind==='bond'?Simulator.annualCouponForAsset(a):a.kind==='fund'&&a.sixMonthPct!=null&&1+a.sixMonthPct/100>0?a.qty*Bonds.price(a)*(Math.pow(1+a.sixMonthPct/100,2)-1):a.kind==='stock'?a.qty*Bonds.price(a)*r/100:0),0);
+    if(p.type==='investment')return (p.assets||[]).reduce((s,a)=>s+(a.kind==='bond'?Simulator.annualCouponForAsset(a):a.kind==='fund'&&a.sixMonthPct!=null&&1+a.sixMonthPct/100>0?a.qty*Bonds.price(a)*(Math.pow(1+a.sixMonthPct/100,2)-1):a.kind==='stock'?a.qty*Bonds.price(a)*r/100:0),0);
     return v*r/100;
   }
   function groups(){
@@ -24,7 +24,7 @@ const ProductInsights = (() => {
     const c=$('portfolioDonut');if(!c)return;const r=c.getBoundingClientRect(),dpr=devicePixelRatio||1;
     c.width=Math.max(1,r.width*dpr);c.height=Math.max(1,r.height*dpr);const x=c.getContext('2d');x.scale(dpr,dpr);
     const cx=r.width/2,cy=r.height/2,rad=Math.min(r.width,r.height)*.43,inner=rad*.62,total=data.reduce((s,g)=>s+g.value,0);let a=-Math.PI/2;
-    data.forEach((g,i)=>{const n=a+(total?g.value/total:0)*Math.PI*2;x.beginPath();x.arc(cx,cy,rad,a,n);x.arc(cx,cy,inner,n,a,true);x.closePath();x.globalAlpha=selected&&selected!==g.type?.22:1;x.fillStyle=palette[i%palette.length];x.fill();x.globalAlpha=1;a=n;});
+    data.forEach((g,i)=>{const n=a+(total?g.value/total:0)*Math.PI*2;x.beginPath();x.arc(cx,cy,rad,a,n);x.arc(cx,cy,inner,n,a,true);x.closePath();x.globalAlpha=(selected && selected!==g.type) ? 0.22 : 1;x.fillStyle=palette[i%palette.length];x.fill();x.globalAlpha=1;a=n;});
     if(!total){x.fillStyle='#94a3b8';x.font='12px sans-serif';x.textAlign='center';x.fillText('Нет данных',cx,cy);}
     c.onclick=ev=>{const b=c.getBoundingClientRect(),dx=ev.clientX-b.left-cx,dy=ev.clientY-b.top-cy,dist=Math.hypot(dx,dy);if(dist<inner||dist>rad)return;
       let a=Math.atan2(dy,dx)+Math.PI/2;if(a<0)a+=Math.PI*2;let cur=0;
