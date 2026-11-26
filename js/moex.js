@@ -356,6 +356,11 @@ const MoexAPI = (() => {
   // фондам, облигациям и металлам; облигационные купоны моделируются отдельно.
   async function refreshSixMonth(asset){
     if (!['stock','fund','bond','metal'].includes(asset.kind) || asset.moexInactive) return asset;
+    // Сначала проверяем известные закрытые/переименованные инструменты:
+    // сохранённая свежая дата старой котировки не должна обходить миграцию.
+    if (asset.kind === 'fund' && (asset.secid === 'VTBL' || asset.secid === 'RSHL'))
+      await refreshAsset(asset);
+    if (asset.moexInactive) return asset;
     const now = new Date();
     const target = new Date(now.getFullYear(), now.getMonth() - 6, 1);
     const from = new Date(target);
