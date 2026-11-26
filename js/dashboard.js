@@ -771,6 +771,7 @@ const Dashboard = (() => {
   function prevMonth(){ calDate.setMonth(calDate.getMonth()-1); const p = $('calDayInfo'); if (p){ p.hidden = true; p.innerHTML=''; } renderCalendar(); }
   function nextMonth(){ calDate.setMonth(calDate.getMonth()+1); const p = $('calDayInfo'); if (p){ p.hidden = true; p.innerHTML=''; } renderCalendar(); }
   function renderAll(){
+    if (typeof ProductInsights !== 'undefined') ProductInsights.render();
     GoalBar.render();
     renderStats(); renderEvents(); renderCalendar(); renderCharts(); renderForecast();
     SinceVisit.render();
