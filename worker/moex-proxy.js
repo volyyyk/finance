@@ -83,8 +83,8 @@ export default {
         if (!page.ok) return jsonResponse({error:'VIM HTTP '+page.status},page.status);
         const html = await page.text();
         const origin = new URL(sourceUrl).origin;
-        const srcs = [...new Set([...html.matchAll(/<script\\b[^>]*src=["']([^"']+)["'][^>]*>/gi)].map(m=>new URL(m[1],sourceUrl).toString()).filter(u=>new URL(u).origin===origin))];
-        const selected = srcs.filter(u=>/page_|template_|core\\.min|moment|jquery/i.test(u)).slice(0,16);
+        const srcs = [...new Set([...html.matchAll(/<script\b[^>]*src=["']([^"']+)["'][^>]*>/gi)].map(m=>new URL(m[1],sourceUrl).toString()).filter(u=>new URL(u).origin===origin))];
+        const selected = srcs.filter(u=>/page_|template_|core\.min|moment|jquery/i.test(u)).slice(0,16);
         const assets = [];
         for (const url of selected) {
           try {
@@ -94,7 +94,7 @@ export default {
             for (const token of ['download.php','FOND_ID','QUOTES_IBLOCK','chart','history','quotes','ajax','date-choice','funds_list','period','8000','8002']) {
               let at=-1,count=0;
               while ((at=body.toLowerCase().indexOf(token.toLowerCase(),at+1))>=0 && count<3) {
-                matches.push({token,snippet:body.slice(Math.max(0,at-350),Math.min(body.length,at+700)).replace(/\\s+/g,' ')});
+                matches.push({token,snippet:body.slice(Math.max(0,at-350),Math.min(body.length,at+700)).replace(/\s+/g,' ')});
                 count++;
               }
             }
