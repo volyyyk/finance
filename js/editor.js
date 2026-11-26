@@ -806,7 +806,10 @@ const ProductEditor = (() => {
     const yieldTxt = a.sixMonthPct != null
       ? `<div class="op-meta">Изменение цены за 6 мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · учтено в прогнозе</div>`
       : `<div class="op-meta">История цены за 6 мес. пока недоступна · рост не предполагается</div>`;
-    const quoteTxt = `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${a.moexError ? ' · ' + escapeHtml(a.moexError) : ''}</div>`;
+    const quoteTime = Date.parse(a.moexUpdatedAt || '');
+    const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;
+    const visibleQuoteError = quoteUsable ? '' : (a.moexError || a.moexQuoteStatus || '');
+    const quoteTxt = `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${visibleQuoteError ? ' · ' + escapeHtml(visibleQuoteError) : ''}</div>`;
     const couponTxt = a.kind === 'bond' ? `
       <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
       · купон ${a.couponAmount == null ? 'не объявлен' : fmtMoney(a.couponAmount)}
