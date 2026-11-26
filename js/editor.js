@@ -817,7 +817,9 @@ const ProductEditor = (() => {
         pickAsset({
           secid:a.secid, shortname:a.shortname, fullname:a.fullname,
           isin:a.isin, type:a.type, primary_boardid:a.board || a.primary_boardid,
-          customName:a.customName, kind
+          customName:a.customName, quoteSource:a.quoteSource, rulesNumber:a.rulesNumber,
+          lastPrice:a.lastPrice, historyMonths:a.historyMonths, historyPct:a.historyPct,
+          historyAnnualPct:a.historyAnnualPct, navDate:a.navDate, kind
         });
       };
     });
@@ -847,13 +849,13 @@ const ProductEditor = (() => {
     if(kind!=='fund')return [];
     const q=normalizeAssetSearch(query);
     if(!q)return LOCAL_YANDEX_FUNDS.slice();
+    if(q.includes('рубл'))return LOCAL_YANDEX_FUNDS.filter(a=>a.rulesNumber==='8002');
+    if(q.includes('акци'))return LOCAL_YANDEX_FUNDS.filter(a=>a.rulesNumber==='8000');
+    if(q.includes('облигац'))return LOCAL_YANDEX_FUNDS.slice();
     return LOCAL_YANDEX_FUNDS.filter(a=>{
-      const fields=[a.secid,a.rulesNumber,a.shortname,a.fullname,'яндекс','яндекс пэй','вим']
+      const fields=[a.secid,a.rulesNumber,a.shortname,a.fullname,'яндекс','яндекс пэй','вим','yandex']
         .map(normalizeAssetSearch);
-      return fields.some(x=>x.includes(q)||q.includes(x)) ||
-        (q.includes('облигац')) ||
-        (q.includes('акци')&&a.rulesNumber==='8000') ||
-        (q.includes('рубл')&&a.rulesNumber==='8002');
+      return fields.some(x=>x.includes(q)||q.includes(x));
     });
   }
   function localFundMatchesHtml(matches){
@@ -1081,8 +1083,8 @@ const ProductEditor = (() => {
       : a.moexInactive
       ? `<div class="op-meta">Фонд закрыт и не торгуется; динамика за последние 6 мес. отсутствует, рост в прогнозе не предполагается</div>`
       : a.sixMonthPct != null
-      ? `<div class="op-meta">Изменение цены за 6 мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · учтено в прогнозе</div>`
-      : `<div class="op-meta">История цены за 6 мес. пока недоступна · рост не предполагается</div>`;
+      ? `<div class="op-meta">Изменение цены за ${a.historyMonths || 6} мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · годовой прогноз ${a.historyAnnualPct == null ? 'не рассчитан' : Utils.fmtPct(a.historyAnnualPct) + '%'} · учтено в прогнозе</div>`
+      : `<div class="op-meta">История цены за 12/6/3/1 мес. пока недоступна · рост не предполагается</div>`;
     const quoteTime = Date.parse(a.moexUpdatedAt || '');
     const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;
     const visibleQuoteError = quoteUsable || a.moexInactive ? '' : (a.moexError || a.moexQuoteStatus || '');
@@ -1142,9 +1144,9 @@ const ProductEditor = (() => {
         ? `<span class="ag-extra${closesThatDay ? ' red' : ''}">${Utils.iconSvg('calendar',13)} ${fmtDate(nextDate)} · ${fmtMoney(couponSum)}${closesThatDay ? ' · погашение в этот день' : ''}</span>`
         : grp.every(a => a.redeemed) ? '<span class="ag-extra">погашена</span>' : '';
     } else {
-      const pct = grp.map(a => a.sixMonthPct).find(p => p != null && Number.isFinite(p));
+      const pct = grp.map(a => a.historyAnnualPct ?? (a.sixMonthPct != null ? (Math.pow(Math.max(0,1+a.sixMonthPct/100),2)-1)*100 : null)).find(p => p != null && Number.isFinite(p));
       extra = pct != null
-        ? `<span class="ag-extra ${pct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(pct)}/6 мес</span>`
+        ? `<span class="ag-extra ${pct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(pct)}/год</span>`
         : '';
     }
     return `<details class="asset-item">
