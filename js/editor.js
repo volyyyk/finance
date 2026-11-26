@@ -804,7 +804,7 @@ const ProductEditor = (() => {
         const a=match.asset;
         return '<div class="op-row" data-saved-pick="' + i + '" style="cursor:pointer">' +
           '<div class="op-body"><div><b>' + escapeHtml(a.customName) + '</b> <span class="badge">' +
-          escapeHtml(a.quoteSource === 'manual' ? ('Правила ПИФ ' + (a.rulesNumber || '')) : (a.secid || '')) + '</span></div><div class="op-meta">' +
+          escapeHtml(['manual','vim'].includes(a.quoteSource) ? ('Правила ПИФ ' + (a.rulesNumber || '')) : (a.secid || '')) + '</span></div><div class="op-meta">' +
           escapeHtml(match.productName) + ' · сохранённое название</div></div></div>';
       }).join('');
   }
@@ -992,8 +992,12 @@ const ProductEditor = (() => {
       if (asset.moexInactive) throw new Error(asset.moexStatusText || 'Инструмент больше не торгуется');
       pendingAsset = asset;
       if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
-      $('bondPreview').textContent = asset.quoteSource === 'manual'
-        ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} ₽ на ${asset.navDate}. История: ${asset.historyMonths} мес.; годовой темп рассчитан по этому периоду. Котировка обновляется вручную.`
+      $('bondPreview').textContent = asset.quoteSource === 'vim'
+        ? 'Официальная стоимость пая ВИМ: ' + fmtMoney(asset.lastPrice) + ' ₽ на ' + asset.navDate +
+          '. СЧА: ' + (asset.nav == null ? 'нет данных' : fmtMoney(asset.nav) + ' ₽') +
+          '. История: ' + (asset.historyMonths || '—') + ' мес.; автоматическое обновление.'
+        : asset.quoteSource === 'manual'
+        ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} ₽ на ${asset.navDate}. История: ${asset.historyMonths} мес.; котировка обновляется вручную.`
         : kind === 'bond'
           ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}`
           : kind === 'fund' && asset.moexInactive
@@ -1023,7 +1027,7 @@ const ProductEditor = (() => {
         : 'Укажите целое положительное количество и цену покупки в рублях'); return;
     }
     try {
-      if (pendingAsset.quoteSource !== 'manual'){
+      if (pendingAsset.quoteSource !== 'manual' && !(typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(pendingAsset))){
         await MoexAPI.assertTradable(pendingAsset.secid, kind);
         if (pendingAsset.moexInactive) throw new Error('Инструмент закрыт или снят с торгов');
       }
@@ -1157,7 +1161,7 @@ const ProductEditor = (() => {
     }
     return `<details class="asset-item">
       <summary>
-        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.quoteSource === 'manual' ? ('Правила ПИФ ' + first.rulesNumber) : (first.secid || ''))}</span></span>
+        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(['manual','vim'].includes(first.quoteSource) ? ('Правила ПИФ ' + first.rulesNumber) : (first.secid || ''))}</span></span>
         <span class="ai-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
         ${extra}
       </summary>
