@@ -316,3 +316,22 @@ test('resolveMarket keeps precious metals on the currency spot market', async ()
   const market = await MoexAPI.resolveMarket('PLDRUB_TOM','CETS','metal');
   assert.deepEqual(market,{engine:'currency',market:'selt',board:'CETS'});
 });
+
+test('refreshAsset migrates the legacy PDDRUB_TOM alias to MOEX palladium ticker PLDRUB_TOM', async () => {
+  const originalFetch = global.fetch;
+  let requestedUrl = '';
+  global.fetch = async url => {
+    requestedUrl = String(url);
+    return { ok:true, json:async()=>({
+      marketdata:{columns:['BOARDID','LAST'],data:[['CETS',3210.5]]},
+      securities:{columns:['FACEVALUE'],data:[[1]]}
+    }) };
+  };
+  try {
+    const asset={secid:'PDDRUB_TOM',kind:'metal',board:'CETS'};
+    await MoexAPI.refreshAsset(asset);
+    assert.equal(asset.secid,'PLDRUB_TOM');
+    assert.equal(asset.lastPrice,3210.5);
+    assert.match(requestedUrl,/currency\\/markets\\/selt\\/boards\\/CETS\\/securities\\/PLDRUB_TOM/);
+  } finally { global.fetch=originalFetch; }
+});
