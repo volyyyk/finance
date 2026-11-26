@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="FinApp">
 <link rel="apple-touch-icon" href="icons/icon-512.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<link rel="icon" type="image/svg+xml" href="icons/finapp.svg">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -44,13 +44,13 @@
         <option value="0" selected>воскресенье</option>
       </select>
     </div>
-    <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему">${Utils.iconSvg('moon',16)} Тёмная тема</button>
-    <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения">${Utils.iconSvg('download',15)} Полная резервная копия</button>
+    <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему"><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg> Тёмная тема</button>
+    <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Полная резервная копия</button>
     <p class="backup-status" id="backupStatus" role="status">Проверка резервной копии…</p>
     <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом">${Utils.iconSvg('download',15)} Экспорт в Excel</button>
-    <button class="btn ghost" id="importBtn" title="Загрузить из JSON">${Utils.iconSvg('upload',15)} Импорт</button>
+    <button class="btn ghost" id="importBtn" title="Загрузить из JSON"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-5 5 5-5 5 5M4 17v4h16v-4"/></svg> Импорт</button>
     <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js">↺ Сброс к seed</button>
-    <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления">${Utils.iconSvg('trash',15)} Сбросить всё (до нуля)</button>
+    <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg> Сбросить всё (до нуля)</button>
           <details class="card install-guide" id="installGuide">
     <summary>Установка на телефон · <span id="offlineStatus" role="status">Подготовка автономного режима…</span></summary>
     <div class="install-content">
@@ -64,8 +64,8 @@
 
       </div>
     </details>
-    <button class="btn primary header-add" id="addBtn">${Utils.iconSvg('plus',16)} <span>Добавить продукт</span></button>
-    <button class="btn banks" id="cbBanksBtn" hidden title="Постоянные банки и категории кешбэка">♾️ Банки</button>
+    <button class="btn primary header-add" id="addBtn"><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> <span>Добавить продукт</span></button>
+    <button class="btn banks" id="cbBanksBtn" hidden title="Постоянные банки и категории кешбэка">Банки</button>
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
 </header>
@@ -112,7 +112,7 @@
   <section class="card" id="sinceVisitCard" hidden></section>
 
   <details class="dashboard-fold" open>
-    <summary><span class="fold-icon">${Utils.iconSvg('calendar',17)}</span><span class="fold-title">События и календарь</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="fold-title">События и календарь</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
     <div class="grid-2">
       <section class="card">
         <h2>Ближайшие события</h2>
@@ -131,7 +131,7 @@
   </details>
 
   <details class="dashboard-fold">
-    <summary><span class="fold-icon">${Utils.iconSvg('chart',17)}</span><span class="fold-title">Графики финансового результата</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h17m-14-4 4-4 3 2 6-7"/></svg></span><span class="fold-title">Графики финансового результата</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
     <section class="charts-row">
       <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
       <div class="chart-card"><h3>Финансовый результат (накопленный)</h3><canvas id="chartIncome"></canvas></div>
@@ -140,7 +140,7 @@
 
 
   <details class="dashboard-fold">
-    <summary><span class="fold-icon">${Utils.iconSvg('chart-pie',17)}</span><span class="fold-title">Прогноз динамики капитала</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><span class="fold-title">Прогноз динамики капитала</span><span class="fold-chevron">${Utils.iconSvg('chevron-down',17)}</span></summary>
     <section class="card forecast-card">
       <div class="forecast-grid">
         <div class="forecast-col">
@@ -161,7 +161,7 @@
       <div class="results-body">
         <div class="results-top">
           <div id="snapshotCurrent"></div>
-          <button class="btn primary" id="snapshotBtn" title="Сохранить текущую сумму как промежуточный результат">${Utils.iconSvg('bookmark',15)} Зафиксировать</button>
+          <button class="btn primary" id="snapshotBtn" title="Сохранить текущую сумму как промежуточный результат"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg> Зафиксировать</button>
         </div>
         <canvas id="chartSnapshots"></canvas>
         <div id="snapshotsList"></div>
@@ -170,7 +170,7 @@
   </section>
 
   <div class="actions-bar goal-create-bar">
-    <button class="btn" id="createGoalBtn">${Utils.iconSvg('target',15)} Создать цель</button>
+    <button class="btn" id="createGoalBtn"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg> Создать цель</button>
   </div>
 </main>
 
@@ -183,9 +183,9 @@
 </main>
 
 <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Основная навигация">
-  <button type="button" data-mobile-nav="overview" aria-current="page"><span>${Utils.iconSvg('house',19)}</span><small>Обзор</small></button>
-  <button type="button" data-mobile-nav="portfolio"><span>${Utils.iconSvg('chart-pie',19)}</span><small>Портфель</small></button>
-  <button type="button" data-mobile-nav="cashback"><span>${Utils.iconSvg('percent',19)}</span><small>Кешбэк</small></button>
+  <button type="button" data-mobile-nav="overview" aria-current="page"><span><svg class="ui-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3zM9 20v-6h6v6"/></svg></span><small>Обзор</small></button>
+  <button type="button" data-mobile-nav="portfolio"><span><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><small>Портфель</small></button>
+  <button type="button" data-mobile-nav="cashback"><span><svg class="ui-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 5-14 14"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/></svg></span><small>Кешбэк</small></button>
 </nav>
 
 <!-- Модальное окно редактора -->
