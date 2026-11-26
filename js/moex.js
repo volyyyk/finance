@@ -438,7 +438,7 @@ const MoexAPI = (() => {
   // Изменение цены за последние 6 месяцев. Применяется к акциям,
   // фондам, облигациям и металлам; облигационные купоны моделируются отдельно.
   function annualizeTrend(base, current, months){
-    if (!(Number(base) > 0) || !(Number(current) >= 0) || !(Number(months) > 0)) return null;
+    if (base == null || current == null || months == null || !(Number(base) > 0) || !(Number(current) >= 0) || !(Number(months) > 0)) return null;
     const ratio = Number(current) / Number(base);
     if (ratio <= 0) return -100;
     return (Math.pow(ratio, 12 / Number(months)) - 1) * 100;
@@ -461,7 +461,7 @@ const MoexAPI = (() => {
     const quoteTime = Date.parse(asset.moexUpdatedAt || '');
     const quoteIsFresh = Number.isFinite(quoteTime) && Date.now() - quoteTime < 10 * 60 * 1000;
     const cur = quoteIsFresh ? (asset.lastPrice ?? null) : null;
-    if (!(cur >= 0)){
+    if (cur == null || !Number.isFinite(Number(cur)) || cur < 0){
       asset.historyMonths = null; asset.historyPct = null; asset.historyAnnualPct = null;
       return asset;
     }
