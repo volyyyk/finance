@@ -1307,7 +1307,7 @@ main{gap:16px}
 .product-card .product-row{border-bottom:0}
 .product-extra{padding:0 12px 11px 62px}
 .product-extra .prod-sub{font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
-.prod-details-toggle{min-width:30px;padding:5px 8px;font-size:16px;color:var(--muted)}
+.prod-details-toggle{border:0;background:transparent;color:var(--blue);padding:1px 0;font:inherit;font-size:10px;font-weight:600;cursor:pointer}
 .mobile-bottom-nav{display:none}
 @media(max-width:700px){
   body{padding-bottom:76px}
