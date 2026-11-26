@@ -4,7 +4,8 @@ const ProductInsights = (() => {
   let selected = null, open = false;
   const palette = ['#3978d5','#20a17a','#e3a23b','#8b72cf','#d46b78','#4b9cae','#8b9aa9'];
   function value(p){return p.type==='expense'?0:p.type==='investment'?Simulator.portfolioValue(p):Math.abs(Number(p.amount)||0);}
-  function annual(p){ return Simulator.annualNet(p); }\n  function groups(){
+  function annual(p){ return Simulator.annualNet(p); }
+  function groups(){
     const m=new Map();
     Storage.all().forEach(p=>{if(p.offBudget===true)return;const v=value(p),t=Config.TYPES[p.type];if(!v||!t)return;
       if(!m.has(p.type))m.set(p.type,{type:p.type,label:t.label,icon:t.icon,value:0,products:[],annual:0});
