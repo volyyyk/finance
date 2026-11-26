@@ -226,9 +226,14 @@ export default {
             count++;
           }
         }
+        const scriptRefs=[...new Set([...html.matchAll(/<(?:script|link)\\b[^>]*(?:src|href)=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]))].slice(0,160);
+        const formDetails=[...html.matchAll(/<form\\b([^>]*)>([\\s\\S]*?)<\\/form>/gi)].map(m=>({attributes:tagAttrs('<form '+m[1]+'>'),html:m[2].slice(0,16000),controls:[...m[2].matchAll(/<(input|select|option|button|textarea)\\b([^>]*)>/gi)].map(c=>({tag:c[1],attributes:tagAttrs(c[0]),nearby:clean(m[2].slice(c.index, c.index+500)).slice(0,240)})).slice(0,160)})).filter(x=>/fund|chart|date|period|filter/i.test(JSON.stringify(x.attributes)+' '+x.html.slice(0,1000))).slice(0,12);
+        const scriptEvidence=[...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)].map(m=>({attributes:m[1],length:m[2].length,preview:m[2].slice(0,2000)})).slice(0,40);
+        const exportFunctionContexts=[];
+        for(const token of ['exportTable','form-to-filter-results-button','date-choice-from','graph_fund','data-default-graph']){let at=-1,n=0;while((at=html.indexOf(token,at+1))>=0&&n<3){exportFunctionContexts.push({token,snippet:html.slice(Math.max(0,at-1200),Math.min(html.length,at+2600))});n++;}}
         const forms=[...html.matchAll(/<form\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0]),nearby:clean(html.slice(m.index,Math.min(html.length,m.index+3500))).slice(0,1200)})).slice(0,30);
         const anchors=[...html.matchAll(/<a\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0])})).slice(0,200);
-        return jsonResponse({fundId,sourceUrl,pageStatus:upstream.status,htmlLength:html.length,forms,controls:controls.slice(0,80),anchors,contexts:contexts.slice(0,60)},200);
+        return jsonResponse({fundId,sourceUrl,pageStatus:upstream.status,htmlLength:html.length,forms,formDetails,scriptRefs,scriptEvidence,exportFunctionContexts,controls:controls.slice(0,80),anchors,contexts:contexts.slice(0,60)},200);
       } catch(error) {
         return jsonResponse({error:'VIM export diagnostics failed',detail:String(error?.message||error).slice(0,200)},502);
       }
