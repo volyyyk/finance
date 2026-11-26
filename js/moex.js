@@ -493,6 +493,9 @@ const MoexAPI = (() => {
       couponType, couponDescription: d.COUPON_DETAILS || d.BOND_TYPE || 'Тип купона не указан MOEX',
       couponRate: number(d.COUPONPERCENT), couponAmount: number(d.COUPONVALUE),
       couponFreq: number(d.COUPONFREQUENCY), nextCouponDate: d.COUPONDATE || null,
+      // ISSUENAME — полное название выпуска; SHORTNAME у старых облигаций
+      // часто выглядит как технический тикер и не годится для интерфейса.
+      fullname: d.ISSUENAME || d.SECNAME || d.SHORTNAME || '',
       ...schedule, ...(price.last != null ? { moexUpdatedAt: price.updatedAt } : {}), priceUnit: 'rub',
     };
   }

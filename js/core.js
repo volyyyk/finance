@@ -71,11 +71,19 @@ const Utils = (() => {
     'RU000A102E78': 'БПИФ Альфа Управляем Акции',
     'RU000A1014L8': 'БПИФ Ликвидность УК ВИМ'
   };
+  const OFFICIAL_METAL_NAMES = {
+    GLDRUB_TOM: 'Золото',
+    SLVRUB_TOM: 'Серебро',
+    PLDRUB_TOM: 'Палладий',
+    PLTRUB_TOM: 'Платина'
+  };
   function officialAssetName(asset){
-    if (!asset || asset.kind !== 'fund') return '';
+    if (!asset) return '';
+    const ticker = String(asset.secid || '').trim().toUpperCase();
+    if (asset.kind === 'metal') return OFFICIAL_METAL_NAMES[ticker] || '';
+    if (asset.kind !== 'fund') return '';
     const isin = String(asset.isin || asset.ISIN || '').trim().toUpperCase();
     if (isin && OFFICIAL_FUND_NAMES[isin]) return OFFICIAL_FUND_NAMES[isin];
-    const ticker = String(asset.secid || '').trim().toUpperCase();
     const byTicker = {
       AKGD: 'БПИФ Альфа Капитал Золото',
       AKMB: 'БПИФ Альфа Управляем облигации',

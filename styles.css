@@ -19,6 +19,29 @@ html[data-theme="dark"]{
 input:not([type=checkbox]):not([type=radio]),select,textarea{
   background:var(--input);color:var(--text);border-color:var(--border);
 }
+/* Нативные date-поля на Android/Chromium: явно задаём цвет сегментов даты,
+   иначе браузер может отрисовать их тёмными на тёмном фоне. */
+input[type="date"]{
+  color:var(--text);
+  -webkit-text-fill-color:var(--text);
+  color-scheme:light;
+}
+html[data-theme="dark"] input[type="date"]{
+  color-scheme:dark;
+  color:var(--text);
+  -webkit-text-fill-color:var(--text);
+}
+html[data-theme="dark"] input[type="date"]::-webkit-datetime-edit,
+html[data-theme="dark"] input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+html[data-theme="dark"] input[type="date"]::-webkit-datetime-edit-text,
+html[data-theme="dark"] input[type="date"]::-webkit-datetime-edit-month-field,
+html[data-theme="dark"] input[type="date"]::-webkit-datetime-edit-day-field,
+html[data-theme="dark"] input[type="date"]::-webkit-datetime-edit-year-field{
+  color:var(--text);
+}
+html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator{
+  filter:invert(.85);
+}
 input[type=checkbox],input[type=radio]{accent-color:var(--blue)}
 html[data-theme="dark"] .event-in{background:rgba(95,211,138,.09);border-color:rgba(95,211,138,.25)}
 html[data-theme="dark"] .event-out{background:rgba(240,140,140,.09);border-color:rgba(240,140,140,.25)}
@@ -126,6 +149,14 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
 .row-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;
   padding-top:14px;border-top:1px solid var(--border)}
+.editor-ops-details{margin-top:10px;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.editor-ops-details>summary{display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 12px;cursor:pointer;list-style:none}
+.editor-ops-details>summary::-webkit-details-marker{display:none}
+.editor-ops-details>summary b{font-size:13px;font-weight:600}
+.editor-ops-details>summary small{margin-left:auto;color:var(--muted);font-size:11px}
+.editor-ops-details>summary span{color:var(--muted);transition:transform .2s}
+.editor-ops-details[open]>summary span{transform:rotate(180deg)}
+.editor-ops-details>.ops-section{margin:0;padding:0 12px 12px;border-top:1px solid var(--border)}
 .ops-section{border-top:1px solid var(--border);margin-top:16px;padding-top:14px}
 .ops-section h4{margin:0 0 10px;font-size:12px;color:var(--muted);font-weight:600;
   text-transform:uppercase;letter-spacing:.05em}
