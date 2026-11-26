@@ -5,6 +5,7 @@
 const MoexAPI = (() => {
   const ISS = 'http://iss.moex.com/iss';
   const CBR_KEY_RATE = 'https://www.cbr-xml-daily.ru/keyrate.json';
+  const DEFAULT_MOEX_PROXY = 'https://autumn-mouse-2e3f.kudrin-dim11.workers.dev';
   const CACHE_TTL = 10 * 60 * 1000;
   const cache = new Map();
 
@@ -18,8 +19,10 @@ const MoexAPI = (() => {
   }
 
   function getProxyUrl(){
-    try { return normalizeProxyUrl(localStorage.getItem('moex_proxy_url') || ''); }
-    catch { return ''; }
+    try {
+      const configured = localStorage.getItem('moex_proxy_url');
+      return normalizeProxyUrl(configured || DEFAULT_MOEX_PROXY) || DEFAULT_MOEX_PROXY;
+    } catch { return DEFAULT_MOEX_PROXY; }
   }
 
   async function requestJSON(target, ms){
