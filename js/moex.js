@@ -453,6 +453,7 @@ const MoexAPI = (() => {
       asset.sixMonthBase = null;
       asset.sixMonthPct = null;
       asset.sixMonthBaseDate = null;
+      asset.yieldMonth = monthKey();
       return asset;
     }
     // PDDRUB_TOM was an erroneous legacy alias in the quick-add list;
