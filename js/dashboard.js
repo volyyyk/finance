@@ -120,8 +120,14 @@ const ProductList = (() => {
     const el = $('productsList');
     const list = Storage.all();
     const search = $('productSearch');
+    const viewState = {
+      searchValue: search?.value || '', searchFocused: document.activeElement === search,
+      selectionStart: search?.selectionStart, selectionEnd: search?.selectionEnd, scrollY: window.scrollY,
+      groups: new Map([...el.querySelectorAll('.product-group')].map(x => [x.dataset.groupType, x.open])),
+      archiveOpen: !!el.querySelector('.product-archive')?.open,
+      expanded: new Set([...el.querySelectorAll('[data-details][aria-expanded="true"]')].map(x => x.dataset.details))
+    };
     if (search){
-      search.value = '';
       search.disabled = !list.length;
       if (search.parentElement) search.parentElement.hidden = !list.length;
     }
@@ -158,7 +164,7 @@ const ProductList = (() => {
           const v = p.type === 'investment' ? Simulator.portfolioValue(p) : (p.amount || 0);
           return s + (t.liability ? -v : v);
         }, 0);
-        html += `<details class="product-group">
+        html += `<details class="product-group" data-group-type="${type}" ${viewState.groups.get(type) ? "open" : ""}>
           <summary>
             <span class="pg-icon">${Utils.iconSvg(t.icon,18)}</span>
             <span class="pg-name">${t.label}</span>
@@ -172,14 +178,22 @@ const ProductList = (() => {
       }
     }
     if (archived.length){
-      html += `<details class="product-archive">
+      html += `<details class="product-archive" ${viewState.archiveOpen ? "open" : ""}>
         <summary><span class="summary-icon">${Utils.iconSvg('archive',16)}</span>Архив · ${archived.length}</summary>
         <div class="pg-body">${archived.map(rowHtml).join('')}</div>
       </details>`;
     }
     el.innerHTML = html;
+    el.querySelectorAll('[data-details]').forEach(button => {
+      const isOpen = viewState.expanded.has(button.dataset.details);
+      const extra = button.closest('.product-card')?.querySelector('.product-extra');
+      if (extra) extra.hidden = !isOpen;
+      button.setAttribute('aria-expanded', String(isOpen));
+      button.textContent = isOpen ? 'Подробнее ⌃' : 'Подробнее ⌄';
+    });
     updateDeleteBtn();
     const searchInput = $('productSearch');
+    if (searchInput) searchInput.value = viewState.searchValue;
     if (searchInput) {
       const applyFilter = () => {
         const q = searchInput.value.trim().toLocaleLowerCase('ru');
@@ -198,7 +212,14 @@ const ProductList = (() => {
       };
       searchInput.oninput = applyFilter;
       applyFilter();
+      if (viewState.searchFocused){
+        searchInput.focus({preventScroll:true});
+        if (viewState.selectionStart != null && viewState.selectionEnd != null){
+          try { searchInput.setSelectionRange(viewState.selectionStart, viewState.selectionEnd); } catch {}
+        }
+      }
     }
+    window.scrollTo({top:viewState.scrollY,behavior:'instant'});
 
     el.querySelectorAll('[data-edit]').forEach(b=>{
       b.onclick = () => onEdit(b.dataset.edit);
