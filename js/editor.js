@@ -862,7 +862,7 @@ const ProductEditor = (() => {
   function localFundMatchesHtml(matches){
     return matches.map((a,i)=>`<div class="op-row" data-local-fund="${i}" style="cursor:pointer"><div class="op-body">
       <div><b>${escapeHtml(a.shortname)}</b> <span class="badge">Правила ПИФ ${a.rulesNumber}</span></div>
-      <div class="op-meta">Последняя найденная стоимость: ${fmtMoney(a.lastPrice)} за пай · на ${a.navDate}. Тикера MOEX нет.</div>
+      <div class="op-meta">Официальная цена и история ВИМ загрузятся при выборе фонда. Тикера MOEX нет.</div>
     </div></div>`).join('');
   }
 
