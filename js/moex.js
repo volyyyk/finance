@@ -120,11 +120,13 @@ const MoexAPI = (() => {
 
     const failures = [];
     const deadline = Date.now() + Math.max(1000, timeout);
-    for (const target of targets){
+    const budgets = timeout <= 15000 ? [5000,1000,4000,4000] : [8000,8000,8000,8000];
+    for (let targetIndex=0; targetIndex<targets.length; targetIndex++){
+      const target = targets[targetIndex];
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
       try {
-        return await requestJSON(target.url, Math.min(8000, remaining));
+        return await requestJSON(target.url, Math.min(budgets[targetIndex] || 4000, remaining));
       } catch (error) {
         failures.push(target.name + ': ' + String(error?.message || error).slice(0, 260));
         const retryable = error instanceof TypeError
@@ -166,7 +168,9 @@ const MoexAPI = (() => {
     const query = String(q || '').trim();
     if (!query) return [];
     const url = `${ISS}/securities.json?q=${encodeURIComponent(query)}&iss.meta=off&limit=50`;
-    const json = await fetchJSON(url);
+    // Поиск — интерактивный сценарий: не держим форму 25–30 секунд,
+    // если один из публичных реле недоступен.
+    const json = await fetchJSON(url, 15000);
     const rows = requireRows(json, 'securities').map(row => {
       const secid = row.secid ?? row.SECID ?? '';
       const shortname = row.shortname ?? row.SHORTNAME ?? row.name ?? row.NAME ?? secid;
