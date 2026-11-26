@@ -332,6 +332,6 @@ test('refreshAsset migrates the legacy PDDRUB_TOM alias to MOEX palladium ticker
     await MoexAPI.refreshAsset(asset);
     assert.equal(asset.secid,'PLDRUB_TOM');
     assert.equal(asset.lastPrice,3210.5);
-    assert.match(requestedUrl,/currency\\/markets\\/selt\\/boards\\/CETS\\/securities\\/PLDRUB_TOM/);
+    assert.ok(requestedUrl.includes('/engines/currency/markets/selt/boards/CETS/securities/PLDRUB_TOM.json'));
   } finally { global.fetch=originalFetch; }
 });
