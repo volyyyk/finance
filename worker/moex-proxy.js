@@ -200,17 +200,17 @@ export default {
         const upstream = await fetch(sourceUrl,{headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'Mozilla/5.0 FinApp/1.0'}});
         if (!upstream.ok) return jsonResponse({error:'VIM HTTP '+upstream.status},upstream.status);
         const html = await upstream.text();
-        const clean = value => String(value||'').replace(/<script\\b[\\s\\S]*?<\\/script>/gi,' ')
-          .replace(/<style\\b[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ')
+        const clean = value => String(value||'').replace(/<script\b[\s\S]*?<\/script>/gi,' ')
+          .replace(/<style\b[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ')
           .replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"')
-          .replace(/&#39;|&apos;/gi,"'").replace(/\\s+/g,' ').trim();
+          .replace(/&#39;|&apos;/gi,"'").replace(/\s+/g,' ').trim();
         const tagAttrs = tag => {
           const attrs={};
-          for(const m of tag.matchAll(/([\\w:-]+)\\s*=\\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[m[1].toLowerCase()]=m[2]??m[3]??'';
+          for(const m of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[m[1].toLowerCase()]=m[2]??m[3]??'';
           return attrs;
         };
         const controls=[];
-        for(const m of html.matchAll(/<(a|button|input|form)\\b[^>]*>/gi)) {
+        for(const m of html.matchAll(/<(a|button|input|form)\b[^>]*>/gi)) {
           const tag=m[0], attrs=tagAttrs(tag), at=m.index;
           const tail=html.slice(at,Math.min(html.length,at+1600));
           const textNear=clean(tail.slice(0,700));
@@ -226,8 +226,8 @@ export default {
             count++;
           }
         }
-        const forms=[...html.matchAll(/<form\\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0]),nearby:clean(html.slice(m.index,Math.min(html.length,m.index+3500))).slice(0,1200)})).slice(0,30);
-        const anchors=[...html.matchAll(/<a\\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0])})).slice(0,200);
+        const forms=[...html.matchAll(/<form\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0]),nearby:clean(html.slice(m.index,Math.min(html.length,m.index+3500))).slice(0,1200)})).slice(0,30);
+        const anchors=[...html.matchAll(/<a\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0])})).slice(0,200);
         return jsonResponse({fundId,sourceUrl,pageStatus:upstream.status,htmlLength:html.length,forms,controls:controls.slice(0,80),anchors,contexts:contexts.slice(0,60)},200);
       } catch(error) {
         return jsonResponse({error:'VIM export diagnostics failed',detail:String(error?.message||error).slice(0,200)},502);
