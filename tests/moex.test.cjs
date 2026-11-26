@@ -561,3 +561,15 @@ test('refreshAsset hydrates missing ticker-like names from MOEX metadata', async
     assert.ok(requested.some(url=>url.includes('/securities/TEST_NAME_HYDRATE.json')));
   } finally { global.fetch=originalFetch; }
 });
+
+
+test('annualizeTrend uses the observed period and never projects a loss below -100%', () => {
+  const monthly = MoexAPI.annualizeTrend(100, 101, 1);
+  const quarterly = MoexAPI.annualizeTrend(100, 103, 3);
+  const yearly = MoexAPI.annualizeTrend(100, 110, 12);
+  assert.ok(Math.abs(monthly - (Math.pow(1.01,12)-1)*100) < 1e-9);
+  assert.ok(Math.abs(quarterly - (Math.pow(1.03,4)-1)*100) < 1e-9);
+  assert.ok(Math.abs(yearly - 10) < 1e-9);
+  assert.equal(MoexAPI.annualizeTrend(100, 0, 1), -100);
+  assert.equal(MoexAPI.annualizeTrend(0, 100, 1), null);
+});
