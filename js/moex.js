@@ -22,7 +22,8 @@ const MoexAPI = (() => {
       // GitHub Pages is a static host: it cannot proxy requests itself.
       // If a browser/network blocks the official public ISS endpoint (often
       // surfaced only as "Failed to fetch"), retry the same public GET via
-      // a CORS relay. No portfolio, account or personal data is sent.
+      // a CORS relay. Requested security IDs are visible to that relay;
+      // balances, quantities, account names and personal data are not sent.
       const isMoex = url.startsWith(ISS + '/');
       const networkFailure = error instanceof TypeError
         || /failed to fetch|networkerror|load failed/i.test(String(error?.message || error));
