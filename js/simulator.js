@@ -201,7 +201,8 @@ const Simulator = (() => {
           }
           let coupon = 0;
           const through = Utils.dateKey(monthDate);
-          for (const { a, pays, ...item } of bondList){
+          for (const bond of bondList){
+            const { a, pays } = bond;
             for (const pay of pays){
               if (pay.date <= previousDate || pay.date > through || pay.value == null || a.paidEvents?.[pay.key]) continue;
               if (pay.type !== 'coupon' && noEvents) continue; // без событий тело облигации не возвращается
@@ -210,9 +211,9 @@ const Simulator = (() => {
               if (pay.type === 'coupon') coupon += amount;
               else {
                 const deduction = a.maturityDate === pay.date
-                  ? item.value
-                  : Math.min(item.value, item.value * pay.value / (a.nominal || 1));
-                item.value = Math.max(0, item.value - deduction);
+                  ? bond.value
+                  : Math.min(bond.value, bond.value * pay.value / (a.nominal || 1));
+                bond.value = Math.max(0, bond.value - deduction);
               }
             }
           }
