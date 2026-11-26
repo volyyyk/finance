@@ -17,6 +17,6 @@
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
   <rect x="17" y="17" width="478" height="478" rx="100" fill="none" stroke="#c1cfdd" stroke-opacity=".42" stroke-width="3"/>
   <path d="M150 363V148h178v48H205v47h105v46H205v74z" fill="url(#blue)"/>
-  <path d="m286 363 83-215h55l82 215h-58l-15-44h-76l-15 44zm87-91h46l-23-68z" fill="url(#silver)"/>
+  <path d="m270 363 68-215h48l68 215h-49l-12-44h-65l-12 44zm72-91h40l-20-68z" fill="url(#silver)"/>
   <path d="M151 390h247" stroke="#8fb5d9" stroke-width="9" stroke-linecap="round" opacity=".85"/>
 </svg>
