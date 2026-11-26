@@ -1288,6 +1288,37 @@ test('Stats: deposit maturity transfer and reinvestment use one annual forecast'
 });
 
 
+test('Utils.officialAssetName: maps known MOEX funds by ISIN and ticker', () => {
+  const { mods } = coreMods();
+  assert.equal(mods.Utils.officialAssetName({kind:'fund',secid:'AKGD',isin:'RU000A1045N8'}), 'БПИФ Альфа Капитал Золото');
+  assert.equal(mods.Utils.officialAssetName({kind:'fund',secid:'AKMB'}), 'БПИФ Альфа Управляем облигации');
+  assert.equal(mods.Utils.officialAssetName({kind:'fund',secid:'AKME'}), 'БПИФ Альфа Управляем Акции');
+  assert.equal(mods.Utils.officialAssetName({kind:'fund',secid:'LQDT'}), 'БПИФ Ликвидность УК ВИМ');
+  assert.equal(mods.Utils.officialAssetName({kind:'stock',secid:'AKGD'}), '');
+});
+
+test('Simulator: negative broker cash is a liability, while securities remain assets', () => {
+  const { mods } = simMods([{
+    id:'broker-overdraft',type:'investment',amount:-1200,operations:[],
+    assets:[{id:'share',kind:'stock',secid:'SBER',qty:2,lastPrice:1000}]
+  }]);
+  assert.equal(mods.Simulator.portfolioValue(mods.Storage.get('broker-overdraft')), 800);
+  const stats=mods.Stats.aggregate();
+  assert.equal(stats.assets,2000);
+  assert.equal(stats.debts,1200);
+  assert.equal(stats.net,800);
+});
+
+test('Simulator: negative market return remains a negative income result', () => {
+  const { mods } = simMods([{
+    id:'broker-loss',type:'investment',amount:0,operations:[],
+    assets:[{id:'share',kind:'stock',secid:'SBER',qty:1,lastPrice:1000,sixMonthPct:-10}]
+  }]);
+  const year=mods.Simulator.simulateProduct(mods.Storage.get('broker-loss'),12).history[12];
+  assert.ok(year.cumIncome < 0, 'падение рыночной цены уменьшает доход');
+  assert.ok(mods.Stats.aggregate().inc < 0, 'сводный доход может быть отрицательным');
+});
+
 test('Simulator: investment valuation includes free cash and every asset class', () => {
   const { mods } = simMods([{
     id:'portfolio-total', type:'investment', amount:500, rate:99, operations:[],
