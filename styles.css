@@ -1395,31 +1395,48 @@ html[data-theme="dark"] .brand-app{background:linear-gradient(115deg,#c3ceda,#87
 .cb-month-tabs .cb-tab.active{background:var(--card);color:var(--text);
   box-shadow:0 1px 3px rgba(0,0,0,.08)}
 #cbView h3,#cbEdit h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text)}
-.cb-list.cb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.cb-group{min-width:0;margin:0;padding:0;border:1px solid var(--border);
-  border-radius:13px;background:var(--surface-2);overflow:hidden}
-.cb-group>.cb-row{min-height:66px;padding:11px 12px;border:0;border-radius:0;background:transparent}
+
+/* Dense cashback cards: two columns on desktop and phones for quick comparison. */
+.cb-list.cb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.cb-group{min-width:0;margin:0;padding:0;border:1px solid var(--border);border-radius:13px;
+  background:var(--surface-2);overflow:hidden;transition:border-color .16s ease,background .16s ease}
+.cb-group>.cb-row{min-height:68px;padding:10px;border:0;border-radius:0;background:transparent;align-items:flex-start}
 .cb-row .cb-txt{flex:1;min-width:0}
-.cb-line{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.cb-line .cb-cat{min-width:0;white-space:normal;line-height:1.3}
-.cb-val{flex-shrink:0;padding:4px 8px;border:1px solid var(--border);border-radius:8px;
-  background:var(--card);font-size:13px;font-variant-numeric:tabular-nums}
-.cb-bank{margin-top:4px;color:var(--muted);font-size:11px;font-weight:500;
-  background:transparent;border:0;padding:0}
-.cb-subs{margin:0 10px 9px;padding:7px 0 0;border:0;border-top:1px solid var(--border);gap:4px}
-.cb-sub{min-width:0;gap:7px;padding:5px 2px;border:0;background:transparent}
-.cb-sub-txt{min-width:0;flex:1}
-.cb-sub-val{flex-shrink:0;font-size:12px;font-variant-numeric:tabular-nums}
+.cb-line{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.cb-line .cb-cat{min-width:0;white-space:normal;line-height:1.25;font-size:12px;font-weight:650}
+.cb-val{flex-shrink:0;padding:4px 7px;border:1px solid var(--border);border-radius:8px;
+  background:var(--card);font-size:12px;font-variant-numeric:tabular-nums}
+.cb-bank{margin-top:4px;color:var(--muted);font-size:10px;font-weight:500;background:transparent;border:0;padding:0;line-height:1.25}
+.cb-subs{margin:0 8px 8px;padding:6px 0 0;border:0;border-top:1px solid var(--border);gap:3px}
+.cb-sub{min-width:0;gap:5px;padding:4px 0;border:0;background:transparent}
+.cb-sub-txt{min-width:0;flex:1;font-size:10px}
+.cb-sub-val{flex-shrink:0;font-size:11px;font-variant-numeric:tabular-nums}
 .cb-group.cb-l-low,.cb-group.cb-l-mid,.cb-group.cb-l-high{border-color:var(--border)}
-.cb-group .op-del{min-width:30px;min-height:30px;width:30px;height:30px;border-radius:8px}
-.cb-bottom-accordions{margin-top:18px;gap:8px}
+.cb-group.cb-l-low{border-left:3px solid #dc7777}
+.cb-group.cb-l-mid{border-left:3px solid #d4a83e}
+.cb-group.cb-l-high{border-left:3px solid #48a77a}
+html[data-theme="dark"] .cb-group.cb-l-low{border-left-color:#e87979}
+html[data-theme="dark"] .cb-group.cb-l-mid{border-left-color:#e3bd55}
+html[data-theme="dark"] .cb-group.cb-l-high{border-left-color:#58bd8a}
+.cb-group.cb-l-low .cb-val{background:color-mix(in srgb,#dc7777 10%,var(--card))}
+.cb-group.cb-l-mid .cb-val{background:color-mix(in srgb,#d4a83e 12%,var(--card))}
+.cb-group.cb-l-high .cb-val{background:color-mix(in srgb,#48a77a 11%,var(--card))}
+.cb-group .op-del{min-width:28px;min-height:28px;width:28px;height:28px;border-radius:8px;flex:0 0 28px}
+.cb-bottom-accordions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px;gap:9px}
 .cb-accordion,.cb-accordion.edge-glow-purple,.cb-accordion.edge-glow-red,
 .cb-accordion.edge-glow-yellow,.cb-accordion.edge-glow-orange{
-  border:1px solid var(--border);border-radius:13px;background:var(--surface-2);
-  box-shadow:none;filter:none}
-.cb-accordion>summary{min-height:50px;padding:12px 42px 12px 14px;font-size:13px;font-weight:650}
-.cb-accordion>summary:before{opacity:.65}
+  min-width:0;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);
+  box-shadow:none;filter:none;overflow:hidden;transition:border-color .16s ease,background .16s ease}
+.cb-accordion[open]{grid-column:1/-1;background:var(--card)}
+.cb-accordion>summary{min-height:66px;padding:10px 34px 10px 11px;font-size:12px;font-weight:650;gap:9px}
+.cb-accordion>summary:before{display:none}
+.cb-accordion>summary::after{right:13px;width:7px;height:7px}
 .cb-accordion[open]>summary{border-bottom:1px solid var(--border)}
+.cb-summary-icon{width:34px;height:34px;flex:0 0 34px;border-radius:11px;
+  background:var(--card);border:1px solid var(--border);color:var(--blue)}
+.cb-summary-copy{display:flex;flex-direction:column;gap:3px;min-width:0;line-height:1.2}
+.cb-summary-copy strong{font-size:12px;font-weight:700;color:var(--text)}
+.cb-summary-copy small{font-size:10px;font-weight:500;color:var(--muted)}
 .cb-acc-content{padding:13px}
 .cb-quick-chips{display:flex;flex-wrap:wrap}
 .cb-quick-chips .btn.chip{background:var(--card)}
@@ -1428,11 +1445,21 @@ html[data-theme="dark"] .brand-app{background:linear-gradient(115deg,#c3ceda,#87
 .cb-all-row .cb-all-name{flex:1;min-width:0}
 .cb-all-row b{font-variant-numeric:tabular-nums}
 @media(max-width:680px){
-  #modeCashback>.card{padding:15px}
-  #cbMonth{font-size:17px;margin-bottom:14px}
-  .cb-list.cb-grid{grid-template-columns:1fr;gap:8px}
-  .cb-group>.cb-row{min-height:60px}
-  .cb-accordion>summary{min-height:48px}
+  #modeCashback>.card{padding:13px}
+  #cbMonth{font-size:16px;margin-bottom:13px;gap:8px}
+  .cb-list.cb-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .cb-group>.cb-row{min-height:64px;padding:9px 7px}
+  .cb-group .cb-line{gap:4px}
+  .cb-group .cb-cat{font-size:11px}
+  .cb-group .cb-val{font-size:11px;padding:3px 5px}
+  .cb-group .cb-bank{font-size:9px}
+  .cb-group .op-del{min-width:24px;min-height:24px;width:24px;height:24px;flex-basis:24px}
+  .cb-bottom-accordions{gap:7px;margin-top:15px}
+  .cb-accordion>summary{min-height:62px;padding:9px 29px 9px 8px;gap:7px}
+  .cb-summary-icon{width:30px;height:30px;flex-basis:30px;border-radius:9px}
+  .cb-summary-copy strong{font-size:11px}
+  .cb-summary-copy small{font-size:9px}
+  .cb-accordion>summary::after{right:10px}
 }
 
 
