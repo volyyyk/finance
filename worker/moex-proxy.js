@@ -257,7 +257,13 @@ export default {
         for(const token of tokens){let at=-1,n=0;while((at=html.toLowerCase().indexOf(token.toLowerCase(),at+1))>=0&&n<4){contexts.push({token,snippet:html.slice(Math.max(0,at-900),Math.min(html.length,at+1800)).replace(/\s+/g,' ')});n++;}}
         const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map(m=>({attrs:m[1],length:m[2].length,code:m[2].slice(0,10000)})).slice(0,60);
         const tables=[...html.matchAll(/<table\b[^>]*>/gi)].map(m=>m[0]).slice(0,30);
-        return jsonResponse({fundId,sourceUrl,status:upstream.status,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,refs,scripts,tables,contexts},200);
+        const forms=[...html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)].map((m)=>({attrs:m[1],length:m[2].length,html:m[2].slice(0,18000),controls:[...m[2].matchAll(/<(input|select|button|textarea)\b([^>]*)>/gi)].map(x=>({tag:x[1],attrs:x[2]})).slice(0,150)})).slice(0,20);
+        const eventAttrs=[...html.matchAll(/\b(on[a-z]+)\s*=\s*(["'])([\s\S]*?)\2/gi)].map(m=>({event:m[1],code:m[3].slice(0,1000)})).slice(0,100);
+        const dataAttrs=[...html.matchAll(/\b(data-[\w:-]+)\s*=\s*(["'])(.*?)\2/gi)].map(m=>({name:m[1],value:m[3].slice(0,500)})).filter(x=>/graph|fund|ajax|url|api|period|date|chart/i.test(x.name+' '+x.value)).slice(0,150);
+        const scriptTags=[...html.matchAll(/<script\b[^>]*>/gi)].map(m=>m[0]).slice(0,100);
+        const formAt=html.indexOf('id="set_graph"');
+        const graphContext=formAt>=0?html.slice(Math.max(0,formAt-12000),Math.min(html.length,formAt+18000)):'';
+        return jsonResponse({fundId,sourceUrl,status:upstream.status,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,refs,scripts,scriptTags,forms,eventAttrs,dataAttrs,graphContext,tables,contexts},200);
       } catch(error) {
         return jsonResponse({error:'VIM global graph diagnostics failed',detail:String(error?.message||error).slice(0,240)},502);
       }
