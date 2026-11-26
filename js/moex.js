@@ -210,7 +210,7 @@ const MoexAPI = (() => {
     const fallback = kind === 'metal'
       ? { engine:'currency', market:'selt', board:preferredBoard || 'CETS' }
       : { engine:'stock', market:kind === 'bond' ? 'bonds' : 'shares', board:preferredBoard || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR') };
-    if (kind === 'metal') return fallback;
+    if (kind !== 'fund') return fallback;
     try {
       const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=boards`, 10000);
       const available = requireRows(json, 'boards').filter(row =>
@@ -232,7 +232,7 @@ const MoexAPI = (() => {
       const bond = kind === 'bond';
       const market = await resolveMarket(secid, board, kind);
       const url = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
-      const json = await fetchJSON(url);
+      const json = await fetchJSON(url, kind === 'fund' ? 25000 : 30000);
       const md = chooseMarketRow(requireRows(json, 'marketdata'), market.board);
       const security = requireRows(json, 'securities')[0] || {};
       // PREVPRICE/PREVLEGALCLOSEPRICE — прошлое закрытие, не текущая цена.
