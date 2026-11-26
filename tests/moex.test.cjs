@@ -113,3 +113,38 @@ test('lastPrice tries AllOrigins when the first CORS relay returns HTTP 502', as
     global.fetch=originalFetch;
   }
 });
+
+test('lastPrice falls back when a direct ISS request hangs until its timeout', async () => {
+  const originalFetch = global.fetch;
+  const originalSetTimeout = global.setTimeout;
+  let requested = 0;
+  global.fetch = async url => {
+    requested++;
+    if (requested === 1) return new Promise(() => {});
+    return {
+      ok:true,
+      json:async()=>({
+        marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',888.5]]},
+        securities:{columns:['FACEVALUE'],data:[[1]]}
+      })
+    };
+  };
+  let timeoutInjected = false;
+  global.setTimeout = (fn, ms, ...args) => {
+    if (!timeoutInjected && ms === 12000) {
+      timeoutInjected = true;
+      queueMicrotask(() => fn(...args));
+      return 0;
+    }
+    return originalSetTimeout(fn, ms, ...args);
+  };
+  try {
+    const result = await MoexAPI.lastPrice('TEST_HUNG_ISS_1','TQBR','stock');
+    assert.equal(result.last,888.5);
+    assert.equal(requested,2);
+    assert.equal(timeoutInjected,true);
+  } finally {
+    global.fetch = originalFetch;
+    global.setTimeout = originalSetTimeout;
+  }
+});
