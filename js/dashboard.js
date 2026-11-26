@@ -219,7 +219,7 @@ const ProductList = (() => {
         }
       }
     }
-    window.scrollTo({top:viewState.scrollY,behavior:'instant'});
+    window.scrollTo(0, viewState.scrollY);
 
     el.querySelectorAll('[data-edit]').forEach(b=>{
       b.onclick = () => onEdit(b.dataset.edit);
