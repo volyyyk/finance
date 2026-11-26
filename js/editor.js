@@ -30,7 +30,7 @@ const ProductEditor = (() => {
   // «золот» — только золото, «SLV» — только серебро, мусор — ничего.
   const METALS = [
     ['GLDRUB_TOM', 'Золото'], ['SLVRUB_TOM', 'Серебро'],
-    ['PLDRUB_TOM', 'Платина'], ['PDDRUB_TOM', 'Палладий'],
+    ['PLDRUB_TOM', 'Палладий'], ['PLTRUB_TOM', 'Платина'],
   ];
   function metalQuickList(q){
     const ql = (q || '').trim().toLowerCase();
