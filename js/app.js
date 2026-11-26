@@ -32,9 +32,11 @@ const App = (() => {
         if (a.redeemed || !a.secid) return;
         const stamp = a.moexUpdatedAt || a.updatedAt;
         const age = stamp ? (Date.now() - Date.parse(stamp)) / 86400000 : Infinity;
-        const errorSince = Date.parse(a.moexErrorSince || a.moexAttemptAt || '');
-        const errorMatured = !!a.moexError && (!Number.isFinite(errorSince) || Date.now() - errorSince >= 30000);
-        if (errorMatured || (!a.moexError && (!Number.isFinite(age) || age > 30))){
+        const checkSince = Date.parse(a.moexErrorSince || a.moexCheckStartedAt || a.moexAttemptAt || '');
+        const checkMatured = Number.isFinite(checkSince) && Date.now() - checkSince >= 30000;
+        const errorMatured = !!a.moexError && checkMatured;
+        const quoteStale = (!Number.isFinite(age) || age > 30) && checkMatured;
+        if (errorMatured || (!a.moexError && quoteStale)){
           quoteProblems.push({name:a.shortname || a.secid, error:errorMatured ? a.moexError : ''});
         }
       });
@@ -479,6 +481,7 @@ ${rows}
             if (Number.isFinite(attemptedAt) && now - attemptedAt < (a.moexError ? 5 : 1) * 60 * 1000) return;
             const before = JSON.stringify(a);
             const attemptStartedAt = Date.now();
+            a.moexCheckStartedAt = new Date(attemptStartedAt).toISOString();
             try {
               await MoexAPI.refreshAsset(a);
               // A valid ISS response without a new trade is not a request failure.
