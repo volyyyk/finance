@@ -1434,3 +1434,9 @@ html[data-theme="dark"] .brand-app{background:linear-gradient(115deg,#c3ceda,#87
   .cb-group>.cb-row{min-height:60px}
   .cb-accordion>summary{min-height:48px}
 }
+
+
+/* Keep cashback percentages legible without the old red/yellow/green theme clash. */
+.cb-group.cb-l-low .cb-val,.cb-group.cb-l-mid .cb-val,.cb-group.cb-l-high .cb-val,
+.cb-sub.cb-l-low .cb-sub-val,.cb-sub.cb-l-mid .cb-sub-val,.cb-sub.cb-l-high .cb-sub-val,
+.cb-row .cb-best b,.cb-all-row b{color:var(--text)}
