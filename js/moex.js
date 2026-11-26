@@ -82,10 +82,18 @@ const MoexAPI = (() => {
   }
 
   function compactIssUrl(value){
-    const parsed = new URL(value);
-    parsed.searchParams.set('iss.json', 'compact');
-    parsed.searchParams.set('iss.version', 'on');
-    return parsed.toString();
+    // String-based query update also works in the lightweight VM used by tests,
+    // where the browser URL constructor is intentionally not injected.
+    const hashAt = value.indexOf('#');
+    const hash = hashAt >= 0 ? value.slice(hashAt) : '';
+    const withoutHash = hashAt >= 0 ? value.slice(0, hashAt) : value;
+    const queryAt = withoutHash.indexOf('?');
+    const path = queryAt >= 0 ? withoutHash.slice(0, queryAt) : withoutHash;
+    const query = queryAt >= 0 ? withoutHash.slice(queryAt + 1) : '';
+    const params = query.split('&').filter(part =>
+      part && !/^iss\\.(json|version)=/i.test(part));
+    params.push('iss.json=compact', 'iss.version=on');
+    return path + '?' + params.join('&') + hash;
   }
 
   async function fetchJSON(url, timeout = 12000){
