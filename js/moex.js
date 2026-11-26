@@ -201,8 +201,8 @@ const MoexAPI = (() => {
         .some(value => number(value) > 0)
     );
     if (!usable.length) return null;
-    return usable.find(row => Number(row.IS_PRIMARY) === 1)
-      || usable.find(row => row.BOARDID === preferredBoard)
+    return usable.find(row => row.BOARDID === preferredBoard)
+      || usable.find(row => Number(row.IS_PRIMARY) === 1)
       || usable[0];
   }
 
@@ -211,7 +211,7 @@ const MoexAPI = (() => {
       ? [{ engine:'currency', market:'selt', board:preferredBoard || 'CETS' }]
       : [{ engine:'stock', market:kind === 'bond' ? 'bonds' : 'shares',
           board:preferredBoard || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR') }];
-    if (kind === 'metal') return fallback;
+    if (kind !== 'fund') return fallback;
     try {
       const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}/boards.json?iss.meta=off`, 5000);
       const available = requireRows(json, 'boards').filter(row =>
@@ -244,40 +244,39 @@ const MoexAPI = (() => {
       const bond = kind === 'bond';
       const markets = await resolveMarkets(secid, board, kind);
       let selected = null, security = {};
-      // Security-level endpoint returns quote rows from all trading boards.
-      // Prefer a live primary-board quote instead of pinning the asset to an
-      // old/non-liquid board saved in its local record.
-      const visitedMarkets = new Set();
-      for (const market of markets){
-        const marketKey = market.engine + '/' + market.market;
-        if (visitedMarkets.has(marketKey)) continue;
-        visitedMarkets.add(marketKey);
-        const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}`;
-        try {
-          const json = await fetchJSON(`${base}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`, 12000);
-          const md = chooseMarketRow(requireRows(json, 'marketdata'), board);
-          security = requireRows(json, 'securities')[0] || security;
-          if (md){
-            selected = { md, market };
-            break;
-          }
-        } catch (error) {
-          // Try the next market/board metadata candidate; all attempts share
-          // the bounded per-request timeout in fetchJSON.
-          console.warn('MOEX market quote lookup failed for ' + secid, error);
-        }
-      }
-      if (!selected){
-        // Some ISS endpoints expose rows only on a board-specific URL.
+      if (kind !== 'fund'){
+        // Stable, known route for shares, bonds and metals.
         const market = markets[0];
-        try {
+        const url = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
+        const json = await fetchJSON(url, 30000);
+        const md = chooseMarketRow(requireRows(json, 'marketdata'), market.board);
+        security = requireRows(json, 'securities')[0] || {};
+        if (md) selected = { md, market };
+      } else {
+        // Funds may have multiple boards (e.g. TQTE and TQTF). Query market
+        // level first, then choose a board that actually has a live quote.
+        const visitedMarkets = new Set();
+        for (const market of markets){
+          const marketKey = market.engine + '/' + market.market;
+          if (visitedMarkets.has(marketKey)) continue;
+          visitedMarkets.add(marketKey);
+          const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}`;
+          try {
+            const json = await fetchJSON(`${base}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`, 12000);
+            const md = chooseMarketRow(requireRows(json, 'marketdata'), board);
+            security = requireRows(json, 'securities')[0] || security;
+            if (md){ selected = { md, market }; break; }
+          } catch (error) {
+            console.warn('MOEX market quote lookup failed for ' + secid, error);
+          }
+        }
+        if (!selected){
+          const market = markets[0];
           const url = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
           const json = await fetchJSON(url, 8000);
           const md = chooseMarketRow(requireRows(json, 'marketdata'), market.board);
           security = requireRows(json, 'securities')[0] || security;
           if (md) selected = { md, market };
-        } catch (error) {
-          console.warn('MOEX board quote lookup failed for ' + secid, error);
         }
       }
       const md = selected?.md || null;
