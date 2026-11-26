@@ -364,6 +364,7 @@ const MoexAPI = (() => {
     const quoteAlreadyFresh = Number.isFinite(quoteTimeBefore) && Date.now() - quoteTimeBefore < 10 * 60 * 1000;
     // refreshAsset populates missing bond nominal/board metadata as well as a live quote.
     if (!quoteAlreadyFresh) await refreshAsset(asset);
+    if (asset.moexInactive) return asset;
     const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
     const quoteTime = Date.parse(asset.moexUpdatedAt || '');
     const quoteIsFresh = Number.isFinite(quoteTime) && Date.now() - quoteTime < 10 * 60 * 1000;
@@ -439,6 +440,10 @@ const MoexAPI = (() => {
       if (asset.secid === 'VTBL') asset.legacySecid = 'VTBL';
       asset.secid = 'RSHL';
       asset.moexInactive = true;
+      delete asset.lastPrice;
+      asset.moexUpdatedAt = null;
+      delete asset.moexError;
+      delete asset.moexQuoteStatus;
       asset.moexStatusText = 'Бывший VTBL (RSHL): с 26.12.2023 закрытый ЗПИФ-А, биржевые торги прекращены. Актуальной биржевой котировки нет.';
       asset.sixMonthBase = null;
       asset.sixMonthPct = null;
