@@ -286,8 +286,11 @@ const MoexAPI = (() => {
     const target = new Date(now.getFullYear(), now.getMonth() - 6, 1);
     const from = new Date(target);
     from.setDate(from.getDate() - 14);
+    const quoteTimeBefore = Date.parse(asset.moexUpdatedAt || '');
+    const quoteAlreadyFresh = Number.isFinite(quoteTimeBefore) && Date.now() - quoteTimeBefore < 10 * 60 * 1000;
+    // refreshAsset populates missing bond nominal/board metadata as well as a live quote.
+    if (!quoteAlreadyFresh) await refreshAsset(asset);
     const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
-    await refreshAsset(asset);
     const quoteTime = Date.parse(asset.moexUpdatedAt || '');
     const quoteIsFresh = Number.isFinite(quoteTime) && Date.now() - quoteTime < 10 * 60 * 1000;
     const cur = quoteIsFresh ? (asset.lastPrice ?? null) : null;
