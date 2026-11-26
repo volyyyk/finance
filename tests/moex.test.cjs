@@ -87,3 +87,29 @@ test('lastPrice retries a browser network/CORS failure through the public-data r
     global.fetch = originalFetch;
   }
 });
+
+test('lastPrice tries AllOrigins when the first CORS relay returns HTTP 502', async () => {
+  const originalFetch = global.fetch;
+  const requested = [];
+  global.fetch = async url => {
+    requested.push(String(url));
+    if (requested.length === 1) throw new TypeError('Failed to fetch');
+    if (requested.length === 2) return { ok:false, status:502 };
+    return {
+      ok:true,
+      json:async()=>({
+        marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',777.25]]},
+        securities:{columns:['FACEVALUE'],data:[[1]]}
+      })
+    };
+  };
+  try {
+    const result = await MoexAPI.lastPrice('TEST_RELAY_CHAIN_1','TQBR','stock');
+    assert.equal(result.last,777.25);
+    assert.equal(requested.length,3);
+    assert.match(requested[1],/^https:\/\/proxy\.cors\.dev\//);
+    assert.match(requested[2],/^https:\/\/api\.allorigins\.win\/raw\?/);
+  } finally {
+    global.fetch=originalFetch;
+  }
+});
