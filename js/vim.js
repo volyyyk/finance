@@ -29,7 +29,7 @@ const VIMAPI = (() => {
     const body = await response.text();
     let data;
     try { data = JSON.parse(body); }
-    catch { throw new Error('VIM вернул не JSON: ' + body.replace(/\\s+/g,' ').slice(0,160)); }
+    catch { throw new Error('VIM вернул не JSON: ' + body.replace(/\s+/g,' ').slice(0,160)); }
     if (!response.ok) throw new Error(data.error || ('VIM HTTP ' + response.status));
     if (!data || !Array.isArray(data.history) || !data.history.length) throw new Error('ВИМ не вернул историю фонда');
     return data;
@@ -37,7 +37,7 @@ const VIMAPI = (() => {
   function applyHistory(asset, data){
     const merged = new Map();
     for (const point of [...(asset.vimHistory || []), ...data.history]) {
-      if (!point || !/^\\d{4}-\\d{2}-\\d{2}$/.test(point.date) || !(number(point.price) > 0)) continue;
+      if (!point || !/^\d{4}-\d{2}-\d{2}$/.test(point.date) || !(number(point.price) > 0)) continue;
       merged.set(point.date, { date:point.date, price:number(point.price), nav:number(point.nav) });
     }
     asset.vimHistory = [...merged.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-500);
@@ -79,7 +79,7 @@ const VIMAPI = (() => {
     const id = String(asset?.rulesNumber || '').replace(/[^0-9]/g,'');
     if (!FUNDS[id]) return asset;
     const data = await fetchFund(id);
-    if (!(number(data.price)>0) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(data.date || '')) {
+    if (!(number(data.price)>0) || !/^\d{4}-\d{2}-\d{2}$/.test(data.date || '')) {
       throw new Error('ВИМ вернул некорректную стоимость пая или дату');
     }
     data.history = [...data.history, {date:data.date,price:data.price,nav:data.nav}];
