@@ -880,8 +880,11 @@ const ProductEditor = (() => {
   }
 
   function assetDisplayName(asset){
+    // SECNAME — полное человекочитаемое название; SHORTNAME часто содержит
+    // технические биржевые сокращения вроде «ETF AKGD», поэтому оно вторично.
+    const full = asset?.fullname && asset.fullname !== asset.secid ? asset.fullname : '';
     const short = asset?.shortname && asset.shortname !== asset.secid ? asset.shortname : '';
-    return String(asset?.customName || short || asset?.fullname || asset?.secid || 'Актив').trim();
+    return String(asset?.customName || full || short || asset?.secid || 'Актив').trim();
   }
 
   // Отдельная запись актива: вся подробная информация (как раньше)
@@ -919,7 +922,7 @@ const ProductEditor = (() => {
         `<div>${fmtDate(c.date)} · ${c.type === 'coupon' ? 'Купон' : 'Основной долг'} · ${c.value == null ? 'сумма не объявлена' : fmtMoney(c.value * (a.qty || 0))}${a.paidEvents?.[c.key] ? ' · зачислено' : ''}</div>`).join('') || 'График пока недоступен'}</div></details>` : '';
     return `<div class="op-row">
       <div class="op-body">
-        <div class="asset-detail-title"><b class="asset-name-track">${escapeHtml(assetDisplayName(a))}</b>
+        <div class="asset-detail-title"><b class="asset-name-track" tabindex="0">${escapeHtml(assetDisplayName(a))}</b>
           <span class="badge">${kindLabel}</span>
           <span class="badge">${escapeHtml(a.secid)}</span>${a.legacySecid ? `<span class="badge">бывш. ${escapeHtml(a.legacySecid)}</span>` : ''}</div>
         <div class="op-meta">${qtyTxt}
@@ -1028,13 +1031,26 @@ const ProductEditor = (() => {
       };
     });
     el.querySelectorAll('.asset-name-track').forEach(track=>{
+      track.setAttribute('tabindex', '0');
+      track.setAttribute('aria-label', track.textContent.trim());
       const measure = () => {
-        const container = track.parentElement;
-        const shift = Math.min(0, container.clientWidth - track.scrollWidth);
-        track.style.setProperty('--asset-shift', shift + 'px');
+        const available = track.clientWidth || track.parentElement?.clientWidth || 0;
+        const overflow = Math.max(0, track.scrollWidth - available);
+        if (overflow > 8){
+          track.classList.add('is-overflowing');
+          track.style.setProperty('--asset-shift', (-overflow) + 'px');
+          track.style.setProperty('--asset-duration', Math.max(9, overflow / 10) + 's');
+        } else {
+          track.classList.remove('is-overflowing');
+          track.style.removeProperty('--asset-shift');
+          track.style.removeProperty('--asset-duration');
+        }
       };
-      track.addEventListener('pointerenter', measure);
-      track.addEventListener('focus', measure);
+      measure();
+      if (typeof ResizeObserver !== 'undefined'){
+        const observer = new ResizeObserver(measure);
+        observer.observe(track.parentElement);
+      }
     });
   }
 
@@ -1094,6 +1110,6 @@ const ProductEditor = (() => {
     editingId = null;
   }
 
-  return { init, open, close, updateVisibility, typeMatches, metalQuickList, findSavedAssetMatches };
+  return { init, open, close, updateVisibility, typeMatches, metalQuickList, findSavedAssetMatches, assetDisplayName };
 })();
 
