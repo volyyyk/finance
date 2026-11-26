@@ -389,7 +389,9 @@ ${rows}
         $('addBtn').hidden = isCb;
         $('cbBanksBtn').hidden = !isCb;
         document.querySelectorAll('[data-mobile-nav]').forEach(button => {
-          const active = button.dataset.mobileNav === (isCb ? 'cashback' : 'overview');
+          const activeTarget = isCb ? 'cashback'
+            : (window.__MOBILE_NAV_TARGET__ === 'portfolio' ? 'portfolio' : 'overview');
+          const active = button.dataset.mobileNav === activeTarget;
           button.classList.toggle('active', active);
           if (active) button.setAttribute('aria-current','page');
           else button.removeAttribute('aria-current');
@@ -397,12 +399,13 @@ ${rows}
         if (isCb){ if (window.Cashback) window.Cashback.render(); }
         else App.refresh();
       };
-      $('tabMain').onclick = () => switchMode('main');
+      $('tabMain').onclick = () => { window.__MOBILE_NAV_TARGET__ = 'overview'; switchMode('main'); };
       $('tabCashback').onclick = () => switchMode('cashback');
       document.querySelectorAll('[data-mobile-nav]').forEach(button => {
         button.onclick = () => {
           const target = button.dataset.mobileNav;
           if (target === 'cashback') { switchMode('cashback'); window.scrollTo({top:0,behavior:'smooth'}); return; }
+          window.__MOBILE_NAV_TARGET__ = target;
           switchMode('main');
           const destination = target === 'portfolio' ? $('portfolioSection') : $('stats');
           destination?.scrollIntoView({behavior:'smooth',block:'start'});
