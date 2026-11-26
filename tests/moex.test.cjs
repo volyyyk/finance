@@ -606,5 +606,5 @@ test('refreshSixMonth falls back to one-month history and stores annualized tren
   assert.equal(fund.historyAnnualPct,(Math.pow(1.1,12)-1)*100);
   assert.equal(fund.sixMonthPct,10);
   assert.equal(fund.yieldMonth,'2026-05');
-  assert.equal(requested.filter(x=>x.includes('/candles.json')).length,4);
+  assert.equal(requested.filter(x=>x.includes('/candles.json')).length,7);
 });
