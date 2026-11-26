@@ -199,7 +199,7 @@ const Simulator = (() => {
             priceGrowth += nextValue - item.value;
             item.value = nextValue;
           }
-          let coupon = 0;
+          let coupon = 0, realizedPriceResult = 0;
           const through = Utils.dateKey(monthDate);
           for (const bond of bondList){
             const { a, pays } = bond;
@@ -214,12 +214,15 @@ const Simulator = (() => {
                   ? bond.value
                   : Math.min(bond.value, bond.value * pay.value / (a.nominal || 1));
                 bond.value = Math.max(0, bond.value - deduction);
+                // Разница между выплатой номинала и рыночной стоимостью
+                // погашенной части — реализованный ценовой результат.
+                realizedPriceResult += amount - deduction;
               }
             }
           }
           previousDate = through;
           value = cash + assetValue();
-          cumIncome += priceGrowth + coupon;
+          cumIncome += priceGrowth + coupon + realizedPriceResult;
         } else if (isCredit) {
           // Кредитная карта: проценты на остаток долга не начисляются
         } else if (isApartment) {
