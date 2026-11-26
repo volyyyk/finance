@@ -1266,3 +1266,21 @@ test('Simulator: six-month price trend projects shares, funds, metals and bonds 
   assert.ok(Math.abs(six.value - 4900) < 1e-6, 'cash 500 + four positions × 1100');
   assert.ok(Math.abs(six.cumIncome - 400) < 1e-6, 'price appreciation from all four asset types');
 });
+
+
+test('Simulator: bond maturity converts the market premium/discount without counting principal as income', () => {
+  const maturity = new Date();
+  maturity.setDate(maturity.getDate() + 5);
+  const date = maturity.toISOString().slice(0,10);
+  const { mods } = simMods([{
+    id:'bond-maturity-price', type:'investment', amount:0, operations:[],
+    assets:[{
+      id:'b',kind:'bond',secid:'BOND',qty:1,lastPrice:1000,priceUnit:'rub',nominal:1000,
+      sixMonthPct:10,accountingFrom:new Date().toISOString().slice(0,10),
+      maturityDate:date, coupons:[], amortizations:[], paidEvents:{}
+    }]
+  }]);
+  const year=mods.Simulator.simulateProduct(mods.Storage.get('bond-maturity-price'),1).history[1];
+  assert.ok(Math.abs(year.value - 1000) < 1e-6, 'на погашении остаётся полученный номинал');
+  assert.ok(Math.abs(year.cumIncome) < 1e-6, 'ценовая премия/дисконт компенсируется при погашении');
+});
