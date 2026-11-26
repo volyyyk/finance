@@ -247,7 +247,11 @@ const MoexAPI = (() => {
       // Security-level endpoint returns quote rows from all trading boards.
       // Prefer a live primary-board quote instead of pinning the asset to an
       // old/non-liquid board saved in its local record.
+      const visitedMarkets = new Set();
       for (const market of markets){
+        const marketKey = market.engine + '/' + market.market;
+        if (visitedMarkets.has(marketKey)) continue;
+        visitedMarkets.add(marketKey);
         const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}`;
         try {
           const json = await fetchJSON(`${base}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`, 12000);
