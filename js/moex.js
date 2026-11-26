@@ -431,32 +431,55 @@ const MoexAPI = (() => {
 
   // Изменение цены за последние 6 месяцев. Применяется к акциям,
   // фондам, облигациям и металлам; облигационные купоны моделируются отдельно.
+  function annualizeTrend(base, current, months){
+    if (!(Number(base) > 0) || !(Number(current) >= 0) || !(Number(months) > 0)) return null;
+    const ratio = Number(current) / Number(base);
+    if (ratio <= 0) return -100;
+    return (Math.pow(ratio, 12 / Number(months)) - 1) * 100;
+  }
+
+  // Выбираем максимально длинную доступную историю: 12, 6, 3 или 1 месяц.
+  // Короткий ряд не отбрасываем — пересчитываем его темп в эффективный годовой.
   async function refreshSixMonth(asset){
-    if (!['stock','fund','bond','metal'].includes(asset.kind) || asset.moexInactive) return asset;
+    if (!['stock','fund','bond','metal'].includes(asset.kind) || asset.moexInactive || asset.quoteSource === 'manual') return asset;
     // Сначала проверяем известные закрытые/переименованные инструменты:
     // сохранённая свежая дата старой котировки не должна обходить миграцию.
     if (asset.kind === 'fund' && (asset.secid === 'VTBL' || asset.secid === 'RSHL'))
       await refreshAsset(asset);
     if (asset.moexInactive) return asset;
-    const now = new Date();
-    const target = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-    const from = new Date(target);
-    from.setDate(from.getDate() - 14);
     const quoteTimeBefore = Date.parse(asset.moexUpdatedAt || '');
     const quoteAlreadyFresh = Number.isFinite(quoteTimeBefore) && Date.now() - quoteTimeBefore < 10 * 60 * 1000;
     // refreshAsset populates missing bond nominal/board metadata as well as a live quote.
     if (!quoteAlreadyFresh) await refreshAsset(asset);
-    if (asset.moexInactive) return asset;
-    const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
+    if (asset.moexInactive || asset.quoteSource === 'manual') return asset;
     const quoteTime = Date.parse(asset.moexUpdatedAt || '');
     const quoteIsFresh = Number.isFinite(quoteTime) && Date.now() - quoteTime < 10 * 60 * 1000;
     const cur = quoteIsFresh ? (asset.lastPrice ?? null) : null;
-    const base = baseRaw;
-    asset.sixMonthBase = base;
-    asset.sixMonthBaseDate = base != null ? iso(target) : null;
-    asset.sixMonthPct = (base != null && base > 0 && cur != null && cur > 0)
-      ? (cur / base - 1) * 100 : null;
-    if (base != null && base > 0 && cur != null && cur > 0){
+    if (!(cur >= 0)){
+      asset.historyMonths = null; asset.historyPct = null; asset.historyAnnualPct = null;
+      return asset;
+    }
+    const now = new Date();
+    let selected = null;
+    for (const months of [12,6,3,1]){
+      const target = new Date(now.getFullYear(), now.getMonth() - months, 1);
+      const from = new Date(target); from.setDate(from.getDate() - 14);
+      const base = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
+      if (base != null && base > 0){
+        selected = { months, base, date: iso(target) };
+        break;
+      }
+    }
+    asset.historyMonths = selected?.months ?? null;
+    asset.historyBase = selected?.base ?? null;
+    asset.historyBaseDate = selected?.date ?? null;
+    asset.historyPct = selected ? (cur / selected.base - 1) * 100 : null;
+    asset.historyAnnualPct = selected ? annualizeTrend(selected.base, cur, selected.months) : null;
+    // Legacy fields remain populated for older UI/backup compatibility.
+    asset.sixMonthBase = asset.historyBase;
+    asset.sixMonthBaseDate = asset.historyBaseDate;
+    asset.sixMonthPct = asset.historyPct;
+    if (selected){
       asset.yieldMonth = monthKey();
       asset.yieldUpdatedAt = new Date().toISOString();
     }
@@ -518,6 +541,7 @@ const MoexAPI = (() => {
   }
 
   async function refreshAsset(asset){
+    if (asset?.quoteSource === 'manual') return asset;
     // ISIN — устойчивый идентификатор выпуска: у ВИМ «Ликвидность»
     // RU000A1014L8 исторические коды VTBM/LQDT, но это не закрытый VTBL/RSHL.
     const isin = String(asset.isin || asset.ISIN || '').trim().toUpperCase();
@@ -603,6 +627,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, historyClose, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets, tradableMarkets, assertTradable };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, historyClose, annualizeTrend, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets, tradableMarkets, assertTradable };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
