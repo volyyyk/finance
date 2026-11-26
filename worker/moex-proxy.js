@@ -19,6 +19,40 @@ const jsonResponse = (payload, status, extra = {}) => new Response(JSON.stringif
 });
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const VIM_FUNDS = {
+  '8000': { url:'https://www.wealthim.ru/products/pif/opif/wimyao/', graphId:'37558764' },
+  '8002': { url:'https://www.wealthim.ru/products/pif/opif/wimyo/', graphId:'37558766' }
+};
+
+// Read official JavaScript GRAPH records without evaluating page scripts.
+function parseVimGraph(html, rulesNumber) {
+  const fund = VIM_FUNDS[rulesNumber];
+  if (!fund) return null;
+  const graphFundsAt = html.indexOf('GRAPH_FUNDS');
+  const graphAt = html.indexOf("'GRAPH'");
+  if (graphFundsAt < 0 || graphAt < 0) return null;
+  const graphFundsBlock = html.slice(graphFundsAt, graphAt);
+  if (!graphFundsBlock.includes("'" + fund.graphId + "'")) return null;
+  const records = [];
+  const recordPattern = /\\{[^{}]*DATE_ACTIVE_FROM\\s*:\\s*['\"]([^'\"]+)['\"][^{}]*\\}/g;
+  for (const match of html.slice(graphAt).matchAll(recordPattern)) {
+    const block = match[0];
+    const trust = (block.match(/UNIT_TRUST\\s*:\\s*['\"]([^'\"]+)['\"]/ ) || [])[1];
+    if (trust !== fund.graphId) continue;
+    const dateText = match[1];
+    const priceText = (block.match(/SHARE_COST\\s*:\\s*['\"]([^'\"]+)['\"]/ ) || [])[1];
+    const navText = (block.match(/NET_ASSET_COST\\s*:\\s*['\"]([^'\"]+)['\"]/ ) || [])[1];
+    if (!/^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(dateText)) continue;
+    const parts = dateText.split('.');
+    const price = Number(priceText);
+    const nav = Number(navText);
+    if (!Number.isFinite(price) || price <= 0) continue;
+    records.push({ date:parts[2]+'-'+parts[1]+'-'+parts[0], price, nav:Number.isFinite(nav)?nav:null });
+  }
+  const unique = [...new Map(records.map(point=>[point.date,point])).values()].sort((a,b)=>a.date.localeCompare(b.date));
+  return unique.length ? unique : null;
+}
+
 
 export default {
   async fetch(request) {
@@ -125,37 +159,16 @@ export default {
           error: 'VIM source returned HTTP ' + upstream.status, upstreamStatus: upstream.status
         }, upstream.status);
         const html = await upstream.text();
-        const strip = value => value.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ')
-          .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
-          .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/\s+/g, ' ').trim();
-        const number = value => {
-          const parsed = Number(String(value).replace(/[\s\u00a0]/g, '').replace(',', '.').replace(/[^0-9.\-]/g, ''));
-          return Number.isFinite(parsed) ? parsed : null;
-        };
-        const history = [];
-        for (const match of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
-          const cells = [...match[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(cell => strip(cell[1]));
-          const dateIndex = cells.findIndex(cell => /^\d{2}\.\d{2}\.\d{4}$/.test(cell));
-          if (dateIndex < 0) continue;
-          const nums = cells.slice(dateIndex + 1).map(number);
-          if (nums.length < 3 || !(nums[0] > 0) || !(nums[2] >= 0)) continue;
-          const [day, month, year] = cells[dateIndex].split('.');
-          history.push({
-            date: year + '-' + month + '-' + day,
-            price: nums[0],
-            nav: nums[2]
-          });
-        }
-        const unique = [...new Map(history.map(point => [point.date, point])).values()]
-          .sort((a, b) => a.date.localeCompare(b.date));
-        if (!unique.length) return jsonResponse({
-          error: 'VIM page loaded, but its historical table format was not recognized',
-          sourceUrl, htmlLength: html.length
+        const history = parseVimGraph(html, fundId);
+        if (!history) return jsonResponse({
+          error: 'VIM page loaded, but official GRAPH history was not recognized',
+          sourceUrl, htmlLength: html.length, expectedGraphId: VIM_FUNDS[fundId].graphId
         }, 502);
-        const latest = unique[unique.length - 1];
+        const latest = history[history.length - 1];
         return jsonResponse({
-          fundId, source: sourceUrl, fetchedAt: new Date().toISOString(),
-          date: latest.date, price: latest.price, nav: latest.nav, history: unique
+          fundId, graphFundId: VIM_FUNDS[fundId].graphId, source: sourceUrl,
+          fetchedAt: new Date().toISOString(),
+          date: latest.date, price: latest.price, nav: latest.nav, history
         }, 200, { 'Cache-Control': 'public, max-age=300, s-maxage=1800' });
       } catch (error) {
         return jsonResponse({ error: 'VIM source request failed', detail: String(error?.message || error).slice(0, 240) }, 502);
