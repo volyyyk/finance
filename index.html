@@ -44,6 +44,13 @@
         <option value="0" selected>воскресенье</option>
       </select>
     </div>
+    <div class="settings-field moex-proxy-settings">
+      <label for="moexProxyUrl">Сервер котировок MOEX (необязательно)</label>
+      <input id="moexProxyUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://your-worker.workers.dev">
+      <small>Собственный Cloudflare Worker обходит ограничения CORS. Адрес сохраняется только на этом устройстве.</small>
+      <button class="btn small" id="configureMoexProxyBtn" type="button">Проверить и сохранить сервер</button>
+      <small id="moexProxyStatus" role="status">Без Worker приложение использует прямой ISS и резервные каналы.</small>
+    </div>
     <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему"><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg> Тёмная тема</button>
     <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Полная резервная копия</button>
     <p class="backup-status" id="backupStatus" role="status">Проверка резервной копии…</p>

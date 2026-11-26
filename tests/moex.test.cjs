@@ -149,3 +149,65 @@ test('lastPrice falls back when a direct ISS request times out', async () => {
     AbortSignal.timeout = originalTimeout;
   }
 });
+
+test('configured Cloudflare Worker is tried before browser-to-MOEX requests', async () => {
+  const originalFetch = global.fetch;
+  const originalStorage = global.localStorage;
+  const requested = [];
+  global.localStorage = { getItem: key => key === 'moex_proxy_url' ? 'https://finapp-test.workers.dev' : null };
+  global.fetch = async url => {
+    requested.push(String(url));
+    return {
+      ok:true,
+      json:async()=>({
+        marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',56.2]]},
+        securities:{columns:['FACEVALUE'],data:[[1]]}
+      })
+    };
+  };
+  try {
+    const result = await MoexAPI.lastPrice('TEST_WORKER_FIRST_1','TQBR','stock');
+    assert.equal(result.last,56.2);
+    assert.match(requested[0], /^https:\/\/finapp-test\.workers\.dev\/iss\/engines\/stock/);
+    assert.equal(requested.length,1);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalStorage === undefined) delete global.localStorage;
+    else global.localStorage = originalStorage;
+  }
+});
+
+test('configured Worker failure falls back to direct ISS and public relay', async () => {
+  const originalFetch = global.fetch;
+  const originalStorage = global.localStorage;
+  const requested = [];
+  global.localStorage = { getItem: key => key === 'moex_proxy_url' ? 'https://finapp-test.workers.dev' : null };
+  global.fetch = async url => {
+    requested.push(String(url));
+    if (requested.length === 1) return { ok:false, status:502 };
+    return {
+      ok:true,
+      json:async()=>({
+        marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',57.3]]},
+        securities:{columns:['FACEVALUE'],data:[[1]]}
+      })
+    };
+  };
+  try {
+    const result = await MoexAPI.lastPrice('TEST_WORKER_FALLBACK_1','TQBR','stock');
+    assert.equal(result.last,57.3);
+    assert.match(requested[0], /^https:\/\/finapp-test\.workers\.dev\/iss\//);
+    assert.match(requested[1], /^https:\/\/iss\.moex\.com\/iss\//);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalStorage === undefined) delete global.localStorage;
+    else global.localStorage = originalStorage;
+  }
+});
+
+test('proxy URL validation accepts HTTPS origins only', () => {
+  assert.equal(MoexAPI.normalizeProxyUrl('https://finapp.workers.dev/'), 'https://finapp.workers.dev');
+  assert.equal(MoexAPI.normalizeProxyUrl('http://finapp.workers.dev'), '');
+  assert.equal(MoexAPI.normalizeProxyUrl('https://finapp.workers.dev/iss'), '');
+  assert.equal(MoexAPI.normalizeProxyUrl('not a url'), '');
+});
