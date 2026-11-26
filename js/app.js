@@ -331,6 +331,41 @@ ${rows}
     applyTheme(currentTheme());
     $('themeToggle').onclick = () =>
       setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+    // Пользовательский Cloudflare Worker для запросов к публичному MOEX ISS.
+    const moexProxyInput = $('moexProxyUrl');
+    const moexProxyStatus = $('moexProxyStatus');
+    if (moexProxyInput) moexProxyInput.value = MoexAPI.getProxyUrl();
+    $('configureMoexProxyBtn').onclick = async () => {
+      const raw = moexProxyInput ? moexProxyInput.value.trim() : '';
+      if (!raw) {
+        localStorage.removeItem('moex_proxy_url');
+        if (moexProxyStatus) moexProxyStatus.textContent = 'Собственный Worker отключён. Используются прямой ISS и резервные каналы.';
+        if (window.__REFRESH_MARKET__) window.__REFRESH_MARKET__();
+        return;
+      }
+      const proxy = MoexAPI.normalizeProxyUrl(raw);
+      if (!proxy) {
+        if (moexProxyStatus) moexProxyStatus.textContent = 'Нужен корректный HTTPS-адрес Worker без пути и параметров.';
+        return;
+      }
+      const button = $('configureMoexProxyBtn');
+      button.disabled = true;
+      if (moexProxyStatus) moexProxyStatus.textContent = 'Проверяем соединение с Worker и MOEX…';
+      try {
+        const result = await MoexAPI.testProxy(proxy);
+        localStorage.setItem('moex_proxy_url', proxy);
+        moexProxyInput.value = proxy;
+        if (moexProxyStatus) moexProxyStatus.textContent =
+          'Подключено. MOEX отвечает через Worker; строк в ответе: ' + result.rows + '.';
+        if (window.__REFRESH_MARKET__) window.__REFRESH_MARKET__();
+      } catch (error) {
+        if (moexProxyStatus) moexProxyStatus.textContent =
+          'Проверка не пройдена: ' + String(error?.message || error).slice(0, 220);
+      } finally {
+        button.disabled = false;
+      }
+    };
     if (window.matchMedia){
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
       (mq.addEventListener ? mq.addEventListener.bind(mq) : mq.addListener.bind(mq))('change', () => {
