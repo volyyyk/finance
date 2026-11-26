@@ -261,7 +261,7 @@ test('HTTP error diagnostics include Worker upstream status and response body', 
     await assert.rejects(
       MoexAPI.lastPrice('TEST_WORKER_502_DETAIL_1', 'TQBR', 'stock'),
       error => {
-        assert.match(error.message, /Cloudflare Worker: HTTP 502/);
+        assert.match(error.message, /Cloudflare Worker \\(HTTP upstream\\): HTTP 502/);
         assert.match(error.message, /MOEX upstream 503/);
         assert.match(error.message, /upstream temporarily unavailable/);
         return true;
@@ -379,7 +379,8 @@ test('legacy VTBL is identified as closed-end RSHL and is not requested as a liv
     assert.equal(asset.secid,'RSHL');
     assert.equal(asset.legacySecid,'VTBL');
     assert.equal(asset.moexInactive,true);
-    assert.equal(asset.lastPrice,2);
+    assert.equal(asset.lastPrice,undefined);
+    assert.equal(asset.avgPrice,2,'цена покупки остаётся доступной для оценки позиции');
     assert.equal(calls,0);
     await MoexAPI.refreshSixMonth(asset);
     assert.equal(asset.sixMonthPct,null);
