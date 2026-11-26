@@ -407,9 +407,11 @@ const ProductEditor = (() => {
         preview.hidden = true;
         return;
       }
-      income = amount * rate / 100 * days / 365;
+      // Ставка вводится годовая, но показываем только доход за фактический срок.
+      const termYieldPct = rate * days / 365;
+      income = amount * termYieldPct / 100;
       if (type === 'loan') income = -income;
-      detail = `${days} дн. · простые проценты, без капитализации и налогов`;
+      detail = `${days} дн. · ${termYieldPct.toFixed(2)}% за весь срок · простые проценты`;
     } else if (type === 'expense'){
       if (!(amount > 0)) { preview.hidden = true; return; }
       income = -amount * 12;
