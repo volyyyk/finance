@@ -136,8 +136,8 @@ const Bonds = (() => {
           changed = true;
         }
         if (a.maturityDate && a.maturityDate <= date && a.paidEvents[`principal:${a.maturityDate}`]) {
-          // Погашенная позиция удаляется из портфеля; её номинал уже
-          // зачислен в p.amount как свободные деньги брокерского счёта.
+          // Сохраняем отметку для совместимости, но убираем позицию из портфеля.
+          a.redeemed = true;
           p.assets = (p.assets || []).filter(item => item.id !== a.id);
           changed = true;
         }
