@@ -23,8 +23,8 @@ test('cashback accordion stack has consistent spacing and unified card styling',
   const stack = styles.lastIndexOf('.cb-bottom-accordions{');
   const accordion = styles.lastIndexOf('.cb-accordion{');
   assert.ok(stack >= 0 && accordion > stack);
-  assert.match(styles.slice(stack, accordion), /gap:\s*10px/);
-  assert.match(styles.slice(accordion, styles.indexOf('.cb-accordion>summary', accordion)), /border-radius:\s*15px/);
+  assert.match(styles.slice(stack, accordion), /gap:\s*8px/);
+  assert.match(styles.slice(accordion, styles.indexOf('.cb-accordion>summary', accordion)), /border-radius:\s*13px/);
 });
 
 test('cashback first-use state explains the setup and offers two clear paths', () => {
