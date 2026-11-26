@@ -1,5 +1,5 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v32';
+const CACHE_NAME = 'finance-cache-v33';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
@@ -7,7 +7,7 @@ const ASSET_NAMES = [
   './', './index.html', './styles.css', './manifest.json',
   './data/seed.js', './js/core.js', './js/moex.js', './js/simulator.js', './js/bonds.js',
   './js/charts.js', './js/results.js', './js/cashback.js', './js/editor.js', './js/dashboard.js',
-  './js/notifications.js', './js/app.js',
+  './js/notifications.js', './js/product-insights.js', './js/app.js',
   './js/pwa.js', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'
 ];
 const ASSET_URLS = {};
