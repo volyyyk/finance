@@ -409,7 +409,7 @@ const SinceVisit = (() => {
 
     const rows = items.map(i => `
       <div class="event ${i.direction === 'in' ? 'event-in' : 'event-out'}">
-        <div class="event-icon">${i.direction === 'in' ? '⬇️' : '⬆️'}</div>
+        <div class="event-icon">${Utils.iconSvg(i.direction === 'in' ? 'arrow-down-left' : 'arrow-up-right',17)}</div>
         <div class="event-body">
           <div class="event-title">${escapeHtml(i.title)}</div>
           <div class="event-meta">${fmtDate(i.date)}</div>
