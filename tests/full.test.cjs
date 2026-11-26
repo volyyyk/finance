@@ -1374,3 +1374,19 @@ test('MoexAPI.chooseMarketRow: primary board wins over a stale preferred board',
   assert.equal(chosen.BOARDID,'TQTF');
   assert.equal(chosen.LAST,2.1);
 });
+
+
+test('Bonds.settleProduct: migrates a previously partial maturity credit and removes the bond', () => {
+  const { mods } = simMods([{
+    id:'legacy-redeem',type:'investment',amount:200,operations:[],
+    assets:[{
+      id:'legacy-bond',kind:'bond',secid:'BOND',qty:1,lastPrice:700,priceUnit:'rub',nominal:1000,
+      accountingFrom:'2026-01-01',maturityDate:'2026-11-20',coupons:[],amortizations:[],
+      paidEvents:{'principal:2026-11-20':{date:'2026-11-20',amount:200,type:'principal'}}
+    }]
+  }]);
+  const p=mods.Storage.get('legacy-redeem');
+  mods.Bonds.settleProduct(p,'2026-11-26');
+  assert.equal(p.amount,1000,'дозачислена недостающая часть номинала, без повторного зачисления первых 200');
+  assert.equal(p.assets.length,0,'старую погашенную позицию удалили');
+});
