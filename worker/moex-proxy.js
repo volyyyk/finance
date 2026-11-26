@@ -52,7 +52,7 @@ export default {
         const history = [];
         for (const match of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
           const cells = [...match[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(cell => strip(cell[1]));
-          const dateIndex = cells.findIndex(cell => /^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(cell));
+          const dateIndex = cells.findIndex(cell => /^\d{2}\\.\d{2}\\.\d{4}$/.test(cell));
           if (dateIndex < 0) continue;
           const nums = cells.slice(dateIndex + 1).map(number);
           if (nums.length < 3 || !(nums[0] > 0) || !(nums[2] >= 0)) continue;
