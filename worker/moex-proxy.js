@@ -34,14 +34,14 @@ function parseVimGraph(html, rulesNumber) {
   const graphFundsBlock = html.slice(graphFundsAt, graphAt);
   if (!graphFundsBlock.includes("'" + fund.graphId + "'")) return null;
   const records = [];
-  const recordPattern = /\{[^{}]*DATE_ACTIVE_FROM\s*:\s*['"]([^'"]+)['"][^{}]*\}/g;
+  const recordPattern = /\{[^{}]*['"]?DATE_ACTIVE_FROM['"]?\s*:\s*['"]([^'"]+)['"][^{}]*\}/g;
   for (const match of html.slice(graphAt).matchAll(recordPattern)) {
     const block = match[0];
-    const trust = (block.match(/UNIT_TRUST\s*:\s*['"]([^'"]+)['"]/) || [])[1];
+        const trust = (block.match(/['"]?UNIT_TRUST['"]?\s*:\s*['"]([^'"]+)['"]/) || [])[1];
     if (trust !== fund.graphId) continue;
     const dateText = match[1];
-    const priceText = (block.match(/SHARE_COST\s*:\s*['"]([^'"]+)['"]/) || [])[1];
-    const navText = (block.match(/NET_ASSET_COST\s*:\s*['"]([^'"]+)['"]/) || [])[1];
+        const priceText = (block.match(/['"]?SHARE_COST['"]?\s*:\s*['"]([^'"]+)['"]/) || [])[1];
+        const navText = (block.match(/['"]?NET_ASSET_COST['"]?\s*:\s*['"]([^'"]+)['"]/) || [])[1];
     if (!/^\d{2}\.\d{2}\.\d{4}$/.test(dateText)) continue;
     const parts = dateText.split('.');
     const price = Number(priceText);
