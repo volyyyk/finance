@@ -776,6 +776,59 @@ test('MoexAPI.refreshAsset: котировка металла — руб. за �
   assert.equal(asset.unit, 'gram');
 });
 
+test('MoexAPI.refreshSixMonth: historical share return is measured against the live quote', async () => {
+  const sb = moexSandbox(async url => {
+    if (url.includes('/history/')){
+      assert.ok(url.includes('/markets/shares/boards/TQBR/securities/SBER.json'));
+      return {ok:true,json:async()=>({history:{columns:['TRADEDATE','CLOSE'],data:[['2026-05-29',90]]}})};
+    }
+    return {ok:true,json:async()=>({
+      marketdata:{columns:['LAST'],data:[[100]]},
+      securities:{columns:['FACEVALUE'],data:[[null]]}
+    })};
+  });
+  const asset={kind:'stock',secid:'SBER',board:'TQBR'};
+  await sb.api.refreshSixMonth(asset);
+  assert.equal(asset.sixMonthBase,90);
+  assert.ok(Math.abs(asset.sixMonthPct - (100/90-1)*100)<1e-6);
+  assert.equal(asset.lastPrice,100);
+  assert.ok(asset.yieldMonth);
+});
+
+test('MoexAPI.refreshSixMonth: bond clean-price history is converted from percent of nominal to rubles', async () => {
+  const secid='RU000A105SD4';
+  const sb = moexSandbox(async url => {
+    if (url.includes('/history/')){
+      assert.ok(url.includes('/markets/bonds/boards/TQOB/securities/'+secid+'.json'));
+      return {ok:true,json:async()=>({history:{columns:['TRADEDATE','CLOSE'],data:[['2026-05-29',95]]}})};
+    }
+    if (url.includes('bondization')){
+      const block=url.includes('coupons')?'coupons':'amortizations';
+      return {ok:true,json:async()=>({
+        [block]:{columns:[],data:[]},
+        [block+'.cursor']:{columns:['TOTAL'],data:[[0]]}
+      })};
+    }
+    if (url.includes('/engines/stock/markets/bonds/')){
+      return {ok:true,json:async()=>({
+        marketdata:{columns:['LAST'],data:[[96]]},
+        securities:{columns:['FACEVALUE','FACEUNIT','ACCRUEDINT','MATDATE'],data:[[1000,'RUB',0,'2027-06-01']]}
+      })};
+    }
+    return {ok:true,json:async()=>({
+      description:{columns:['name','value'],data:[
+        ['FACEVALUE','1000'],['MATDATE','2027-06-01'],['FACEUNIT','RUB'],
+        ['COUPONVALUE','40'],['COUPONPERCENT','8'],['COUPON_DETAILS','fixed']
+      ]}
+    })};
+  });
+  const asset={kind:'bond',secid,board:'TQOB',nominal:1000,priceUnit:'rub'};
+  await sb.api.refreshSixMonth(asset);
+  assert.equal(asset.sixMonthBase,950);
+  assert.equal(asset.lastPrice,960);
+  assert.ok(Math.abs(asset.sixMonthPct - (960/950-1)*100)<1e-6);
+});
+
 test('MoexAPI.refreshSixMonth: доходность металла без искажения унцией', async () => {
   const sb = moexSandbox(async (url) => {
     if (url.includes('/history/')){
