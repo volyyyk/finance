@@ -54,6 +54,47 @@ function parseVimGraph(html, rulesNumber) {
 }
 
 
+
+// Extract the actual controls and inline behavior of the VIM history form.
+// Keep this diagnostic bounded and avoid returning chart SVG markup.
+function extractVimFormDiagnostics(html) {
+  const clean = value => String(value || '').replace(/<script\\b[\\s\\S]*?<\\/script>/gi, ' ')
+    .replace(/<style\\b[\\s\\S]*?<\\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'").replace(/\\s+/g, ' ').trim();
+  const forms = [];
+  for (const m of html.matchAll(/<form\\b([^>]*)>([\\s\\S]*?)<\\/form>/gi)) {
+    const attrs = m[1];
+    const body = m[2];
+    if (!/fund|chart|date|period|quote|history|filter|export/i.test(attrs + ' ' + body.slice(0, 2500))) continue;
+    const controls = [];
+    for (const c of body.matchAll(/<(input|select|option|button|textarea)\\b([^>]*)>(?:([\\s\\S]*?)<\\/\\1>)?/gi)) {
+      const tag = c[1].toLowerCase(), a = c[2] || '', inner = c[3] || '';
+      const attr = name => ((a.match(new RegExp('(?:^|\\\\s)' + name + '=["']([^"']*)["']','i')) || [])[1] || null);
+      controls.push({tag,type:attr('type'),name:attr('name'),id:attr('id'),value:attr('value'),className:attr('class'),text:clean(inner).slice(0,180),disabled:/\\bdisabled\\b/i.test(a),selected:/\\bselected\\b/i.test(a)});
+    }
+    forms.push({attributes:attrs.slice(0,1000),controls:controls.slice(0,160),text:clean(body).slice(0,5000)});
+  }
+  const selects = [];
+  for (const m of html.matchAll(/<select\\b([^>]*)>([\\s\\S]*?)<\\/select>/gi)) {
+    const a=m[1], body=m[2];
+    const attr = name => ((a.match(new RegExp('(?:^|\\\\s)' + name + '=["']([^"']*)["']','i')) || [])[1] || null);
+    const options=[...body.matchAll(/<option\\b([^>]*)>([\\s\\S]*?)<\\/option>/gi)].map(o=>{
+      const value=((o[1].match(/\\bvalue=["']([^"']*)["']/i)||[])[1]||null);
+      return {value,text:clean(o[2]),selected:/\\bselected\\b/i.test(o[1]),disabled:/\\bdisabled\\b/i.test(o[1])};
+    });
+    selects.push({name:attr('name'),id:attr('id'),className:attr('class'),options:options.slice(0,100)});
+  }
+  const inlineScripts=[...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)]
+    .map(m=>({attributes:m[1].slice(0,300),length:m[2].length,code:m[2].slice(0,12000)}))
+    .filter(x=>/fund|chart|date|period|quote|history|download|export|ajax|filter|table/i.test(x.code))
+    .slice(0,20);
+  const eventHandlers=[...html.matchAll(/\\b(on(?:click|change|submit|load))=["']([^"']+)["']/gi)]
+    .map(m=>({event:m[1],handler:m[2].slice(0,500)})).slice(0,100);
+  return {forms,selects,inlineScripts,eventHandlers};
+}
+
 export default {
   async fetch(request) {
     const incoming = new URL(request.url);
@@ -100,7 +141,8 @@ export default {
           const at = html.toLowerCase().indexOf(token.toLowerCase());
           if (at >= 0) keywordContexts.push({token,snippet:html.slice(Math.max(0,at-450),Math.min(html.length,at+2600)).replace(/\s+/g,' ')});
         }
-        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,scripts,assets,scriptTags,tables,dataAttrs,endpoints,resourceRefs,formTags,chartBlock,formBlock,htmlTail,keywordContexts,contexts:contexts.slice(0,30)},200);
+        const formDiagnostics = extractVimFormDiagnostics(html);
+        return jsonResponse({formDiagnostics,sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,scripts,assets,scriptTags,tables,dataAttrs,endpoints,resourceRefs,formTags,chartBlock,formBlock,htmlTail,keywordContexts,contexts:contexts.slice(0,30)},200);
       } catch(error) {
         return jsonResponse({error:'VIM debug request failed',detail:String(error?.message||error).slice(0,200)},502);
       }
