@@ -10,11 +10,33 @@ const MoexAPI = (() => {
 
   async function fetchJSON(url, timeout = 12000){
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Нет подключения к интернету');
-    const res = await fetch(url, {
+    const options = {
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(timeout),
       cache: 'no-store'
-    });
+    };
+    let res;
+    try {
+      res = await fetch(url, options);
+    } catch (error) {
+      // GitHub Pages is a static host: it cannot proxy requests itself.
+      // If a browser/network blocks the official public ISS endpoint (often
+      // surfaced only as "Failed to fetch"), retry the same public GET via
+      // a CORS relay. No portfolio, account or personal data is sent.
+      const isMoex = url.startsWith(ISS + '/');
+      const networkFailure = error instanceof TypeError
+        || /failed to fetch|networkerror|load failed/i.test(String(error?.message || error));
+      if (!isMoex || !networkFailure) throw error;
+      try {
+        res = await fetch('https://proxy.cors.dev/' + url, {
+          ...options,
+          signal: AbortSignal.timeout(Math.max(timeout, 18000))
+        });
+      } catch (proxyError) {
+        throw new Error('MOEX не отвечает напрямую, резервный канал тоже недоступен: ' +
+          String(proxyError?.message || proxyError).slice(0, 120));
+      }
+    }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.json();
   }
