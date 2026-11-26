@@ -894,7 +894,7 @@ test('GoalBar: цель 1 млн, расчётный темп с капитал�
   assert.ok(card.innerHTML.includes('≈ 1 год 5 мес'), card.innerHTML);
   assert.ok(card.innerHTML.includes('40%'), 'заполнение 40%');
   assert.ok(card.innerHTML.includes('goal-fill'));
-  assert.equal(sb.document.getElementById('createGoalBtn').textContent, '🎯 Изменить цель');
+  assert.equal(sb.document.getElementById('createGoalBtn').textContent, 'Изменить цель');
 });
 
 test('GoalBar: достигнутая цель, отсутствие темпа и удаление', () => {
@@ -903,7 +903,7 @@ test('GoalBar: достигнутая цель, отсутствие темпа 
   setStorage(sb, deposit400k());
   sb.localStorage.setItem('fin_goal', JSON.stringify({ amount: 100000 }));
   mods.GoalBar.render();
-  assert.ok(sb.document.getElementById('goalCard').innerHTML.includes('🎉'), 'цель достигнута');
+  assert.ok(sb.document.getElementById('goalCard').innerHTML.includes('Цель достигнута'), 'цель достигнута');
 
   // Нет темпа: ставка 0 и цель ещё не достигнута → «≈ —»
   const s2 = dashboardSandbox();
