@@ -104,3 +104,10 @@ test('MOEX six-month history uses the correct month even when today is the 31st'
   assert.equal(fund.yieldMonth, '2026-05');
   assert.ok(Math.abs(fund.sixMonthPct - 10) < 1e-9, String(fund.sixMonthPct));
 });
+
+
+test('bond market value is floored at zero after an extreme price collapse', () => {
+  assert.equal(Bonds.price(asset({lastPrice:100,nominal:1000,priceUnit:'rub'})),100);
+  assert.equal(Bonds.price(asset({lastPrice:-25,nominal:1000,priceUnit:'rub'})),0);
+  assert.equal(Bonds.price(asset({lastPrice:0,nominal:1000,priceUnit:'rub'})),0);
+});
