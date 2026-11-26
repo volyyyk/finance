@@ -291,3 +291,28 @@ test('successful HTTP response with HTML instead of JSON is diagnosed as a forma
     global.fetch = originalFetch;
   }
 });
+
+
+test('resolveMarket uses the instrument primary board instead of assuming TQBR/TQTF', async () => {
+  const originalFetch = global.fetch;
+  const requested = [];
+  global.fetch = async url => {
+    requested.push(String(url));
+    if (String(url).includes('/securities/VTBL.json')) return {
+      ok:true, json:async()=>({ boards:{ columns:['engine','market','boardid','is_primary','is_traded'], data:[['stock','shares','TQTF',1,1]] } })
+    };
+    return { ok:true, json:async()=>({ marketdata:{columns:['BOARDID','LAST'],data:[['TQTF',123.45]]}, securities:{columns:['FACEVALUE'],data:[[1]]} }) };
+  };
+  try {
+    const market = await MoexAPI.resolveMarket('VTBL','TQBR','fund');
+    assert.deepEqual(market,{engine:'stock',market:'shares',board:'TQTF'});
+    const quote = await MoexAPI.lastPrice('VTBL','TQBR','fund');
+    assert.equal(quote.last,123.45);
+    assert.ok(requested.some(url=>url.includes('/boards/TQTF/securities/VTBL.json')));
+  } finally { global.fetch=originalFetch; }
+});
+
+test('resolveMarket keeps precious metals on the currency spot market', async () => {
+  const market = await MoexAPI.resolveMarket('PLDRUB_TOM','CETS','metal');
+  assert.deepEqual(market,{engine:'currency',market:'selt',board:'CETS'});
+});
