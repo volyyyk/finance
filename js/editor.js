@@ -69,7 +69,9 @@ const ProductEditor = (() => {
         o.value = k; o.textContent = v.label;
         freqSel.appendChild(o);
       });
+      freqSel.addEventListener('change', updateOperationDateVisibility);
     }
+    updateOperationDateVisibility();
 
     if ($('f_end')) $('f_end').addEventListener('change', updateVisibility);
     if ($('op_dir')) $('op_dir').addEventListener('change', updateDebtRowVisibility);
@@ -597,14 +599,24 @@ const ProductEditor = (() => {
     });
   }
 
+  function updateOperationDateVisibility(){
+    const recurring = $('op_freq')?.value !== 'once';
+    const endField = $('op_endDateField');
+    if (endField) endField.hidden = !recurring;
+    // Для разовой операции дата окончания не имеет смысла и не должна
+    // случайно сохраняться после переключения с регулярного режима.
+    if (!recurring && $('op_endDate')) $('op_endDate').value = '';
+  }
+
   function addOperation(){
     const dir = $('op_dir').value;
     const amount = parseFloat($('op_amount').value);
     const freq = $('op_freq').value;
     const date = $('op_date').value;
-    const endDate = $('op_endDate').value || null;
+    const endDate = freq === 'once' ? null : ($('op_endDate').value || null);
     if (!amount || amount <= 0){ alert('Укажите сумму операции'); return; }
-    if (!date){ alert('Укажите дату'); return; }
+    if (!date){ alert('Укажите дату первой операции'); return; }
+    if (freq !== 'once' && endDate && endDate < date){ alert('Дата окончания не может быть раньше даты первой операции'); return; }
     // Снятие можно пометить как платёж по долгу конкретного продукта:
     // тогда в прогнозе платёж уменьшает долг, а не «списывается» второй раз.
     const debtTargetId = dir === 'out' ? ($('op_debtTarget')?.value || null) : null;
@@ -612,6 +624,7 @@ const ProductEditor = (() => {
     $('op_amount').value = '';
     $('op_date').value = '';
     $('op_endDate').value = '';
+    updateOperationDateVisibility();
     renderOps();
   }
 

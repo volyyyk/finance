@@ -275,9 +275,17 @@
             <input type="number" id="op_amount" step="0.01" placeholder="Сумма ₽">
             <select id="op_freq"></select>
           </div>
-          <div class="row-2">
-            <input type="date" id="op_date" title="Дата">
-            <input type="date" id="op_endDate" title="Дата окончания (для регулярных)">
+          <div class="row-2 op-date-fields">
+            <div class="field">
+              <label for="op_date">Дата первой операции</label>
+              <input type="date" id="op_date">
+              <small class="op-meta">Когда выполнить пополнение или снятие впервые</small>
+            </div>
+            <div class="field" id="op_endDateField" hidden>
+              <label for="op_endDate">Дата окончания повторений</label>
+              <input type="date" id="op_endDate">
+              <small class="op-meta">После этой даты операции выполняться не будут</small>
+            </div>
           </div>
           <div class="row-2" id="op_debtRow" style="display:none">
             <select id="op_debtTarget" title="Куда уходит платёж"></select>
