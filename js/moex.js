@@ -51,7 +51,7 @@ const MoexAPI = (() => {
             }
           } catch {}
           const upstream = res.headers?.get?.('X-MOEX-Upstream-Status');
-          const suffix = String(detail || '').replace(/\\s+/g, ' ').slice(0, 240);
+          const suffix = String(detail || '').replace(/\s+/g, ' ').slice(0, 240);
           const error = new Error('HTTP ' + res.status
             + (upstream ? ' (MOEX upstream ' + upstream + ')' : '')
             + (suffix ? ': ' + suffix : ''));
@@ -72,7 +72,7 @@ const MoexAPI = (() => {
         catch {
           const contentType = res.headers?.get?.('content-type') || 'не указан';
           throw new Error('Ответ не является JSON (Content-Type: ' + contentType + '): '
-            + String(body).replace(/\\s+/g, ' ').slice(0, 180));
+            + String(body).replace(/\s+/g, ' ').slice(0, 180));
         }
         if (!data || typeof data !== 'object') throw new Error('MOEX ISS вернул пустой или некорректный JSON');
         return data;
