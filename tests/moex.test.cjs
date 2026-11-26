@@ -519,7 +519,7 @@ test('refreshAsset hydrates missing ticker-like names from MOEX metadata', async
     if (value.includes('/securities/TEST_NAME_HYDRATE/boards.json')) return {ok:true,json:async()=>({
       boards:{columns:['engine','market','boardid','is_primary','is_traded'],data:[['stock','shares','TQBR',1,1]]}
     })};
-    if (value.includes('/securities/TEST_NAME_HYDRATE.json')) return {ok:true,json:async()=>({
+    if (value.includes('/securities/TEST_NAME_HYDRATE.json') && !value.includes('/markets/')) return {ok:true,json:async()=>({
       securities:{columns:['SHORTNAME','SECNAME','ISIN'],data:[['Тестовая компания','Публичное акционерное общество «Тест»','RU000A0TEST01']]}
     })};
     return {ok:true,json:async()=>({
