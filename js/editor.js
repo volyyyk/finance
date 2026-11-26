@@ -1076,6 +1076,33 @@ const ProductEditor = (() => {
     return String(asset?.customName || official || sourceName || asset?.secid || 'Актив').trim();
   }
 
+  function vimHistoryHtml(asset){
+    const points = (asset.vimHistory || []).filter(p => Number(p.price) > 0).slice(-180);
+    if (!points.length) return '';
+    const prices = points.map(p => Number(p.price));
+    const min = Math.min(...prices), max = Math.max(...prices);
+    const span = max - min || 1;
+    const coords = prices.map((price, i) => {
+      const x = points.length < 2 ? 150 : 4 + i * 292 / (points.length - 1);
+      const y = 78 - (price - min) / span * 68;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    const first = points[0], last = points[points.length - 1];
+    const totalPct = (last.price / first.price - 1) * 100;
+    const recent = points.slice(-8).reverse().map(p =>
+      '<div class="op-meta" style="display:flex;justify-content:space-between;gap:12px"><span>' +
+      escapeHtml(p.date.split('-').reverse().join('.')) + '</span><b>' + fmtMoney(p.price) + ' ₽</b></div>'
+    ).join('');
+    return '<details class="vim-history-details"><summary>График и история стоимости пая</summary>' +
+      '<div style="padding:8px 0"><svg viewBox="0 0 300 88" role="img" aria-label="График стоимости инвестиционного пая" style="display:block;width:100%;max-width:420px;height:auto;overflow:visible">' +
+      '<line x1="4" y1="78" x2="296" y2="78" stroke="currentColor" opacity=".18"/>' +
+      '<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="' + coords + '"/>' +
+      '</svg><div class="op-meta">За весь доступный период: <b class="' + (totalPct >= 0 ? 'green' : 'red') + '">' +
+      Utils.fmtPct(totalPct) + '</b> · ' + escapeHtml(first.date.split('-').reverse().join('.')) + ' — ' +
+      escapeHtml(last.date.split('-').reverse().join('.')) + '</div>' +
+      '<div style="margin-top:8px">' + recent + '</div></div></details>';
+  }
+
   // Отдельная запись актива: вся подробная информация (как раньше)
   function assetDetailsHtml(a){
     const price = Bonds.price(a);
@@ -1122,7 +1149,7 @@ const ProductEditor = (() => {
           <span class="badge">${escapeHtml(a.secid)}</span>${a.legacySecid ? `<span class="badge">бывш. ${escapeHtml(a.legacySecid)}</span>` : ''}</div>
         <div class="op-meta">${qtyTxt}
           = ${fmtMoney(total)}
-          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${couponTxt}
+          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${a.quoteSource === 'vim' ? vimHistoryHtml(a) : ''}${couponTxt}
       </div>
       <div class="asset-detail-actions">
         <button type="button" class="btn small" data-asset-rename="${a.id}" title="Изменить отображаемое название">Переименовать</button>
