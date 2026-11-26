@@ -44,14 +44,14 @@ export default {
         const html = await upstream.text();
         const strip = value => value.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ')
           .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
-          .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/\\s+/g, ' ').trim();
+          .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/\s+/g, ' ').trim();
         const number = value => {
-          const parsed = Number(String(value).replace(/[\\s\\u00a0]/g, '').replace(',', '.').replace(/[^0-9.\\-]/g, ''));
+          const parsed = Number(String(value).replace(/[\s\u00a0]/g, '').replace(',', '.').replace(/[^0-9.\-]/g, ''));
           return Number.isFinite(parsed) ? parsed : null;
         };
         const history = [];
-        for (const match of html.matchAll(/<tr\\b[^>]*>([\\s\\S]*?)<\\/tr>/gi)) {
-          const cells = [...match[1].matchAll(/<t[dh]\\b[^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(cell => strip(cell[1]));
+        for (const match of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+          const cells = [...match[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(cell => strip(cell[1]));
           const dateIndex = cells.findIndex(cell => /^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(cell));
           if (dateIndex < 0) continue;
           const nums = cells.slice(dateIndex + 1).map(number);
@@ -106,7 +106,7 @@ export default {
           return new Response(upstream.body, { status: upstream.status, headers });
         }
 
-        const detail = (await upstream.text().catch(() => '')).replace(/\\s+/g, ' ').slice(0, 900);
+        const detail = (await upstream.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 900);
         lastFailure = {
           error: 'MOEX ISS returned HTTP ' + upstream.status,
           upstreamStatus: upstream.status,
