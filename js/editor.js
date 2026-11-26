@@ -355,14 +355,14 @@ const ProductEditor = (() => {
     const amount = Number($('f_amount')?.value) || 0;
     const rate = Number($('f_rate')?.value) || 0;
     let annual = amount * rate / 100;
-    if (type === 'expense') annual = amount * 12;
+    if (type === 'expense') annual = -amount * 12;
     if (type === 'credit_card' || type === 'loan') annual = -Math.abs(annual);
     if (type === 'apartment') annual = amount * rate / 100
       + ($('f_rented')?.checked ? (Number($('f_rentPrice')?.value)||0)*12 : 0)
       - amount * (Number($('f_upkeepRate')?.value)||2) / 100;
     if (type === 'investment'){
       const assets = draftAssets.length ? draftAssets : (editingId ? (Storage.get(editingId)?.assets || []) : []);
-      annual = amount * rate / 100 + assets.reduce((sum,a) => {
+      annual = assets.reduce((sum,a) => {
         if (a.kind === 'bond') return sum + Simulator.annualCouponForAsset(a);
         if (a.kind === 'fund' && a.sixMonthPct != null && 1+a.sixMonthPct/100>0)
           return sum + a.qty * Bonds.price(a) * (Math.pow(1+a.sixMonthPct/100,2)-1);
@@ -789,6 +789,7 @@ const ProductEditor = (() => {
     $('assetQuery').value = '';
     $('assetAvgPrice').value = '';
     renderAssets();
+    renderEffectPreview();
   }
 
   // Отдельная запись актива: вся подробная информация (как раньше)
@@ -907,6 +908,7 @@ const ProductEditor = (() => {
       b.onclick = () => {
         draftAssets = draftAssets.filter(a => a.id !== b.dataset.assetDel);
         renderAssets();
+        renderEffectPreview();
       };
     });
   }
