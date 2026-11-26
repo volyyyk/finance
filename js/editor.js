@@ -878,7 +878,12 @@ const ProductEditor = (() => {
     const kind = $('assetKind').value;
     const savedMatches = findSavedAssetMatches(q, kind);
     const localFunds = localFundMatches(q, kind);
-    box.innerHTML = '<div class="op-meta">Идёт поиск…</div>';
+    const bindLocalFunds = () => box.querySelectorAll('[data-local-fund]').forEach(row=>{
+      row.onclick=()=>pickAsset({...localFunds[Number(row.dataset.localFund)],kind:'fund'});
+    });
+    box.innerHTML = savedAssetMatchesHtml(savedMatches) + localFundMatchesHtml(localFunds)
+      + '<div class="op-meta">Идёт поиск биржевых бумаг MOEX…</div>';
+    bindLocalFunds();
     try {
       const rows = await MoexAPI.searchSecurity(q);
       const normalize = normalizeAssetSearch;
@@ -943,9 +948,7 @@ const ProductEditor = (() => {
         row.onclick = () => pickAsset({...searchResults[Number(row.dataset.pick)],kind});
       });
       chooseSavedAsset(box,savedMatches,kind);
-      box.querySelectorAll('[data-local-fund]').forEach(row=>{
-        row.onclick=()=>pickAsset({...localFunds[Number(row.dataset.localFund)],kind:'fund'});
-      });
+      bindLocalFunds();
     } catch(error){
       box.innerHTML = savedAssetMatchesHtml(savedMatches) + localFundMatchesHtml(localFunds) +
         '<div class="op-meta red">MOEX недоступна: ' + escapeHtml(error.message) +
