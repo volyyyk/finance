@@ -95,7 +95,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" id="portfolioSection">
     <div class="section-heading"><div><h2>Активы и обязательства</h2><p>Все счета, вклады, долги и инвестиционные портфели</p></div><div class="section-heading-actions"><button class="btn small chart-toggle" id="portfolioChartBtn" aria-expanded="false" aria-controls="portfolioInsights" title="Структура портфеля по категориям">◔</button><span class="section-kicker">МОЙ ПОРТФЕЛЬ</span></div></div>
     <section class="portfolio-insights" id="portfolioInsights" hidden>
       <div class="portfolio-insights-top"><div><b>Структура портфеля</b><small>Распределение по типам продуктов</small></div><button class="btn small" id="portfolioInsightClose" type="button" aria-label="Закрыть диаграмму">×</button></div>
@@ -111,42 +111,50 @@
 
   <section class="card" id="sinceVisitCard" hidden></section>
 
-  <div class="grid-2">
-    <section class="card">
-      <h2>Ближайшие события</h2>
-      <div id="eventsList"></div>
-    </section>
-    <section class="card">
-      <div class="cal-header">
-        <button id="calPrev">‹</button>
-        <span id="calTitle"></span>
-        <button id="calNext">›</button>
-      </div>
-      <div id="calendar"></div>
-      <div id="calDayInfo" class="cal-day-info" hidden></div>
-    </section>
-  </div>
+  <details class="dashboard-fold" open>
+    <summary>События и календарь</summary>
+    <div class="grid-2">
+      <section class="card">
+        <h2>Ближайшие события</h2>
+        <div id="eventsList"></div>
+      </section>
+      <section class="card">
+        <div class="cal-header">
+          <button id="calPrev">‹</button>
+          <span id="calTitle"></span>
+          <button id="calNext">›</button>
+        </div>
+        <div id="calendar"></div>
+        <div id="calDayInfo" class="cal-day-info" hidden></div>
+      </section>
+    </div>
+  </details>
 
-  <section class="charts-row">
-    <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
-    <div class="chart-card"><h3>Финансовый результат (накопленный)</h3><canvas id="chartIncome"></canvas></div>
-  </section>
+  <details class="dashboard-fold">
+    <summary>Графики финансового результата</summary>
+    <section class="charts-row">
+      <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
+      <div class="chart-card"><h3>Финансовый результат (накопленный)</h3><canvas id="chartIncome"></canvas></div>
+    </section>
+  </details>
 
 >
 
-  <section class="card">
-    <h2>Прогноз динамики капитала</h2>
-    <div class="forecast-grid">
-      <div class="forecast-col">
-        <h3>Без учёта событий</h3>
-        <div id="fc1"></div>
+  <details class="dashboard-fold">
+    <summary>Прогноз динамики капитала</summary>
+    <section class="card forecast-card">
+      <div class="forecast-grid">
+        <div class="forecast-col">
+          <h3>Без учёта событий</h3>
+          <div id="fc1"></div>
+        </div>
+        <div class="forecast-col">
+          <h3>С учётом событий</h3>
+          <div id="fc2"></div>
+        </div>
       </div>
-      <div class="forecast-col">
-        <h3>С учётом событий</h3>
-        <div id="fc2"></div>
-      </div>
-    </div>
-  </section>
+    </section>
+  </details>
 
   <section class="card">
     <details id="resultsDetails">
@@ -174,6 +182,12 @@
     <div id="cbEdit" hidden></div>
   </section>
 </main>
+
+<nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Основная навигация">
+  <button type="button" data-mobile-nav="overview" aria-current="page"><span>⌂</span><small>Обзор</small></button>
+  <button type="button" data-mobile-nav="portfolio"><span>▤</span><small>Портфель</small></button>
+  <button type="button" data-mobile-nav="cashback"><span>％</span><small>Кешбэк</small></button>
+</nav>
 
 <!-- Модальное окно редактора -->
 <div class="modal-bg" id="modalBg">
