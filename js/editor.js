@@ -403,11 +403,15 @@ const ProductEditor = (() => {
     }
     if ($('investmentBlock')) $('investmentBlock').style.display = isInvest ? '' : 'none';
 
+    if ($('f_amount')) {
+      $('f_amount').min = isInvest ? '-999999999999' : '0';
+      $('f_amount').step = '0.01';
+    }
     if ($('label_amount')) {
       $('label_amount').textContent = isExpense
         ? 'Сумма в месяц (₽)'
         : isCredit ? 'Долг на текущий день (₽)'
-        : isInvest   ? 'Свободные деньги (кэш) (₽)'
+        : isInvest   ? 'Свободные деньги (кэш, может быть отрицательным) (₽)'
         : isApartment ? 'Стоимость квартиры (₽)'
         : t.liability ? 'Текущий долг (₽)'
         : 'Текущая сумма (₽)';
@@ -882,9 +886,10 @@ const ProductEditor = (() => {
   function assetDisplayName(asset){
     // SECNAME — полное человекочитаемое название; SHORTNAME часто содержит
     // технические биржевые сокращения вроде «ETF AKGD», поэтому оно вторично.
+    const official = Utils.officialAssetName(asset);
     const full = asset?.fullname && asset.fullname !== asset.secid ? asset.fullname : '';
     const short = asset?.shortname && asset.shortname !== asset.secid ? asset.shortname : '';
-    return String(asset?.customName || full || short || asset?.secid || 'Актив').trim();
+    return String(asset?.customName || official || full || short || asset?.secid || 'Актив').trim();
   }
 
   // Отдельная запись актива: вся подробная информация (как раньше)
