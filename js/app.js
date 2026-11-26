@@ -32,8 +32,10 @@ const App = (() => {
         if (a.redeemed || !a.secid) return;
         const stamp = a.moexUpdatedAt || a.updatedAt;
         const age = stamp ? (Date.now() - Date.parse(stamp)) / 86400000 : Infinity;
-        if (a.moexError || !Number.isFinite(age) || age > 30){
-          quoteProblems.push({name:a.shortname || a.secid, error:a.moexError || ''});
+        const errorSince = Date.parse(a.moexErrorSince || a.moexAttemptAt || '');
+        const errorMatured = !!a.moexError && (!Number.isFinite(errorSince) || Date.now() - errorSince >= 30000);
+        if (errorMatured || (!a.moexError && (!Number.isFinite(age) || age > 30))){
+          quoteProblems.push({name:a.shortname || a.secid, error:errorMatured ? a.moexError : ''});
         }
       });
     });
@@ -474,15 +476,19 @@ ${rows}
             // Публичный ISS обновляется с задержкой: проверяем цену раз в 15 минут.
             // После ошибки повторяем запрос через 5 минут.
             if (Number.isFinite(updatedAt) && now - updatedAt < 15 * 60 * 1000) return;
-            if (Number.isFinite(attemptedAt) && now - attemptedAt < 5 * 60 * 1000) return;
+            if (Number.isFinite(attemptedAt) && now - attemptedAt < (a.moexError ? 5 : 1) * 60 * 1000) return;
             const before = JSON.stringify(a);
-            const previousQuoteAt = a.moexUpdatedAt || null;
+            const attemptStartedAt = Date.now();
             try {
               await MoexAPI.refreshAsset(a);
-              a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
-                ? null : 'MOEX пока не вернул новую котировку';
+              // A valid ISS response without a new trade is not a request failure.
+              a.moexError = null;
+              a.moexErrorSince = null;
             } catch (error) {
               a.moexError = String(error?.message || 'Ошибка запроса MOEX').slice(0, 180);
+              if (!a.moexErrorSince) a.moexErrorSince = new Date(attemptStartedAt).toISOString();
+              const delay = Math.max(0, 30000 - (Date.now() - attemptStartedAt));
+              setTimeout(() => renderFinancialCheck(), delay);
             }
             a.moexAttemptAt = new Date().toISOString();
             if (before !== JSON.stringify(a)) changed = true;
