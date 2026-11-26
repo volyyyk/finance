@@ -468,6 +468,7 @@ ${rows}
 
     async function refreshMoex(){
       if (!navigator.onLine || $('modalBg').classList.contains('show')) return;
+      let anyChanged = false;
       for (const p of Storage.all()) {
         if (p.type !== 'investment') continue;
         const assets = structuredClone(p.assets || []);
@@ -524,9 +525,11 @@ ${rows}
           p.assets = assets;
           Bonds.settleProduct(p);
           Storage.upsert(p);
+          anyChanged = true;
         }
       }
-      refresh();
+      // Не перерисовываем приложение, если котировки фактически не изменились.
+      if (anyChanged) refresh();
     }
     // Котировки и доходность обновляются независимо от хранилища: GitHub Pages — статический хостинг.
     let marketRefreshPromise = null;
