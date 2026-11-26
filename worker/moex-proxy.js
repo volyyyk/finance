@@ -63,7 +63,7 @@ export default {
           const at = html.toLowerCase().indexOf(token.toLowerCase());
           if (at >= 0) keywordContexts.push({token,snippet:html.slice(Math.max(0,at-300),Math.min(html.length,at+1800)).replace(/\s+/g,' ')});
         }
-        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||null,scripts,assets,scriptTags,tables,dataAttrs,endpoints,chartBlock,formBlock,keywordContexts,contexts:contexts.slice(0,24)},200);
+        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,scripts,assets,scriptTags,tables,dataAttrs,endpoints,chartBlock,formBlock,keywordContexts,contexts:contexts.slice(0,24)},200);
       } catch(error) {
         return jsonResponse({error:'VIM debug request failed',detail:String(error?.message||error).slice(0,200)},502);
       }
