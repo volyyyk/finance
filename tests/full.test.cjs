@@ -1349,15 +1349,15 @@ test('Bonds.settleProduct: погашение переносит номинал 
     }]
   }]);
   const p=mods.Storage.get('redeem-bond');
-  mods.Bonds.settleProduct(p,'2026-11-26');
+  Bonds.settleProduct(p,'2026-11-26');
   assert.equal(p.amount,2100,'100 свободных + 2 × 1000 номинала');
   assert.equal(p.assets.length,0,'погашенная облигация удалена из портфеля');
   assert.equal(mods.Simulator.portfolioValue(p),2100,'в балансе нет двойного учёта облигации');
 });
 
 test('Bonds.payments: maturity pays remaining principal after partial amortization', () => {
-  const { mods } = simMods([]);
-  const pays=mods.Bonds.payments({
+  simMods([]);
+  const pays=Bonds.payments({
     kind:'bond',nominal:1000,accountingFrom:'2026-01-01',maturityDate:'2026-12-01',
     coupons:[],amortizations:[{date:'2026-06-01',value:300},{date:'2026-12-01',value:200}]
   });
@@ -1368,7 +1368,7 @@ test('Bonds.payments: maturity pays remaining principal after partial amortizati
 test('MoexAPI.chooseMarketRow: primary board wins over a stale preferred board', () => {
   const { api } = moexSandbox(async () => ({ok:true,json:async()=>({})}));
   const chosen=api.chooseMarketRow([
-    {BOARDID:'TQTE',LAST:2,IS_PRIMARY:0},
+    {BOARDID:'TQTE',LAST:null,IS_PRIMARY:0},
     {BOARDID:'TQTF',LAST:2.1,IS_PRIMARY:1}
   ],'TQTE');
   assert.equal(chosen.BOARDID,'TQTF');
@@ -1386,7 +1386,7 @@ test('Bonds.settleProduct: migrates a previously partial maturity credit and rem
     }]
   }]);
   const p=mods.Storage.get('legacy-redeem');
-  mods.Bonds.settleProduct(p,'2026-11-26');
+  Bonds.settleProduct(p,'2026-11-26');
   assert.equal(p.amount,1000,'дозачислена недостающая часть номинала, без повторного зачисления первых 200');
   assert.equal(p.assets.length,0,'старую погашенную позицию удалили');
 });
