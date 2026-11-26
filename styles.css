@@ -392,8 +392,8 @@ html[data-theme="dark"] .goal-fill{background:linear-gradient(90deg,#2f7a52,#5fd
   overflow:hidden;text-overflow:clip;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .asset-name-track{display:inline-block;max-width:100%;overflow:hidden;text-overflow:clip;white-space:nowrap;vertical-align:bottom}
 .ai-name .asset-name-track{flex:0 1 auto;min-width:0}
-.asset-name-track:hover,.asset-name-track:focus-visible{width:max-content;max-width:none;overflow:visible;animation:asset-name-marquee 8s ease-in-out infinite alternate}
-@keyframes asset-name-marquee{0%,12%{transform:translateX(0)}88%,100%{transform:translateX(min(0px,calc(100% - 100vw)))}}
+.asset-name-track:hover,.asset-name-track:focus-visible{width:max-content;max-width:none;overflow:visible;animation:asset-name-marquee 7s ease-in-out infinite alternate}
+@keyframes asset-name-marquee{0%,12%{transform:translateX(0)}88%,100%{transform:translateX(var(--asset-shift,0px))}}
 .asset-detail-title{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;overflow:hidden}
 .asset-detail-title .asset-name-track{min-width:0}
 .asset-detail-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
