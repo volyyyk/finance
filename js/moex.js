@@ -384,9 +384,9 @@ const MoexAPI = (() => {
     const visitedMarkets = new Set(), visitedBoards = new Set();
 
     async function readCandles(market, selectedBoard){
-      const root = `\u0024{ISS}/engines/\u0024{encodeURIComponent(market.engine)}/markets/\u0024{encodeURIComponent(market.market)}`;
-      const route = selectedBoard ? `/boards/\u0024{encodeURIComponent(selectedBoard)}` : '';
-      const base = `\u0024{root}\u0024{route}/securities/\u0024{encodeURIComponent(secid)}/candles.json`;
+      const root = ISS + '/engines/' + encodeURIComponent(market.engine) + '/markets/' + encodeURIComponent(market.market);
+      const route = selectedBoard ? '/boards/' + encodeURIComponent(selectedBoard) : '';
+      const base = root + route + '/securities/' + encodeURIComponent(secid) + '/candles.json';
       const params = ['iss.meta=off','iss.only=candles','candles.columns=begin,close',
         'interval=24','start=0','from='+encodeURIComponent(dateFrom),'till='+encodeURIComponent(dateTo)];
       const json = await fetchJSON(base+'?'+params.join('&'),12000);
