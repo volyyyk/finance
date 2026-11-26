@@ -298,7 +298,7 @@ test('resolveMarket uses the instrument primary board instead of assuming TQBR/T
   const requested = [];
   global.fetch = async url => {
     requested.push(String(url));
-    if (String(url).includes('/securities/VTBL.json')) return {
+    if (String(url).includes('/securities/VTBL/boards.json')) return {
       ok:true, json:async()=>({ boards:{ columns:['engine','market','boardid','is_primary','is_traded'], data:[['stock','shares','TQTF',1,1]] } })
     };
     return { ok:true, json:async()=>({ marketdata:{columns:['BOARDID','LAST'],data:[['TQTF',123.45]]}, securities:{columns:['FACEVALUE'],data:[[1]]} }) };
