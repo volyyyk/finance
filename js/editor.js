@@ -1096,7 +1096,7 @@ const ProductEditor = (() => {
     return '<details class="vim-history-details"><summary>График и история стоимости пая</summary>' +
       '<div style="padding:8px 0"><svg viewBox="0 0 300 88" role="img" aria-label="График стоимости инвестиционного пая" style="display:block;width:100%;max-width:420px;height:auto;overflow:visible">' +
       '<line x1="4" y1="78" x2="296" y2="78" stroke="currentColor" opacity=".18"/>' +
-      '<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="' + coords + '"/>' +
+      '<polyline fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="' + coords + '"/>' +
       '</svg><div class="op-meta">За весь доступный период: <b class="' + (totalPct >= 0 ? 'green' : 'red') + '">' +
       Utils.fmtPct(totalPct) + '</b> · ' + escapeHtml(first.date.split('-').reverse().join('.')) + ' — ' +
       escapeHtml(last.date.split('-').reverse().join('.')) + '</div>' +
