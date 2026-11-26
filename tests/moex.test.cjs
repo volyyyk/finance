@@ -490,3 +490,21 @@ test('getProxyUrl uses the shared Cloudflare Worker by default and respects a va
     else global.localStorage = originalStorage;
   }
 });
+
+
+test('searchSecurity preserves full human-readable name and ISIN', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok:true, json:async()=>({
+    securities:{columns:['SECID','SHORTNAME','SECNAME','TYPE','PRIMARY_BOARDID','ISIN'],data:[
+      ['VTBR','Банк ВТБ','Банк ВТБ (публичное акционерное общество)','common_share','TQBR','RU000A0JP5V6'],
+      ['LQDT','Ликвидность','БПИФ рыночных финансовых инструментов «Ликвидность»','exchange_ppif','TQTF','RU000A1014L8']
+    ]}
+  })});
+  try {
+    const rows = await MoexAPI.searchSecurity('VTBR');
+    assert.equal(rows[0].secid,'VTBR');
+    assert.equal(rows[0].shortname,'Банк ВТБ');
+    assert.equal(rows[0].fullname,'Банк ВТБ (публичное акционерное общество)');
+    assert.equal(rows[0].isin,'RU000A0JP5V6');
+  } finally { global.fetch=originalFetch; }
+});
