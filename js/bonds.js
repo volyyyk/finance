@@ -114,8 +114,22 @@ const Bonds = (() => {
         if (!a.accountingFrom) { a.accountingFrom = date; changed = true; }
         a.paidEvents ||= {};
         for (const pay of payments(a)) {
-          if (pay.date > date || pay.value == null || !Number.isFinite(pay.value) || pay.value < 0 || a.paidEvents[pay.key]) continue;
+          if (pay.date > date || pay.value == null || !Number.isFinite(pay.value) || pay.value < 0) continue;
           const amount = money(pay.value * (a.qty || 0));
+          const alreadyPaid = a.paidEvents[pay.key];
+          if (alreadyPaid){
+            // Миграция старых записей: ранее на дату погашения могла быть
+            // учтена только частичная амортизация, а остаток номинала терялся.
+            if (pay.type === 'principal' && pay.date === a.maturityDate
+              && Number(alreadyPaid.amount) < amount){
+              const difference = money(amount - Math.max(0, Number(alreadyPaid.amount) || 0));
+              p.amount = money((p.amount || 0) + difference);
+              alreadyPaid.amount = amount;
+              alreadyPaid.reconciled = true;
+              changed = true;
+            }
+            continue;
+          }
           p.amount = money((p.amount || 0) + amount);
           a.paidEvents[pay.key] = { date:pay.date, amount, type:pay.type };
           changed = true;
