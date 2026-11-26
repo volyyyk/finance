@@ -255,17 +255,21 @@ const MoexAPI = (() => {
     });
   }
 
-  // Цена закрытия из истории торгов (ближайшая торговая дата до dateTo)
-  async function historyClose(secid, board, kind, dateFrom, dateTo){
+  // Цена закрытия из истории торгов (ближайшая торговая дата до dateTo).
+  // Для облигаций MOEX отдаёт цену в процентах от номинала; переводим в рубли.
+  async function historyClose(secid, board, kind, dateFrom, dateTo, nominal){
     const metal = kind === 'metal';
+    const market = metal ? null : await resolveMarket(secid, board, kind);
     const url = metal
       ? `${ISS}/history/engines/currency/markets/selt/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,CLOSE&from=${dateFrom}&till=${dateTo}`
-      : `${ISS}/history/engines/stock/markets/shares/boards/${encodeURIComponent(board || 'TQTF')}/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,CLOSE&from=${dateFrom}&till=${dateTo}`;
+      : `${ISS}/history/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,CLOSE&from=${dateFrom}&till=${dateTo}`;
     const json = await fetchJSON(url, 12000);
     const page = requireRows(json, 'history');
     for (let i = page.length - 1; i >= 0; i--){
       const close = number(page[i].CLOSE);
-      if (close != null && close > 0) return close;
+      if (close != null && close > 0) return kind === 'bond'
+        ? close * (Number(nominal) || 1000) / 100
+        : close;
     }
     return null;
   }
@@ -274,25 +278,24 @@ const MoexAPI = (() => {
   const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 
-  // Изменение цены за полгода: (цена сейчас / цена на 1-е число месяца
-  // полгода назад − 1) × 100%. Обновляется не чаще раза в месяц.
+  // Изменение цены за последние 6 месяцев. Применяется к акциям,
+  // фондам, облигациям и металлам; облигационные купоны моделируются отдельно.
   async function refreshSixMonth(asset){
-    if (asset.kind !== 'fund' && asset.kind !== 'metal') return asset;
+    if (!['stock','fund','bond','metal'].includes(asset.kind)) return asset;
     const now = new Date();
-    // День 1 не даёт JS перепрыгнуть через месяц на датах 29–31.
     const target = new Date(now.getFullYear(), now.getMonth() - 6, 1);
     const from = new Date(target);
     from.setDate(from.getDate() - 14);
-    const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target));
+    const baseRaw = await historyClose(asset.secid, asset.board, asset.kind, iso(from), iso(target), asset.nominal);
     await refreshAsset(asset);
-    const cur = asset.lastPrice ?? null;               // металл — уже за грамм
-    // История торгов металлами (CLOSE) — в тех же рублях за грамм,
-    // что и текущая котировка: пересчёт из унции не нужен.
-    const base = baseRaw;
+    const cur = asset.lastPrice ?? null;
+    const base = asset.kind === 'bond' && baseRaw != null
+      ? baseRaw
+      : baseRaw;
     asset.sixMonthBase = base;
-    asset.sixMonthBaseDate = baseRaw != null ? iso(target) : null;
-    asset.sixMonthPct = (base != null && base > 0 && cur != null) ? (cur / base - 1) * 100 : null;
-    // Не считаем месяц успешным, если MOEX не вернул обе цены.
+    asset.sixMonthBaseDate = base != null ? iso(target) : null;
+    asset.sixMonthPct = (base != null && base > 0 && cur != null && cur > 0)
+      ? (cur / base - 1) * 100 : null;
     if (base != null && base > 0 && cur != null && cur > 0){
       asset.yieldMonth = monthKey();
       asset.yieldUpdatedAt = new Date().toISOString();
