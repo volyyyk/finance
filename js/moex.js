@@ -530,17 +530,16 @@ const MoexAPI = (() => {
     if (asset.kind === 'metal' && asset.secid === 'PDDRUB_TOM') asset.secid = 'PLDRUB_TOM';
     const board = asset.kind === 'metal' ? 'CETS' : (asset.board || (asset.kind === 'bond' ? 'TQOB' : asset.kind === 'fund' ? 'TQTF' : 'TQBR'));
     if (asset.kind === 'metal') asset.board = 'CETS';
-    // Подтягиваем человекочитаемое имя для старых позиций, где сохранён
-    // только тикер. Ошибка справочника не должна мешать обновлению цены.
-    if (!asset.shortname || asset.shortname === asset.secid || !asset.fullname){
-      try {
-        const meta = await securityMetadata(asset.secid);
-        if (meta.shortname) asset.shortname = meta.shortname;
-        if (meta.fullname) asset.fullname = meta.fullname;
-        if (!asset.isin && meta.isin) asset.isin = meta.isin;
-      } catch (error) {
-        console.warn('MOEX security name lookup failed for ' + asset.secid, error);
-      }
+    // Обновляем оба имени даже у старых позиций: ранее сохранённый SHORTNAME
+    // может быть лишь технической меткой «ETF AKGD». Полное SECNAME имеет
+    // приоритет в интерфейсе. Кэш справочника действует 24 часа.
+    try {
+      const meta = await securityMetadata(asset.secid);
+      if (meta.shortname) asset.shortname = meta.shortname;
+      if (meta.fullname) asset.fullname = meta.fullname;
+      if (!asset.isin && meta.isin) asset.isin = meta.isin;
+    } catch (error) {
+      console.warn('MOEX security name lookup failed for ' + asset.secid, error);
     }
     if (asset.kind === 'bond') {
       const details = await bondDetails(asset.secid, board);

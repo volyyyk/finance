@@ -55,6 +55,11 @@ const App = (() => {
     const days = last ? (Date.now() - last.getTime()) / 86400000 : Infinity;
     if (days > 30) issues.push({icon:'download',title:'Создайте резервную копию',detail:last ? 'Последняя копия старше 30 дней.' : 'Данные хранятся только в этом браузере; резервная копия ещё не создавалась.'});
     const visible = issues.slice(0,3);
+    if (!issues.length){
+      card.hidden = true;
+      card.innerHTML = '';
+      return;
+    }
     card.hidden = false;
     card.innerHTML = `
       <div class="financial-check-head">

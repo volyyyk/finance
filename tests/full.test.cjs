@@ -1409,6 +1409,17 @@ test('Bonds.settleProduct: migrates a previously partial maturity credit and rem
 });
 
 
+test('ProductEditor: full MOEX name is preferred to technical SHORTNAME', () => {
+  const sb = makeSandbox();
+  const mods = loadInto(sb, ['js/core.js','js/editor.js'], '{Storage,ProductEditor}');
+  assert.equal(mods.ProductEditor.assetDisplayName({
+    secid:'AKGD', shortname:'ETF AKGD', fullname:'Биржевой паевой инвестиционный фонд — пример'
+  }), 'Биржевой паевой инвестиционный фонд — пример');
+  assert.equal(mods.ProductEditor.assetDisplayName({
+    secid:'LQDT', shortname:'ETF LQDT', fullname:'Фонд ликвидности', customName:'Мой резерв'
+  }), 'Мой резерв');
+});
+
 test('ProductEditor: asset search matches saved custom names across investment accounts', () => {
   const sb = makeSandbox();
   const mods = loadInto(sb, ['js/core.js','js/editor.js'], '{Storage,ProductEditor}');
