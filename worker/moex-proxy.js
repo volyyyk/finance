@@ -23,6 +23,38 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 export default {
   async fetch(request) {
     const incoming = new URL(request.url);
+    if (incoming.pathname.startsWith('/vim-debug/')) {
+      if (request.method === 'OPTIONS') return new Response(null, { status:204, headers:CORS_HEADERS });
+      if (request.method !== 'GET') return jsonResponse({ error:'Method not allowed' },405);
+      const fundId = incoming.pathname.split('/')[2];
+      const pages = {
+        '8000':'https://www.wealthim.ru/products/pif/opif/wimyao/',
+        '8002':'https://www.wealthim.ru/products/pif/opif/wimyo/'
+      };
+      const sourceUrl = pages[fundId];
+      if (!sourceUrl) return jsonResponse({ error:'Unknown VIM fund' },404);
+      try {
+        const upstream = await fetch(sourceUrl, {
+          headers:{ Accept:'text/html,application/xhtml+xml', 'User-Agent':'Mozilla/5.0 FinApp/1.0' },
+          cf:{ cacheEverything:true, cacheTtl:300 }
+        });
+        if (!upstream.ok) return jsonResponse({error:'VIM HTTP '+upstream.status},upstream.status);
+        const html = await upstream.text();
+        const contexts = [];
+        for (const token of ['download.php','FOND_ID','QUOTES_IBLOCK','chart','history','quotes','ajax','series']) {
+          let at=-1, count=0;
+          while ((at=html.toLowerCase().indexOf(token.toLowerCase(),at+1))>=0 && count<3) {
+            contexts.push({token, snippet:html.slice(Math.max(0,at-220),Math.min(html.length,at+420)).replace(/\\s+/g,' ')});
+            count++;
+          }
+        }
+        const scripts = [...html.matchAll(/<script\\b[^>]*src=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]).slice(0,40);
+        const tables = [...html.matchAll(/<table\\b[^>]*>/gi)].map(m=>m[0]).slice(0,20);
+        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||null,scripts,tables,contexts:contexts.slice(0,24)},200);
+      } catch(error) {
+        return jsonResponse({error:'VIM debug request failed',detail:String(error?.message||error).slice(0,200)},502);
+      }
+    }
     if (incoming.pathname.startsWith('/vim/')) {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
       if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed' }, 405);
