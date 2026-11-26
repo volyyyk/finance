@@ -251,13 +251,13 @@ export default {
           Referer:VIM_FUNDS[fundId].url
         }});
         const html = await upstream.text();
-        const refs=[...new Set([...html.matchAll(/<(?:script|link)\\b[^>]*(?:src|href)=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]))].slice(0,180);
+        const refs=[...new Set([...html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]))].slice(0,180);
         const tokens=['GRAPH_FUNDS','GRAPH','graph_fund','37558764','37558766','ajax','XMLHttpRequest','fetch(','$.ajax','set_graph','SHARE_COST','DATE_ACTIVE_FROM','exportTable','chart'];
         const contexts=[];
-        for(const token of tokens){let at=-1,n=0;while((at=html.toLowerCase().indexOf(token.toLowerCase(),at+1))>=0&&n<4){contexts.push({token,snippet:html.slice(Math.max(0,at-900),Math.min(html.length,at+1800)).replace(/\\s+/g,' ')});n++;}}
-        const scripts=[...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)].map(m=>({attrs:m[1],length:m[2].length,code:m[2].slice(0,10000)})).slice(0,60);
-        const tables=[...html.matchAll(/<table\\b[^>]*>/gi)].map(m=>m[0]).slice(0,30);
-        return jsonResponse({fundId,sourceUrl,status:upstream.status,htmlLength:html.length,title:(html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||null,refs,scripts,tables,contexts},200);
+        for(const token of tokens){let at=-1,n=0;while((at=html.toLowerCase().indexOf(token.toLowerCase(),at+1))>=0&&n<4){contexts.push({token,snippet:html.slice(Math.max(0,at-900),Math.min(html.length,at+1800)).replace(/\s+/g,' ')});n++;}}
+        const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map(m=>({attrs:m[1],length:m[2].length,code:m[2].slice(0,10000)})).slice(0,60);
+        const tables=[...html.matchAll(/<table\b[^>]*>/gi)].map(m=>m[0]).slice(0,30);
+        return jsonResponse({fundId,sourceUrl,status:upstream.status,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,refs,scripts,tables,contexts},200);
       } catch(error) {
         return jsonResponse({error:'VIM global graph diagnostics failed',detail:String(error?.message||error).slice(0,240)},502);
       }
