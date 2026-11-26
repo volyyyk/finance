@@ -4,17 +4,9 @@ const ProductInsights = (() => {
   let selected = null, open = false;
   const palette = ['#3978d5','#20a17a','#e3a23b','#8b72cf','#d46b78','#4b9cae','#8b9aa9'];
   function value(p){return p.type==='expense'?0:p.type==='investment'?Simulator.portfolioValue(p):Math.abs(Number(p.amount)||0);}
-  function annual(p){
-    const v=value(p),r=Number(p.rate)||0;
-    if(p.type==='expense')return -(Number(p.amount)||0)*12;
-    if(p.type==='credit_card'||p.type==='loan')return -v*r/100;
-    if(p.type==='apartment')return v*r/100+(p.rented?(Number(p.rentPrice)||0)*12:0)-v*(Number(p.upkeepRate)||2)/100;
-    if(p.type==='investment')return (p.assets||[]).reduce((s,a)=>s+(a.kind==='bond'?Simulator.annualCouponForAsset(a):a.kind==='fund'&&a.sixMonthPct!=null&&1+a.sixMonthPct/100>0?a.qty*Bonds.price(a)*(Math.pow(1+a.sixMonthPct/100,2)-1):a.kind==='stock'?a.qty*Bonds.price(a)*r/100:0),0);
-    return v*r/100;
-  }
-  function groups(){
+  function annual(p){ return Simulator.annualNet(p); }\n  function groups(){
     const m=new Map();
-    Storage.all().forEach(p=>{const v=value(p),t=Config.TYPES[p.type];if(!v||!t)return;
+    Storage.all().forEach(p=>{if(p.offBudget===true)return;const v=value(p),t=Config.TYPES[p.type];if(!v||!t)return;
       if(!m.has(p.type))m.set(p.type,{type:p.type,label:t.label,icon:t.icon,value:0,products:[],annual:0});
       const g=m.get(p.type);g.value+=v;g.products.push(p);g.annual+=annual(p);
     });
