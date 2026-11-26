@@ -508,3 +508,32 @@ test('searchSecurity preserves full human-readable name and ISIN', async () => {
     assert.equal(rows[0].isin,'RU000A0JP5V6');
   } finally { global.fetch=originalFetch; }
 });
+
+
+test('refreshAsset hydrates missing ticker-like names from MOEX metadata', async () => {
+  const originalFetch = global.fetch;
+  const requested = [];
+  global.fetch = async url => {
+    const value = String(url);
+    requested.push(value);
+    if (value.includes('/securities/TEST_NAME_HYDRATE/boards.json')) return {ok:true,json:async()=>({
+      boards:{columns:['engine','market','boardid','is_primary','is_traded'],data:[['stock','shares','TQBR',1,1]]}
+    })};
+    if (value.includes('/securities/TEST_NAME_HYDRATE.json')) return {ok:true,json:async()=>({
+      securities:{columns:['SHORTNAME','SECNAME','ISIN'],data:[['Тестовая компания','Публичное акционерное общество «Тест»','RU000A0TEST01']]}
+    })};
+    return {ok:true,json:async()=>({
+      marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',123.4]]},
+      securities:{columns:['FACEVALUE'],data:[[1]]}
+    })};
+  };
+  try {
+    const asset={secid:'TEST_NAME_HYDRATE',shortname:'TEST_NAME_HYDRATE',kind:'stock'};
+    await MoexAPI.refreshAsset(asset);
+    assert.equal(asset.shortname,'Тестовая компания');
+    assert.equal(asset.fullname,'Публичное акционерное общество «Тест»');
+    assert.equal(asset.isin,'RU000A0TEST01');
+    assert.equal(asset.lastPrice,123.4);
+    assert.ok(requested.some(url=>url.includes('/securities/TEST_NAME_HYDRATE.json')));
+  } finally { global.fetch=originalFetch; }
+});
