@@ -280,8 +280,10 @@ const Simulator = (() => {
             // меняет обязательство, но сама по себе не является потреблением.
             if (product.type === 'credit_card' && !op.debtTargetId) cumExpense += amount;
           } else if (isInvest || product.type === 'deposit') {
-            if (isInvest) cash = Math.max(0, cash - amount);
-            value = Math.max(0, value - amount);
+            if (isInvest) cash -= amount;
+            value -= amount;
+            // На брокерском счёте свободные деньги могут уйти в минус:
+            // это задолженность брокеру, а не ограничение на нулевой остаток.
             // Снятие собственного капитала не является расходом.
           } else if (isExpense) {
             cumExpense += amount;
@@ -448,7 +450,12 @@ const Stats = (() => {
       // Обязательные расходы — денежный поток, а не актив/долг.
       if (p.offBudget === true || p.type === 'expense') return;
       if (p.type === 'investment'){
-        assets += Simulator.portfolioValue(p);
+        const cash = Number(p.amount) || 0;
+        const positions = (p.assets || []).reduce((sum,a) =>
+          sum + (a.redeemed ? 0 : (a.qty || 0) * Bonds.price(a)), 0);
+        // Положительный кэш — актив, отрицательный — отдельный долг брокеру.
+        assets += positions + Math.max(0, cash);
+        debts += Math.max(0, -cash);
       } else if (Config.TYPES[p.type].liability){
         debts += p.amount || 0;
       } else {
