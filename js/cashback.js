@@ -508,7 +508,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     return `
         <!-- 4. Быстрый ввод по промту (фиолетовая подсветка) -->
         <details class="cb-accordion cb-acc-prompt edge-glow-purple" id="cbAccPrompt">
-          <summary><span class="cb-summary-icon">${Utils.iconSvg('file-text',16)}</span><span>4. Быстрый ввод по промту</span></summary>
+          <summary><span class="cb-summary-icon">${Utils.iconSvg('file-text',16)}</span><span class="cb-summary-copy"><strong>Быстрый ввод</strong><small>По фото и ИИ</small></span></summary>
           <div class="cb-acc-content">
             <div class="op-meta">Скопируйте промт и отправьте его любой нейросети вместе с фото условий банка.
             Ответ нейросети (блок кода) вставьте в поле ниже — кешбэки добавятся за ${monthTitle(data.month)}.
@@ -679,7 +679,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       <div class="cb-bottom-accordions">
         <!-- 1. Добавить новое (красная подсветка в тёмной / пастельная в светлой) -->
         <details class="cb-accordion cb-acc-add edge-glow-red" id="cbAccAdd">
-          <summary><span class="cb-summary-icon">${Utils.iconSvg('plus',16)}</span><span>1. Добавить новое</span></summary>
+          <summary><span class="cb-summary-icon">${Utils.iconSvg('plus',16)}</span><span class="cb-summary-copy"><strong>Добавить новое</strong><small>Категория и процент</small></span></summary>
           <div class="cb-acc-content">
             <div class="op-meta">Быстрое добавление кешбэка за ${monthTitle(data.month)}</div>
             <div class="cb-add">
@@ -703,7 +703,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
 
         <!-- 2. Настроить (жёлтая подсветка в тёмной / пастельная в светлой) -->
         <details class="cb-accordion cb-acc-settings edge-glow-yellow" id="cbAccSettings">
-          <summary><span class="cb-summary-icon">${Utils.iconSvg('settings',16)}</span><span>2. Настроить</span></summary>
+          <summary><span class="cb-summary-icon">${Utils.iconSvg('settings',16)}</span><span class="cb-summary-copy"><strong>Настроить</strong><small>Банки и справочники</small></span></summary>
           <div class="cb-acc-content">
             <div class="op-meta">Управление банками текущего месяца и постоянными справочниками:</div>
             <div class="actions-bar" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -715,7 +715,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
 
         <!-- 3. Показать все кешбеки (оранжевая подсветка в тёмной / пастельная в светлой) -->
         <details class="cb-accordion cb-acc-all edge-glow-orange cb-all" id="cbAll">
-          <summary><span class="cb-summary-icon">${Utils.iconSvg('list',16)}</span><span>3. Показать все кешбеки</span></summary>
+          <summary><span class="cb-summary-icon">${Utils.iconSvg('list',16)}</span><span class="cb-summary-copy"><strong>Все кешбэки</strong><small>По банкам и категориям</small></span></summary>
           <div class="cb-acc-content">
             <div class="cb-all-sort">
               <button class="btn small${allSort === 'bank' ? ' active' : ''}" data-sort="bank">По банкам</button>
