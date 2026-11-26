@@ -30,7 +30,10 @@ export default {
     if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed' }, 405);
 
     // Fixed upstream host: this Worker is not an arbitrary open proxy.
-    const upstreamUrl = new URL(incoming.pathname + incoming.search, 'https://iss.moex.com');
+    // MOEX ISS data is public; HTTP is used here because MOEX TLS validation
+    // currently fails in the Cloudflare Worker runtime (HTTP 526).
+    // Do not send credentials, tokens, or private data through this upstream.
+    const upstreamUrl = new URL(incoming.pathname + incoming.search, 'http://iss.moex.com');
     let lastFailure = null;
 
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -48,7 +51,7 @@ export default {
           return new Response(upstream.body, { status: upstream.status, headers });
         }
 
-        const detail = (await upstream.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 900);
+        const detail = (await upstream.text().catch(() => '')).replace(/\\s+/g, ' ').slice(0, 900);
         lastFailure = {
           error: 'MOEX ISS returned HTTP ' + upstream.status,
           upstreamStatus: upstream.status,
