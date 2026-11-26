@@ -1407,3 +1407,25 @@ test('Bonds.settleProduct: migrates a previously partial maturity credit and rem
   assert.equal(p.amount,1000,'дозачислена недостающая часть номинала, без повторного зачисления первых 200');
   assert.equal(p.assets.length,0,'старую погашенную позицию удалили');
 });
+
+
+test('ProductEditor: asset search matches saved custom names across investment accounts', () => {
+  const sb = makeSandbox();
+  const mods = loadInto(sb, ['js/core.js','js/editor.js'], '{Storage,ProductEditor}');
+  mods.Storage.save([
+    {id:'broker-1',name:'Основной брокер',assets:[
+      {id:'a1',kind:'fund',secid:'LQDT',shortname:'Ликвидность',customName:'Мой фонд ликвидности'},
+      {id:'a2',kind:'stock',secid:'VTBR',shortname:'Банк ВТБ',customName:'Мой банк'}
+    ]},
+    {id:'broker-2',name:'Второй брокер',assets:[
+      {id:'a3',kind:'fund',secid:'LQDT',shortname:'Ликвидность',customName:'Мой фонд ликвидности'}
+    ]}
+  ]);
+  const matches = mods.ProductEditor.findSavedAssetMatches('МОЙ фонд ликвидности','fund');
+  assert.equal(matches.length,1,'одинаковый инструмент и псевдоним не дублируются');
+  assert.equal(matches[0].asset.secid,'LQDT');
+  assert.equal(matches[0].asset.customName,'Мой фонд ликвидности');
+  assert.equal(matches[0].productName,'Основной брокер');
+  assert.equal(mods.ProductEditor.findSavedAssetMatches('мой фонд ликвидности','stock').length,0,
+    'совпадения другого типа актива не показываются');
+});
