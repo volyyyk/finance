@@ -291,6 +291,8 @@ ${rows}
       console.error('Ошибка инициализации редактора:', e);
     }
 
+    if (typeof ProductInsights !== 'undefined') ProductInsights.init();
+
     // 3. Загружаем данные
     const firstRun = bootstrapData();
     refresh();
