@@ -185,7 +185,7 @@ const ProductEditor = (() => {
             <div id="assetsList"></div>
             <div class="add-op">
               <div class="row-3">
-                <input type="text" id="assetQuery" placeholder="Тикер или название">
+                <input type="text" id="assetQuery" placeholder="Тикер, название или ваше имя">
                 <select id="assetKind">
                   <option value="stock">Акция</option>
                   <option value="bond">Облигация</option>
@@ -1094,6 +1094,6 @@ const ProductEditor = (() => {
     editingId = null;
   }
 
-  return { init, open, close, updateVisibility, typeMatches, metalQuickList };
+  return { init, open, close, updateVisibility, typeMatches, metalQuickList, findSavedAssetMatches };
 })();
 
