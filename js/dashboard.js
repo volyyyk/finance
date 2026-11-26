@@ -207,9 +207,16 @@ const ProductList = (() => {
       b.onclick = async () => {
         b.disabled = true;
         b.textContent = '…';
-        await refreshProductPrices(b.dataset.refresh);
-        b.disabled = false;
-        b.innerHTML = Utils.iconSvg('refresh',15);
+        try {
+          await refreshProductPrices(b.dataset.refresh);
+        } catch (error) {
+          alert('Не удалось завершить обновление котировок: ' + String(error?.message || error));
+        } finally {
+          if (b.isConnected) {
+            b.disabled = false;
+            b.innerHTML = Utils.iconSvg('refresh',15);
+          }
+        }
       };
     });
     el.querySelectorAll('[data-details]').forEach(b=>{
@@ -313,24 +320,28 @@ const ProductList = (() => {
     if (!navigator.onLine) { alert('Для обновления MOEX нужен интернет. Используются ранее сохранённые цены.'); return; }
     let failed = 0;
     const failures = [];
-    for (const a of (p.assets || [])){
-      if (a.redeemed) continue;
-      const previousQuoteAt = a.moexUpdatedAt || null;
-      try {
-        await MoexAPI.refreshAsset(a);
-        a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
-          ? null : 'MOEX пока не вернул новую котировку';
-      } catch(e){
-        failed++;
-        a.moexError = String(e?.message || 'Ошибка запроса MOEX').slice(0,180);
-        failures.push(`${a.shortname || a.secid}: ${a.moexError}`);
-      }
-      a.moexAttemptAt = new Date().toISOString();
+    const assets = (p.assets || []).filter(a => !a.redeemed);
+    // Обновляем небольшими параллельными пачками: зависший актив не блокирует
+    // последовательную загрузку всего портфеля.
+    for (let i = 0; i < assets.length; i += 3){
+      await Promise.all(assets.slice(i, i + 3).map(async a => {
+        const previousQuoteAt = a.moexUpdatedAt || null;
+        try {
+          await MoexAPI.refreshAsset(a);
+          a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
+            ? null : 'MOEX пока не вернул новую котировку';
+        } catch(e){
+          failed++;
+          a.moexError = String(e?.message || 'Ошибка запроса MOEX').slice(0,180);
+          failures.push(`${a.shortname || a.secid}: ${a.moexError}`);
+        }
+        a.moexAttemptAt = new Date().toISOString();
+      }));
     }
-    if (failed) alert('Не удалось обновить ' + failed + ' актив(а). Старые цены сохранены.\\n' + failures.slice(0,4).join('\\n')); 
     Bonds.settleProduct(p);
     Storage.upsert(p);
     if (typeof window.__REFRESH__ === 'function') window.__REFRESH__();
+    if (failed) alert('Не удалось обновить ' + failed + ' актив(а). Старые цены сохранены.\n' + failures.slice(0,4).join('\n'));
   }
 
   function updateDeleteBtn(){

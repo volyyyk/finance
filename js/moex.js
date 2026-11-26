@@ -12,18 +12,31 @@ const MoexAPI = (() => {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Нет подключения к интернету');
     const isMoex = url.startsWith(ISS + '/');
     const request = async (target, ms) => {
-      const res = await fetch(target, {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(ms),
-        cache: 'no-store',
-        credentials: 'omit'
+      const signal = AbortSignal.timeout(ms);
+      const timedOut = new Promise((_, reject) => {
+        signal.addEventListener('abort', () => {
+          const error = new Error('Тайм-аут запроса (' + Math.round(ms / 1000) + ' с)');
+          error.code = 'ETIMEDOUT';
+          reject(error);
+        }, { once: true });
       });
-      if (!res.ok) {
-        const error = new Error('HTTP ' + res.status);
-        error.status = res.status;
-        throw error;
-      }
-      return res.json();
+      return Promise.race([
+        (async () => {
+          const res = await fetch(target, {
+            headers: { 'Accept': 'application/json' },
+            signal,
+            cache: 'no-store',
+            credentials: 'omit'
+          });
+          if (!res.ok) {
+            const error = new Error('HTTP ' + res.status);
+            error.status = res.status;
+            throw error;
+          }
+          return await res.json();
+        })(),
+        timedOut
+      ]);
     };
     try {
       return await request(url, timeout);
@@ -32,7 +45,10 @@ const MoexAPI = (() => {
       // Retry only public MOEX GETs, and only for browser/network failures or
       // upstream 5xx. No balances, quantities or account data are transmitted.
       const networkFailure = directError instanceof TypeError
-        || /failed to fetch|networkerror|load failed/i.test(String(directError?.message || directError));
+        || directError?.code === 'ETIMEDOUT'
+        || directError?.name === 'AbortError'
+        || directError?.name === 'TimeoutError'
+        || /failed to fetch|networkerror|load failed|тайм-аут|timed out/i.test(String(directError?.message || directError));
       const temporaryFailure = Number(directError?.status) >= 500;
       if (!isMoex || (!networkFailure && !temporaryFailure)) throw directError;
       const relays = [
@@ -42,7 +58,7 @@ const MoexAPI = (() => {
       const failures = [];
       for (const relay of relays){
         try {
-          return await request(relay.url, Math.max(timeout, 18000));
+          return await request(relay.url, Math.max(timeout, 10000));
         } catch (error) {
           failures.push(relay.name + ': ' + String(error?.message || error).slice(0, 90));
         }
