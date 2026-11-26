@@ -355,7 +355,8 @@ const MoexAPI = (() => {
     // PDDRUB_TOM was an erroneous legacy alias in the quick-add list;
     // MOEX's palladium spot ticker is PLDRUB_TOM.
     if (asset.kind === 'metal' && asset.secid === 'PDDRUB_TOM') asset.secid = 'PLDRUB_TOM';
-    const board = asset.board || (asset.kind === 'bond' ? 'TQOB' : asset.kind === 'fund' ? 'TQTF' : asset.kind === 'metal' ? 'CETS' : 'TQBR');
+    const board = asset.kind === 'metal' ? 'CETS' : (asset.board || (asset.kind === 'bond' ? 'TQOB' : asset.kind === 'fund' ? 'TQTF' : 'TQBR'));
+    if (asset.kind === 'metal') asset.board = 'CETS';
     if (asset.kind === 'bond') {
       const details = await bondDetails(asset.secid, board);
       // Не заменяем сохранённую рублёвую цену пустой котировкой.
