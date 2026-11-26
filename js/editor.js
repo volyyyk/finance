@@ -834,7 +834,7 @@ const ProductEditor = (() => {
       customName:'Яндекс Пэй — Фонд акций и облигаций',
       lastPrice:101.36,priceUnit:'rub',moexUpdatedAt:'2026-09-30T00:00:00.000Z',
       historyMonths:1,historyBase:100.68,historyBaseDate:'2026-08-31',
-      historyPct:(101.36/100.68-1)*100,historyAnnualPct:(Math.pow(101.36/100.68,12)-1)*100,
+      sixMonthPct:(101.36/100.68-1)*100,historyPct:(101.36/100.68-1)*100,historyAnnualPct:(Math.pow(101.36/100.68,12)-1)*100,
       navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'},
     {kind:'fund',quoteSource:'manual',secid:'PIF8002',rulesNumber:'8002',
       shortname:'Яндекс Пэй — Фонд рублёвых облигаций',
@@ -842,7 +842,7 @@ const ProductEditor = (() => {
       customName:'Яндекс Пэй — Фонд рублёвых облигаций',
       lastPrice:100.91,priceUnit:'rub',moexUpdatedAt:'2026-09-30T00:00:00.000Z',
       historyMonths:1,historyBase:100.38,historyBaseDate:'2026-08-31',
-      historyPct:(100.91/100.38-1)*100,historyAnnualPct:(Math.pow(100.91/100.38,12)-1)*100,
+      sixMonthPct:(100.91/100.38-1)*100,historyPct:(100.91/100.38-1)*100,historyAnnualPct:(Math.pow(100.91/100.38,12)-1)*100,
       navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'}
   ];
   function localFundMatches(query,kind){
@@ -1151,7 +1151,7 @@ const ProductEditor = (() => {
     }
     return `<details class="asset-item">
       <summary>
-        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.secid || '')}</span></span>
+        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.quoteSource === 'manual' ? ('Правила ПИФ ' + first.rulesNumber) : (first.secid || ''))}</span></span>
         <span class="ai-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
         ${extra}
       </summary>
