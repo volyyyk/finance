@@ -60,7 +60,7 @@ const App = (() => {
       ${visible.length ? visible.map(x => `<div class="financial-check-item"><span class="fc-icon">${Utils.iconSvg(x.icon,16)}</span><div><b>${Utils.escapeHtml(x.title)}</b><small>${Utils.escapeHtml(x.detail)}</small></div></div>`).join('') : '<div class="financial-check-ok">Критичных замечаний по основным данным не обнаружено.</div>'}
       ${issues.length > 3 ? `<small class="financial-check-more">И ещё ${issues.length - 3} замечаний.</small>` : ''}
       ${days > 30 ? '<button class="btn small" id="financialBackupBtn" type="button">Создать резервную копию</button>' : ''}
-      ${quoteProblems.length ? '<button class="btn small" id="financialRefreshQuotesBtn" type="button">${Utils.iconSvg('refresh',15)} Повторить обновление цен</button>' : ''}
+      ${quoteProblems.length ? `<button class="btn small" id="financialRefreshQuotesBtn" type="button">${Utils.iconSvg('refresh',15)} Повторить обновление цен</button>` : ''}
     `;
     const backupButton = $('financialBackupBtn');
     if (backupButton) backupButton.onclick = exportData;
