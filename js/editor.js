@@ -803,7 +803,7 @@ const ProductEditor = (() => {
         const a=match.asset;
         return '<div class="op-row" data-saved-pick="' + i + '" style="cursor:pointer">' +
           '<div class="op-body"><div><b>' + escapeHtml(a.customName) + '</b> <span class="badge">' +
-          escapeHtml(a.secid || '') + '</span></div><div class="op-meta">' +
+          escapeHtml(a.quoteSource === 'manual' ? ('Правила ПИФ ' + (a.rulesNumber || '')) : (a.secid || '')) + '</span></div><div class="op-meta">' +
           escapeHtml(match.productName) + ' · сохранённое название</div></div></div>';
       }).join('');
   }
@@ -817,10 +817,52 @@ const ProductEditor = (() => {
         pickAsset({
           secid:a.secid, shortname:a.shortname, fullname:a.fullname,
           isin:a.isin, type:a.type, primary_boardid:a.board || a.primary_boardid,
-          customName:a.customName, kind
+          customName:a.customName, quoteSource:a.quoteSource, rulesNumber:a.rulesNumber,
+          lastPrice:a.lastPrice, historyMonths:a.historyMonths, historyPct:a.historyPct,
+          historyAnnualPct:a.historyAnnualPct, navDate:a.navDate, kind
         });
       };
     });
+  }
+
+  // Новые открытые ПИФы Яндекс Пэй / ВИМ: не торгуются на MOEX,
+  // поэтому добавляются из локального каталога по номеру правил/названию.
+  const LOCAL_YANDEX_FUNDS = [
+    {kind:'fund',quoteSource:'manual',secid:'PIF8000',rulesNumber:'8000',
+      shortname:'Яндекс Пэй — Фонд акций и облигаций',
+      fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд акций и облигаций»',
+      customName:'Яндекс Пэй — Фонд акций и облигаций',
+      lastPrice:101.36,priceUnit:'rub',moexUpdatedAt:'2026-09-30T00:00:00.000Z',
+      historyMonths:1,historyBase:100.68,historyBaseDate:'2026-08-31',
+      sixMonthPct:(101.36/100.68-1)*100,historyPct:(101.36/100.68-1)*100,historyAnnualPct:(Math.pow(101.36/100.68,12)-1)*100,
+      navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'},
+    {kind:'fund',quoteSource:'manual',secid:'PIF8002',rulesNumber:'8002',
+      shortname:'Яндекс Пэй — Фонд рублёвых облигаций',
+      fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд рублёвых облигаций»',
+      customName:'Яндекс Пэй — Фонд рублёвых облигаций',
+      lastPrice:100.91,priceUnit:'rub',moexUpdatedAt:'2026-09-30T00:00:00.000Z',
+      historyMonths:1,historyBase:100.38,historyBaseDate:'2026-08-31',
+      sixMonthPct:(100.91/100.38-1)*100,historyPct:(100.91/100.38-1)*100,historyAnnualPct:(Math.pow(100.91/100.38,12)-1)*100,
+      navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'}
+  ];
+  function localFundMatches(query,kind){
+    if(kind!=='fund')return [];
+    const q=normalizeAssetSearch(query);
+    if(!q)return LOCAL_YANDEX_FUNDS.slice();
+    if(q.includes('рубл'))return LOCAL_YANDEX_FUNDS.filter(a=>a.rulesNumber==='8002');
+    if(q.includes('акци'))return LOCAL_YANDEX_FUNDS.filter(a=>a.rulesNumber==='8000');
+    if(q.includes('облигац'))return LOCAL_YANDEX_FUNDS.slice();
+    return LOCAL_YANDEX_FUNDS.filter(a=>{
+      const fields=[a.secid,a.rulesNumber,a.shortname,a.fullname,'яндекс','яндекс пэй','вим','yandex']
+        .map(normalizeAssetSearch);
+      return fields.some(x=>x.includes(q)||q.includes(x));
+    });
+  }
+  function localFundMatchesHtml(matches){
+    return matches.map((a,i)=>`<div class="op-row" data-local-fund="${i}" style="cursor:pointer"><div class="op-body">
+      <div><b>${escapeHtml(a.shortname)}</b> <span class="badge">Правила ПИФ ${a.rulesNumber}</span></div>
+      <div class="op-meta">Последняя найденная стоимость: ${fmtMoney(a.lastPrice)} за пай · на ${a.navDate}. Тикера MOEX нет.</div>
+    </div></div>`).join('');
   }
 
   async function searchAsset(){
@@ -835,7 +877,13 @@ const ProductEditor = (() => {
     const box = $('searchResults');
     const kind = $('assetKind').value;
     const savedMatches = findSavedAssetMatches(q, kind);
-    box.innerHTML = '<div class="op-meta">Идёт поиск…</div>';
+    const localFunds = localFundMatches(q, kind);
+    const bindLocalFunds = () => box.querySelectorAll('[data-local-fund]').forEach(row=>{
+      row.onclick=()=>pickAsset({...localFunds[Number(row.dataset.localFund)],kind:'fund'});
+    });
+    box.innerHTML = savedAssetMatchesHtml(savedMatches) + localFundMatchesHtml(localFunds)
+      + '<div class="op-meta">Идёт поиск биржевых бумаг MOEX…</div>';
+    bindLocalFunds();
     try {
       const rows = await MoexAPI.searchSecurity(q);
       const normalize = normalizeAssetSearch;
@@ -886,7 +934,7 @@ const ProductEditor = (() => {
         return;
       }
 
-      let html = savedAssetMatchesHtml(savedMatches);
+      let html = savedAssetMatchesHtml(savedMatches) + localFundMatchesHtml(localFunds);
       html += filtered.map((r,i) =>
         '<div class="op-row" data-pick="' + i + '" style="cursor:pointer"><div class="op-body">' +
         '<div><b>' + escapeHtml(r.shortname || r.fullname || r.secid) + '</b> <span class="badge">' + escapeHtml(r.secid) + '</span></div>' +
@@ -900,11 +948,15 @@ const ProductEditor = (() => {
         row.onclick = () => pickAsset({...searchResults[Number(row.dataset.pick)],kind});
       });
       chooseSavedAsset(box,savedMatches,kind);
+      bindLocalFunds();
     } catch(error){
-      box.innerHTML = savedAssetMatchesHtml(savedMatches) +
+      box.innerHTML = savedAssetMatchesHtml(savedMatches) + localFundMatchesHtml(localFunds) +
         '<div class="op-meta red">MOEX недоступна: ' + escapeHtml(error.message) +
         '. Можно выбрать совпадение по сохранённому названию выше.</div>';
       chooseSavedAsset(box,savedMatches,kind);
+      box.querySelectorAll('[data-local-fund]').forEach(row=>{
+        row.onclick=()=>pickAsset({...localFunds[Number(row.dataset.localFund)],kind:'fund'});
+      });
     }
   }
 
@@ -929,14 +981,17 @@ const ProductEditor = (() => {
         board: kind === 'metal' ? 'CETS' : (picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR')), kind };
       // Проверяем допуск к обычным биржевым торгам до загрузки цены.
       // Ошибка сети тоже блокирует добавление: статус бумаги неизвестен.
-      await MoexAPI.assertTradable(asset.secid, kind);
-      await MoexAPI.refreshAsset(asset);
+      if (asset.quoteSource !== 'manual'){
+        await MoexAPI.assertTradable(asset.secid, kind);
+        await MoexAPI.refreshAsset(asset);
+      }
       if (myPick !== pickSeq) return;
       if (asset.moexInactive) throw new Error(asset.moexStatusText || 'Инструмент больше не торгуется');
       pendingAsset = asset;
       if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
-      $('bondPreview').textContent =
-        kind === 'bond'
+      $('bondPreview').textContent = asset.quoteSource === 'manual'
+        ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} ₽ на ${asset.navDate}. История: ${asset.historyMonths} мес.; годовой темп рассчитан по этому периоду. Котировка обновляется вручную.`
+        : kind === 'bond'
           ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}`
           : kind === 'fund' && asset.moexInactive
           ? asset.moexStatusText
@@ -965,8 +1020,10 @@ const ProductEditor = (() => {
         : 'Укажите целое положительное количество и цену покупки в рублях'); return;
     }
     try {
-      await MoexAPI.assertTradable(pendingAsset.secid, kind);
-      if (pendingAsset.moexInactive) throw new Error('Инструмент закрыт или снят с торгов');
+      if (pendingAsset.quoteSource !== 'manual'){
+        await MoexAPI.assertTradable(pendingAsset.secid, kind);
+        if (pendingAsset.moexInactive) throw new Error('Инструмент закрыт или снят с торгов');
+      }
     } catch (error) {
       alert('Нельзя добавить бумагу: не удалось подтвердить действующий допуск к торгам. ' + error.message);
       return;
@@ -1024,11 +1081,13 @@ const ProductEditor = (() => {
       : `${a.qty} шт × ${fmtMoney(price)}`;
     // Историческое изменение цены за полгода — основа сценарного прогноза
     // для акций, фондов, облигаций и металлов.
-    const yieldTxt = a.moexInactive
+    const yieldTxt = a.quoteSource === 'manual'
+      ? `<div class="op-meta">Последняя официальная стоимость пая: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · история ${a.historyMonths || 1} мес. · котировка обновляется вручную</div>`
+      : a.moexInactive
       ? `<div class="op-meta">Фонд закрыт и не торгуется; динамика за последние 6 мес. отсутствует, рост в прогнозе не предполагается</div>`
       : a.sixMonthPct != null
-      ? `<div class="op-meta">Изменение цены за 6 мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · учтено в прогнозе</div>`
-      : `<div class="op-meta">История цены за 6 мес. пока недоступна · рост не предполагается</div>`;
+      ? `<div class="op-meta">Изменение цены за ${a.historyMonths || 6} мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · годовой прогноз ${a.historyAnnualPct == null ? 'не рассчитан' : Utils.fmtPct(a.historyAnnualPct) + '%'} · учтено в прогнозе</div>`
+      : `<div class="op-meta">История цены за 12/6/3/1 мес. пока недоступна · рост не предполагается</div>`;
     const quoteTime = Date.parse(a.moexUpdatedAt || '');
     const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;
     const visibleQuoteError = quoteUsable || a.moexInactive ? '' : (a.moexError || a.moexQuoteStatus || '');
@@ -1088,14 +1147,14 @@ const ProductEditor = (() => {
         ? `<span class="ag-extra${closesThatDay ? ' red' : ''}">${Utils.iconSvg('calendar',13)} ${fmtDate(nextDate)} · ${fmtMoney(couponSum)}${closesThatDay ? ' · погашение в этот день' : ''}</span>`
         : grp.every(a => a.redeemed) ? '<span class="ag-extra">погашена</span>' : '';
     } else {
-      const pct = grp.map(a => a.sixMonthPct).find(p => p != null && Number.isFinite(p));
+      const pct = grp.map(a => a.historyAnnualPct ?? (a.sixMonthPct != null ? (Math.pow(Math.max(0,1+a.sixMonthPct/100),2)-1)*100 : null)).find(p => p != null && Number.isFinite(p));
       extra = pct != null
-        ? `<span class="ag-extra ${pct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(pct)}/6 мес</span>`
+        ? `<span class="ag-extra ${pct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(pct)}/год</span>`
         : '';
     }
     return `<details class="asset-item">
       <summary>
-        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.secid || '')}</span></span>
+        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(first.quoteSource === 'manual' ? ('Правила ПИФ ' + first.rulesNumber) : (first.secid || ''))}</span></span>
         <span class="ai-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
         ${extra}
       </summary>

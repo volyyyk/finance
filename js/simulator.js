@@ -171,7 +171,7 @@ const Simulator = (() => {
       ...item, pays: Bonds.payments(item.a)
     }));
     const priceItems = [...stockItems, ...fundItems, ...metalItems, ...bondList];
-    const assetValue = () => priceItems.reduce((sum,item) => sum + item.value, 0);
+    const assetValue = () => priceItems.reduce((sum,item) => sum + Math.max(0,item.value), 0);
     const resetInvest = () => {
       cash = 0;
       priceItems.forEach(item => { item.value = 0; });
@@ -193,9 +193,13 @@ const Simulator = (() => {
           // Это сценарная экстраполяция, а не обещание будущей доходности.
           let priceGrowth = 0;
           for (const item of priceItems){
-            const pct = item.a.sixMonthPct;
-            if (pct == null || !Number.isFinite(pct) || 1 + pct/100 <= 0) continue;
-            const nextValue = item.value * Math.pow(1 + pct/100, 1/6);
+            const annualPct = item.a.historyAnnualPct != null && Number.isFinite(Number(item.a.historyAnnualPct))
+              ? Number(item.a.historyAnnualPct)
+              : (item.a.sixMonthPct != null && Number.isFinite(Number(item.a.sixMonthPct))
+                ? (Math.pow(Math.max(0,1 + Number(item.a.sixMonthPct)/100),2)-1)*100 : null);
+            if (annualPct == null) continue;
+            const monthlyFactor = Math.pow(Math.max(0,1 + annualPct/100),1/12);
+            const nextValue = Math.max(0,item.value * monthlyFactor);
             priceGrowth += nextValue - item.value;
             item.value = nextValue;
           }
@@ -416,6 +420,32 @@ const Simulator = (() => {
     return results;
   }
 
+  function investmentForecast(product){
+    const kinds = [
+      ['stock','Акции'],['bond','Облигации'],['fund','Фонды'],['metal','Металлы']
+    ];
+    const rows = kinds.map(([kind,label]) => {
+      const assets = (product.assets || []).filter(a => a.kind === kind && !a.redeemed);
+      const marketValue = assets.reduce((sum,a) => sum + (Number(a.qty)||0) * Bonds.price(a),0);
+      const priceChange = assets.reduce((sum,a) => {
+        const pct = a.historyAnnualPct != null && Number.isFinite(Number(a.historyAnnualPct))
+          ? Number(a.historyAnnualPct)
+          : (a.sixMonthPct != null && Number.isFinite(Number(a.sixMonthPct))
+            ? (Math.pow(Math.max(0,1 + Number(a.sixMonthPct)/100),2)-1)*100 : 0);
+        return sum + Math.max(-((Number(a.qty)||0)*Bonds.price(a)),
+          ((Number(a.qty)||0)*Bonds.price(a)) * pct / 100);
+      },0);
+      const coupons = kind === 'bond'
+        ? assets.reduce((sum,a) => sum + annualCouponForAsset(a),0) : 0;
+      const historyCount = assets.filter(a => a.historyAnnualPct != null || a.sixMonthPct != null).length;
+      return {kind,label,count:assets.length,historyCount,marketValue,priceChange,coupons,annual:priceChange+coupons,
+        annualPct:marketValue>0?(priceChange+coupons)/marketValue*100:null};
+    }).filter(x=>x.count);
+    const totalValue = rows.reduce((sum,x)=>sum+x.marketValue,0);
+    const annual = rows.reduce((sum,x)=>sum+x.annual,0);
+    return {rows,totalValue,annual,annualPct:totalValue>0?annual/totalValue*100:null};
+  }
+
   function annualNet(product){
     const result = simulateAll(12);
     const history = result[product.id]?.history || [];
@@ -423,7 +453,7 @@ const Simulator = (() => {
     return year ? (year.cumIncome || 0) - (year.cumExpense || 0) : 0;
   }
 
-  return { simulateProduct, simulateAll, portfolioValue, annualCouponForAsset, annualNet };
+  return { simulateProduct, simulateAll, portfolioValue, annualCouponForAsset, annualNet, investmentForecast };
 })();
 
 const Stats = (() => {

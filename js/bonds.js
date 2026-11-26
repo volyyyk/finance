@@ -83,7 +83,7 @@ const Bonds = (() => {
         .reduce((s,p) => s + p.amount / (a.qty || 1), 0);
       value *= Math.max(0, 1 - principalSinceQuote / a.nominal);
     }
-    return value;
+    return Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0);
   }
   function payments(a){
     if (a.kind !== 'bond') return [];
