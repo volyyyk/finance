@@ -22,20 +22,31 @@ const App = (() => {
     const issues = [];
     const products = Storage.all();
     if (!products.length) issues.push({icon:'plus-circle',title:'Добавьте первый продукт',detail:'Начните со счетов, вкладов или инвестиций.'});
+    const quoteProblems = [];
     products.forEach(p => {
       if (!p || !p.id || !Config.TYPES[p.type] || !Number.isFinite(Number(p.amount))){
         issues.push({icon:'alert-triangle',title:'Проверьте данные продукта',detail:'Обнаружена запись с неполными или некорректными основными данными.'});
         return;
       }
       if (p.type === 'investment') (p.assets || []).forEach(a => {
-        if (a.redeemed || a.kind === 'bond') return;
+        if (a.redeemed || !a.secid) return;
         const stamp = a.moexUpdatedAt || a.updatedAt;
         const age = stamp ? (Date.now() - Date.parse(stamp)) / 86400000 : Infinity;
-        if (!Number.isFinite(age) || age > 30){
-          issues.push({icon:'clock',title:'Проверьте котировки портфеля',detail:`${a.shortname || a.secid || p.name}: цена не обновлялась более 30 дней или дата обновления неизвестна.`});
+        if (a.moexError || !Number.isFinite(age) || age > 30){
+          quoteProblems.push({name:a.shortname || a.secid, error:a.moexError || ''});
         }
       });
     });
+    if (quoteProblems.length){
+      const names = quoteProblems.slice(0,3).map(x => x.name).join(', ');
+      const failed = quoteProblems.filter(x => x.error).length;
+      issues.push({
+        icon:'refresh',
+        title:`Проверьте котировки: ${quoteProblems.length} бумаг`,
+        detail:(failed ? `${failed} запросов завершились ошибкой. ` : 'Цена устарела или дата обновления неизвестна. ') +
+          names + (quoteProblems.length > 3 ? ` и ещё ${quoteProblems.length - 3}` : '')
+      });
+    }
     const last = Backup.lastExport();
     const days = last ? (Date.now() - last.getTime()) / 86400000 : Infinity;
     if (days > 30) issues.push({icon:'download',title:'Создайте резервную копию',detail:last ? 'Последняя копия старше 30 дней.' : 'Данные хранятся только в этом браузере; резервная копия ещё не создавалась.'});
@@ -49,9 +60,14 @@ const App = (() => {
       ${visible.length ? visible.map(x => `<div class="financial-check-item"><span class="fc-icon">${x.icon === 'download' ? '↓' : x.icon === 'clock' ? '◷' : x.icon === 'plus-circle' ? '+' : '!'}</span><div><b>${Utils.escapeHtml(x.title)}</b><small>${Utils.escapeHtml(x.detail)}</small></div></div>`).join('') : '<div class="financial-check-ok">Критичных замечаний по основным данным не обнаружено.</div>'}
       ${issues.length > 3 ? `<small class="financial-check-more">И ещё ${issues.length - 3} замечаний.</small>` : ''}
       ${days > 30 ? '<button class="btn small" id="financialBackupBtn" type="button">Создать резервную копию</button>' : ''}
+      ${quoteProblems.length ? '<button class="btn small" id="financialRefreshQuotesBtn" type="button">⟳ Повторить обновление цен</button>' : ''}
     `;
     const backupButton = $('financialBackupBtn');
     if (backupButton) backupButton.onclick = exportData;
+    const refreshQuotesButton = $('financialRefreshQuotesBtn');
+    if (refreshQuotesButton) refreshQuotesButton.onclick = () => {
+      if (typeof window.__REFRESH_MARKET__ === 'function') window.__REFRESH_MARKET__();
+    };
   }
 
   function deleteSelected(){
@@ -372,11 +388,26 @@ ${rows}
         $('tabCashback').classList.toggle('active', isCb);
         $('addBtn').hidden = isCb;
         $('cbBanksBtn').hidden = !isCb;
+        document.querySelectorAll('[data-mobile-nav]').forEach(button => {
+          const active = button.dataset.mobileNav === (isCb ? 'cashback' : 'overview');
+          button.classList.toggle('active', active);
+          if (active) button.setAttribute('aria-current','page');
+          else button.removeAttribute('aria-current');
+        });
         if (isCb){ if (window.Cashback) window.Cashback.render(); }
         else App.refresh();
       };
       $('tabMain').onclick = () => switchMode('main');
       $('tabCashback').onclick = () => switchMode('cashback');
+      document.querySelectorAll('[data-mobile-nav]').forEach(button => {
+        button.onclick = () => {
+          const target = button.dataset.mobileNav;
+          if (target === 'cashback') { switchMode('cashback'); window.scrollTo({top:0,behavior:'smooth'}); return; }
+          switchMode('main');
+          const destination = target === 'portfolio' ? $('portfolioSection') : $('stats');
+          destination?.scrollIntoView({behavior:'smooth',block:'start'});
+        };
+      });
       switchMode(localStorage.getItem('fin_mode') === 'cashback' ? 'cashback' : 'main');
     }
     if (window.Cashback && typeof window.Cashback.init === 'function') window.Cashback.init();
@@ -433,6 +464,7 @@ ${rows}
       })().finally(() => { marketRefreshPromise = null; });
       return marketRefreshPromise;
     };
+    window.__REFRESH_MARKET__ = refreshMarketData;
     refreshMarketData();
     window.addEventListener('online', refreshMarketData);
     setInterval(() => {
