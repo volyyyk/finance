@@ -437,8 +437,11 @@ html[data-theme="dark"] .goal-fill{background:linear-gradient(90deg,#2f7a52,#5fd
   overflow:hidden;text-overflow:clip;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .asset-name-track{display:inline-block;max-width:100%;overflow:hidden;text-overflow:clip;white-space:nowrap;vertical-align:bottom}
 .ai-name .asset-name-track{flex:0 1 auto;min-width:0}
-.asset-name-track.is-overflowing{animation:asset-name-marquee var(--asset-duration,12s) ease-in-out infinite alternate}
-@keyframes asset-name-marquee{0%,10%{transform:translateX(0)}90%,100%{transform:translateX(var(--asset-shift,0px))}}
+.asset-name-track.is-overflowing{overflow:hidden}
+.asset-name-marquee{display:flex;width:max-content;white-space:nowrap;will-change:transform}
+.asset-name-track.is-overflowing .asset-name-marquee{animation:asset-name-marquee var(--asset-duration,12s) linear infinite}
+.asset-name-marquee>span{display:block;flex:none;padding-right:32px}
+@keyframes asset-name-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 .asset-detail-title{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;width:100%;max-width:100%;overflow:hidden}
 .asset-detail-title .asset-name-track{display:block;flex:1 0 100%;width:100%;min-width:0}
 .asset-detail-actions{display:flex;align-items:center;justify-content:flex-start;gap:6px;flex-wrap:wrap;width:100%;margin-top:8px}
