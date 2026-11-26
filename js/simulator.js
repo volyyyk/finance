@@ -417,7 +417,14 @@ const Simulator = (() => {
     return results;
   }
 
-  return { simulateProduct, simulateAll, portfolioValue, annualCouponForAsset };
+  function annualNet(product){
+    const result = simulateAll(12);
+    const history = result[product.id]?.history || [];
+    const year = history[12];
+    return year ? (year.cumIncome || 0) - (year.cumExpense || 0) : 0;
+  }
+
+  return { simulateProduct, simulateAll, portfolioValue, annualCouponForAsset, annualNet };
 })();
 
 const Stats = (() => {
