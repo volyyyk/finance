@@ -274,7 +274,7 @@ ${rows}
         const description = parsed.legacy
           ? 'Это старая копия только со списком продуктов. Остальные разделы текущего приложения сохранятся.'
           : `Будут заменены все данные приложения: ${parsed.products.length} продуктов, кешбэк, словари и сохранённые результаты.`;
-        if (!confirm(`Импорт резервной копии?\\n\\n${description}\\n\\nРекомендуется сначала скачать текущую копию.`)) return;
+        if (!confirm(`Импорт резервной копии?\n\n${description}\n\nРекомендуется сначала скачать текущую копию.`)) return;
         const count = Backup.restore(parsed);
         refresh();
         updateBackupStatus();
