@@ -187,6 +187,8 @@ const ProductList = (() => {
         el.querySelectorAll('.product-row').forEach(row => {
           const match = !q || (row.dataset.search || '').includes(q);
           row.hidden = !match;
+          const card = row.closest('.product-card');
+          if (card) card.hidden = !match;
           if (match) visible++;
         });
         el.querySelectorAll('.product-group,.product-archive').forEach(group => {
