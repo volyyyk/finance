@@ -920,12 +920,13 @@ const ProductEditor = (() => {
   }
 
   function assetDisplayName(asset){
-    // SECNAME — полное человекочитаемое название; SHORTNAME часто содержит
-    // технические биржевые сокращения вроде «ETF AKGD», поэтому оно вторично.
     const official = Utils.officialAssetName(asset);
     const full = asset?.fullname && asset.fullname !== asset.secid ? asset.fullname : '';
     const short = asset?.shortname && asset.shortname !== asset.secid ? asset.shortname : '';
-    return String(asset?.customName || official || full || short || asset?.secid || 'Актив').trim();
+    // Для облигаций SHORTNAME обычно содержит уникальный выпуск/эмитента,
+    // тогда как SECNAME/ISSUENAME может быть общим техническим описанием.
+    const sourceName = asset?.kind === 'bond' ? (short || full) : (full || short);
+    return String(asset?.customName || official || sourceName || asset?.secid || 'Актив').trim();
   }
 
   // Отдельная запись актива: вся подробная информация (как раньше)
@@ -1073,17 +1074,31 @@ const ProductEditor = (() => {
     });
     el.querySelectorAll('.asset-name-track').forEach(track=>{
       track.setAttribute('tabindex', '0');
-      track.setAttribute('aria-label', track.textContent.trim());
+      const label = track.textContent.trim();
+      track.setAttribute('aria-label', label);
+      track.dataset.marqueeText = label;
       const measure = () => {
+        const text = track.dataset.marqueeText || label;
+        let marquee = track.querySelector('.asset-name-marquee');
+        if (!marquee){
+          marquee = document.createElement('span');
+          marquee.className = 'asset-name-marquee';
+          for (let i = 0; i < 2; i++){
+            const copy = document.createElement('span');
+            copy.textContent = text;
+            marquee.appendChild(copy);
+          }
+          track.replaceChildren(marquee);
+        }
+        const firstCopy = marquee.firstElementChild;
         const available = track.clientWidth || track.parentElement?.clientWidth || 0;
-        const overflow = Math.max(0, track.scrollWidth - available);
-        if (overflow > 8){
+        const textWidth = firstCopy?.scrollWidth || 0;
+        if (textWidth > available + 8){
           track.classList.add('is-overflowing');
-          track.style.setProperty('--asset-shift', (-overflow) + 'px');
-          track.style.setProperty('--asset-duration', Math.max(9, overflow / 10) + 's');
+          track.style.setProperty('--asset-duration', Math.max(10, (textWidth + 32) / 24) + 's');
         } else {
           track.classList.remove('is-overflowing');
-          track.style.removeProperty('--asset-shift');
+          track.textContent = text;
           track.style.removeProperty('--asset-duration');
         }
       };
