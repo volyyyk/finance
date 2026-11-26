@@ -574,6 +574,7 @@ test('annualizeTrend uses the observed period and never projects a loss below -1
   assert.ok(Math.abs(yearly - 10) < 1e-9);
   assert.equal(MoexAPI.annualizeTrend(100, 0, 1), -100);
   assert.equal(MoexAPI.annualizeTrend(0, 100, 1), null);
+  assert.equal(MoexAPI.annualizeTrend(100, null, 1), null);
 });
 
 
