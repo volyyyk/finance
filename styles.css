@@ -1,6 +1,6 @@
 :root{
   --bg:#f4f6fa; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
-  --green:#15803d; --red:#b91c1c; --blue:#2563eb;
+  --green:#15803d; --red:#b91c1c; --blue:#234e78;
   --chart-grid:#e2e8f0; --chart-text:#94a3b8; --input:#ffffff;
   color-scheme:light;
 }
@@ -9,7 +9,7 @@
    выпадающие списки, скроллбары) тёмными без белых пятен. */
 html[data-theme="dark"]{
   --bg:#0b1424; --card:#121e33; --text:#e6ecf5; --muted:#93a6c4; --border:#243654;
-  --green:#5fd38a; --red:#f08c8c; --blue:#7aa5f8;
+  --green:#5fd38a; --red:#f08c8c; --blue:#91bce6;
   --chart-grid:#243654; --chart-text:#93a6c4;
   --input:#1a2a47;
   color-scheme:dark;
@@ -1321,4 +1321,63 @@ main{gap:16px}
   .dashboard-fold>summary{min-height:44px}
   .dashboard-fold .grid-2{grid-template-columns:1fr;gap:12px}
   .dashboard-fold .charts-row{grid-template-columns:1fr;gap:12px}
+}
+
+/* FinApp — restrained navy and cool silver */
+:root{--blue:#234e78;--blue-soft:rgba(35,78,120,.09);--silver:#8d9bad}
+html[data-theme="dark"]{--blue:#91bce6;--blue-soft:rgba(145,188,230,.12);--silver:#aebdce}
+.brand-wordmark{display:flex;align-items:baseline;gap:0;font-size:21px!important;font-weight:760;letter-spacing:-.055em}
+.brand-fin{color:var(--blue)}
+.brand-app{background:linear-gradient(115deg,#aab6c4 0%,#718399 48%,#c4ccd5 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-theme="dark"] .brand-app{background:linear-gradient(115deg,#c3ceda,#8799ae 55%,#d9e0e8);-webkit-background-clip:text;background-clip:text}
+.ui-icon{display:inline-block;vertical-align:middle;flex:0 0 auto}
+.btn .ui-icon{margin-right:5px}
+.header-add .ui-icon{margin-right:5px}
+.pg-icon .ui-icon,.prod-icon .ui-icon,.event-icon .ui-icon,.wizard-type-icon .ui-icon{display:block}
+.summary-icon,.cb-summary-icon{width:30px;height:30px;display:inline-grid;place-items:center;border-radius:9px;background:var(--blue-soft);color:var(--blue);flex:0 0 auto}
+.dashboard-fold{background:transparent;border:0;border-radius:0;padding:0;overflow:visible}
+.dashboard-fold>summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;
+  min-height:58px;padding:9px 16px;background:var(--card);
+  border:1px solid var(--border);border-radius:15px;color:var(--text);
+  font-size:13px;font-weight:650;box-shadow:0 2px 10px rgba(15,35,60,.035);
+  transition:border-color .18s,background .18s,border-radius .18s
+}
+.dashboard-fold>summary::-webkit-details-marker{display:none}
+.dashboard-fold>summary::marker{content:""}
+.dashboard-fold>summary::after{content:none!important}
+.dashboard-fold>summary:hover{border-color:color-mix(in srgb,var(--blue) 32%,var(--border))}
+.dashboard-fold .fold-icon{width:34px;height:34px;border-radius:11px;background:var(--blue-soft);color:var(--blue);display:grid;place-items:center;flex:0 0 auto}
+.dashboard-fold .fold-title{flex:1;min-width:0}
+.dashboard-fold .fold-chevron{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--muted);background:var(--bg);transition:transform .2s}
+.dashboard-fold[open]>summary{border-radius:15px 15px 12px 12px}
+.dashboard-fold[open] .fold-chevron{transform:rotate(180deg)}
+.dashboard-fold[open]>.grid-2,.dashboard-fold[open]>.charts-row,.dashboard-fold[open]>section{margin:12px 0 0}
+.dashboard-fold>.charts-row{padding:0;background:transparent;border:0}
+.dashboard-fold .chart-card{border-radius:14px;box-shadow:0 2px 10px rgba(15,35,60,.035)}
+.dashboard-fold>.forecast-card{padding:16px;border-radius:14px}
+.product-archive>summary{display:flex;align-items:center;gap:8px}
+.product-archive .summary-icon{width:26px;height:26px}
+.cb-accordion>summary{display:flex;align-items:center;gap:10px}
+.cb-accordion>summary::after{margin-left:auto}
+.cb-summary-icon{width:30px;height:30px}
+.prod-icon,.event-icon,.wizard-type-icon{color:var(--blue)}
+.header-add{display:inline-flex;align-items:center;justify-content:center;gap:2px}
+/* On phones the bottom bar replaces the old top tabs. */
+@media(max-width:700px){
+  header{min-height:56px;padding:7px 12px;gap:8px;flex-wrap:nowrap;justify-content:flex-end}
+  header h1,#saveStatus,.mode-tabs{display:none!important}
+  .header-actions{width:100%;display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:nowrap}
+  .header-actions .settings{order:2}
+  .header-actions #addBtn{order:1;min-height:38px;padding:7px 13px;border-radius:11px;font-size:12px}
+  .header-actions #cbBanksBtn{display:none!important}
+  .header-actions .settings>summary{width:38px;height:38px;min-height:38px;padding:0;display:grid;place-items:center;border-radius:11px}
+  .header-actions .settings>summary svg{display:block}
+  .header-actions .settings-panel{right:0;left:auto;max-width:min(92vw,360px);max-height:75vh;overflow:auto}
+  .dashboard-fold>summary{min-height:54px;padding:8px 12px}
+  .dashboard-fold .fold-icon{width:32px;height:32px}
+  .dashboard-fold>.charts-row{display:grid;grid-template-columns:1fr;gap:10px}
+  .dashboard-fold .chart-card{padding:12px}
+  .dashboard-fold[open]>.grid-2,.dashboard-fold[open]>.charts-row,.dashboard-fold[open]>section{margin-top:10px}
+  .mobile-bottom-nav{padding:6px 14px calc(6px + env(safe-area-inset-bottom))}
 }

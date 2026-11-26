@@ -39,7 +39,7 @@ const Events = (() => {
       if (p.endDate){
         const d = parseDate(p.endDate);
         if (d && d >= today){
-          list.push({ date:d, product:p, icon:'🏁',
+          list.push({ date:d, product:p, icon:'flag',
             title:`Окончание: ${p.name}`,
             // Возврат тела вклада при завершении — не доход (деньги просто
             // возвращаются на баланс), поэтому без знака и подсветки.
@@ -51,7 +51,7 @@ const Events = (() => {
       if (p.type === 'credit_card' && p.gracePeriodEndDate){
         const d = parseDate(p.gracePeriodEndDate);
         if (d && d >= today){
-          list.push({ date:d, product:p, icon:'⏳',
+          list.push({ date:d, product:p, icon:'clock',
             title:`Льготный период: ${p.name}`, direction:'out', amount: p.amount });
         }
       }
@@ -62,7 +62,7 @@ const Events = (() => {
         if (op.frequency === 'once'){
           const d = parseDate(op.date);
           if (d && d >= today){
-            list.push({ date:d, product:p, icon: op.direction==='in'?'⬇️':'⬆️',
+            list.push({ date:d, product:p, icon: op.direction==='in'?'arrow-down-left':'arrow-up-right',
               title:`${opTitle}: ${p.name}`,
               amount:op.amount, direction:op.direction });
           }
@@ -77,14 +77,14 @@ const Events = (() => {
       });
       if (p.type === 'expense') {
         const d = nextOccurrence(p.startDate || Utils.dateKey(today), 'monthly');
-        if (d) list.push({date:d, product:p, icon:'↗', direction:'out', title:`Расход: ${p.name}`, amount:p.amount});
+        if (d) list.push({date:d, product:p, icon:'arrow-up-right', direction:'out', title:`Расход: ${p.name}`, amount:p.amount});
       }
       if (p.type === 'investment') {
         for (const a of p.assets || []) {
           if (a.kind !== 'bond' || a.redeemed) continue;
           for (const pay of Bonds.payments(a)) {
             if (pay.type !== 'principal' || pay.date < Utils.dateKey(today) || a.paidEvents?.[pay.key]) continue;
-            list.push({date:parseDate(pay.date), product:p, icon:'↙', direction:'in', title:`Погашение: ${a.shortname || a.secid}`, amount:pay.value == null ? null : pay.value * a.qty});
+            list.push({date:parseDate(pay.date), product:p, icon:'arrow-down-left', direction:'in', title:`Погашение: ${a.shortname || a.secid}`, amount:pay.value == null ? null : pay.value * a.qty});
           }
         }
       }
@@ -160,7 +160,7 @@ const ProductList = (() => {
         }, 0);
         html += `<details class="product-group">
           <summary>
-            <span class="pg-icon">${t.icon}</span>
+            <span class="pg-icon">${Utils.iconSvg(t.icon,18)}</span>
             <span class="pg-name">${t.label}</span>
             <span class="pg-count">${items.length} шт.</span>
             <span class="pg-sum">${t.liability ? 'долг ' : ''}${fmtMoney(Math.abs(sum))}</span>
@@ -173,7 +173,7 @@ const ProductList = (() => {
     }
     if (archived.length){
       html += `<details class="product-archive">
-        <summary>🗄 Архив · ${archived.length}</summary>
+        <summary><span class="summary-icon">${Utils.iconSvg('archive',16)}</span>Архив · ${archived.length}</summary>
         <div class="pg-body">${archived.map(rowHtml).join('')}</div>
       </details>`;
     }
@@ -209,7 +209,7 @@ const ProductList = (() => {
         b.textContent = '…';
         await refreshProductPrices(b.dataset.refresh);
         b.disabled = false;
-        b.textContent = '⟳';
+        b.innerHTML = Utils.iconSvg('refresh',15);
       };
     });
     el.querySelectorAll('[data-details]').forEach(b=>{
@@ -279,18 +279,18 @@ const ProductList = (() => {
 
         if (ev) subParts.push('след.: '+fmtDate(ev));
         else subParts.push('нет событий');
-        if (chainCount) subParts.push(`⚙ ${chainCount} действ.`);
+        if (chainCount) subParts.push(`${chainCount} действий`);
 
         const searchText = [p.name, t.label, p.comment || ''].join(' ').toLocaleLowerCase('ru');
         return `<div class="product-card">
           <div class="product-row" data-search="${escapeHtml(searchText)}">
             <input type="checkbox" data-id="${p.id}" ${selected.has(p.id)?'checked':''}>
-            <div class="prod-icon">${t.icon}</div>
+            <div class="prod-icon">${Utils.iconSvg(t.icon,18)}</div>
             <div class="prod-main">
               <div class="prod-name">${escapeHtml(p.name)}
                 <span class="badge">${t.label}</span>
                 ${opsCount?`<span class="badge">${opsCount} оп.</span>`:''}
-                ${assetsCount?`<span class="badge">📊 ${assetsCount}</span>`:''}
+                ${assetsCount?`<span class="badge">${Utils.iconSvg('chart',12)} ${assetsCount}</span>`:''}
               </div>
               <button class="prod-details-toggle" type="button" data-details="${p.id}" aria-expanded="false">Подробнее ⌄</button>
             </div>
@@ -300,7 +300,7 @@ const ProductList = (() => {
                 ${sign}${fmtMoney(annual)}/год</div>
             </div>
             ${isInvest ? `<button class="btn small" data-refresh="${p.id}"
-                            aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">⟳</button>` : ''}
+                            aria-label="Обновить цены с MOEX" title="Обновить цены с MOEX">${Utils.iconSvg('refresh',15)}</button>` : ''}
             <button class="btn small" data-edit="${p.id}">Открыть</button>
           </div>
           <div class="product-extra" hidden><div class="prod-sub">${subParts.join(' · ')}</div></div>
@@ -409,7 +409,7 @@ const SinceVisit = (() => {
 
     const rows = items.map(i => `
       <div class="event ${i.direction === 'in' ? 'event-in' : 'event-out'}">
-        <div class="event-icon">${i.direction === 'in' ? '⬇️' : '⬆️'}</div>
+        <div class="event-icon">${Utils.iconSvg(i.direction === 'in' ? 'arrow-down-left' : 'arrow-up-right',17)}</div>
         <div class="event-body">
           <div class="event-title">${escapeHtml(i.title)}</div>
           <div class="event-meta">${fmtDate(i.date)}</div>
@@ -454,7 +454,7 @@ const GoalBar = (() => {
 
   // Примерный срок до цели по текущему чистому темпу в месяц
   function etaText(net, goal, netMonthly){
-    if (net >= goal) return '🎉 цель достигнута';
+    if (net >= goal) return 'Цель достигнута';
     if (!(netMonthly > 0)) return '≈ —';
     const months = Math.ceil((goal - net) / netMonthly);
     if (months > 1200) return '≈ —';
@@ -491,7 +491,7 @@ const GoalBar = (() => {
     if (!card) return;
     const g = load();
     const btn = $('createGoalBtn');
-    if (btn) btn.textContent = g ? '🎯 Изменить цель' : '🎯 Создать цель';
+    if (btn) btn.textContent = g ? 'Изменить цель' : 'Создать цель';
     if (!g){ card.hidden = true; card.innerHTML = ''; return; }
     const s = Stats.aggregate();
     const net = s.net;  // активы минус долги
@@ -499,10 +499,10 @@ const GoalBar = (() => {
     card.hidden = false;
     card.innerHTML = `
       <div class="goal-top">
-        <span class="goal-title">🎯 ${g.name ? escapeHtml(g.name) + ' · ' : ''}${fmtMoney(g.amount)}</span>
+        <span class="goal-title">${Utils.iconSvg('target',17)} ${g.name ? escapeHtml(g.name) + ' · ' : ''}${fmtMoney(g.amount)}</span>
         <span class="goal-eta">${etaText(net, g.amount, s.netMonthly)}</span>
         <span class="goal-actions">
-          <button class="op-del" id="goalEdit" title="Изменить цель">✎</button>
+          <button class="op-del" id="goalEdit" title="Изменить цель">${Utils.iconSvg('pencil',14)}</button>
           <button class="op-del" id="goalDel" title="Удалить цель">×</button>
         </span>
       </div>
@@ -571,7 +571,7 @@ const Dashboard = (() => {
       const days = Math.round((e.date - now)/86400000);
       const dtxt = days===0?'сегодня':days===1?'завтра':`через ${days} дн.`;
       return `<div class="event clickable ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}" data-evprod="${e.product ? e.product.id : ''}">
-        <div class="event-icon">${e.icon}</div>
+        <div class="event-icon">${Utils.iconSvg(e.icon,17)}</div>
         <div class="event-body">
           <div class="event-title">${escapeHtml(e.title)}</div>
           <div class="event-meta">${fmtDate(e.date)} · ${dtxt}</div>
@@ -651,7 +651,7 @@ const Dashboard = (() => {
     if (!evs.length){ panel.hidden = true; panel.innerHTML = ''; return; }
     const rows = evs.map(e=>`
       <div class="event ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}" data-evprod="${e.product ? e.product.id : ''}">
-        <div class="event-icon">${e.icon}</div>
+        <div class="event-icon">${Utils.iconSvg(e.icon,17)}</div>
         <div class="event-body">
           <div class="event-title">${escapeHtml(e.title)}</div>
           <div class="event-meta">${fmtDate(e.date)}</div>
@@ -659,7 +659,7 @@ const Dashboard = (() => {
         <div class="event-amount">${e.amount ? (e.direction === 'out' ? '−' : e.direction === 'in' ? '+' : '') + fmtMoney(e.amount) : ''}</div>
       </div>`).join('');
     panel.hidden = false;
-    panel.innerHTML = `<div class="cal-day-title">📅 ${fmtDate(key)}</div>` + rows;
+    panel.innerHTML = `<div class="cal-day-title">${Utils.iconSvg('calendar',15)} ${fmtDate(key)}</div>` + rows;
     panel.querySelectorAll('[data-evprod]').forEach(row=>{
       row.onclick = () => {
         const id = row.dataset.evprod;

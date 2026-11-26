@@ -55,7 +55,7 @@ const ProductEditor = (() => {
       typeSel.innerHTML = '';
       Object.entries(Config.TYPES).forEach(([k,v])=>{
         const o = document.createElement('option');
-        o.value = k; o.textContent = v.icon + ' ' + v.label;
+        o.value = k; o.textContent = v.label;
         typeSel.appendChild(o);
       });
       typeSel.addEventListener('change', updateVisibility);
@@ -286,7 +286,7 @@ const ProductEditor = (() => {
     };
     wizard.querySelector('#wizardTypeGrid').innerHTML = Object.entries(Config.TYPES).map(([key,t]) =>
       `<button type="button" class="wizard-type-card" data-wiz-type="${key}">
-        <span class="wizard-type-icon">${t.icon}</span><b>${t.label}</b>
+        <span class="wizard-type-icon">${Utils.iconSvg(t.icon,20)}</span><b>${t.label}</b>
         <small>${key==='deposit'?'Сбережения и проценты':key==='investment'?'Брокерский счёт и активы':key==='debit_card'?'Деньги на карте или счёте':key==='credit_card'?'Лимит и задолженность':key==='loan'?'Кредит и выплаты':key==='apartment'?'Стоимость и аренда':'Регулярные платежи'}</small>
       </button>`).join('');
     wizard.querySelectorAll('[data-wiz-type]').forEach(btn => btn.onclick = () => {
@@ -537,7 +537,7 @@ const ProductEditor = (() => {
       return;
     }
     el.innerHTML = draftOps.map(op=>{
-      const sign = op.direction === 'in' ? '⬇️ Пополнить' : '⬆️ Снять';
+      const sign = op.direction === 'in' ? `${Utils.iconSvg('arrow-down-left',14)} Пополнить` : `${Utils.iconSvg('arrow-up-right',14)} Снять`;
       const cls  = op.direction === 'in' ? 'in' : 'out';
       const fLabel = Config.FREQUENCIES[op.frequency]?.label || op.frequency;
       const endTxt = op.endDate ? ` до ${fmtDate(op.endDate)}` : '';
@@ -601,9 +601,9 @@ const ProductEditor = (() => {
           <input type="date" data-act-end="${i}" value="${a.newEndDate ?? ''}">
         </div>`;
       }
-      const label = a.type === 'close' ? '🏁 Закрыть'
+      const label = a.type === 'close' ? 'Закрыть'
                   : a.type === 'transfer' ? '↔ Перевести'
-                  : '✎ Изменить условия';
+                  : 'Изменить условия';
       return `<div class="op-row" style="flex-wrap:wrap">
         <div class="op-body" style="flex:1;min-width:180px">
           <div><b>${i+1}.</b> ${label}</div>
@@ -854,7 +854,7 @@ const ProductEditor = (() => {
             .reduce((x,c) => x + (c.value || 0) * (a.qty || 0), 0), 0)
         : 0;
       extra = nextDate
-        ? `<span class="ag-extra${closesThatDay ? ' red' : ''}">📅 ${fmtDate(nextDate)} · ${fmtMoney(couponSum)}${closesThatDay ? ' · погашение в этот день' : ''}</span>`
+        ? `<span class="ag-extra${closesThatDay ? ' red' : ''}">${Utils.iconSvg('calendar',13)} ${fmtDate(nextDate)} · ${fmtMoney(couponSum)}${closesThatDay ? ' · погашение в этот день' : ''}</span>`
         : grp.every(a => a.redeemed) ? '<span class="ag-extra">погашена</span>' : '';
     } else if (kind === 'fund'){
       const pct = grp.map(a => a.sixMonthPct).find(p => p != null && Number.isFinite(p));
