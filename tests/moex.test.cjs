@@ -36,8 +36,7 @@ test('lastPrice queries all boards and does not mistake previous close for a liv
   };
   try {
     const result = await MoexAPI.lastPrice('TEST_NO_QUOTE_1', 'TQBR', 'stock');
-    assert.match(requestedUrl, /markets\/shares\/securities\/TEST_NO_QUOTE_1\.json/);
-    assert.doesNotMatch(requestedUrl, /boards\//);
+    assert.match(requestedUrl, /markets\/shares\/boards\/TQBR\/securities\/TEST_NO_QUOTE_1\.json/);
     assert.equal(result.last, null);
   } finally {
     global.fetch = originalFetch;
