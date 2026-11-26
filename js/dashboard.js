@@ -226,7 +226,8 @@ const ProductList = (() => {
         const isApartment = p.type === 'apartment';
 
         const value = isInvest ? Simulator.portfolioValue(p) : (p.amount || 0);
-        const annual = Simulator.annualNet(p);\n        const sign = (t.liability || isExpense) ? '−' : '+';
+        const annual = Simulator.annualNet(p);
+        const sign = (t.liability || isExpense) ? '−' : '+';
 
         const ev = nextEventFor(p);
         const opsCount = (p.operations||[]).length;
