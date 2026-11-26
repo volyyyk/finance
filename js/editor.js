@@ -76,7 +76,14 @@ const ProductEditor = (() => {
     if ($('f_end')) $('f_end').addEventListener('change', updateVisibility);
     if ($('op_dir')) $('op_dir').addEventListener('change', updateDebtRowVisibility);
     if ($('addOpBtn')) $('addOpBtn').addEventListener('click', addOperation);
-    if ($('addEndActionBtn')) $('addEndActionBtn').addEventListener('click', addEndAction);
+    if ($('addEndActionBtn')) $('addEndActionBtn').addEventListener('click', () => {
+      const picker = $('endActionPicker');
+      if (picker) picker.hidden = !picker.hidden;
+    });
+    if ($('endActionPicker')) $('endActionPicker').addEventListener('click', e => {
+      const tile = e.target.closest('[data-end-action]');
+      if (tile) addEndAction(tile.dataset.endAction);
+    });
     if ($('searchAssetBtn')) $('searchAssetBtn').addEventListener('click', searchAsset);
     if ($('addAssetBtn')) $('addAssetBtn').addEventListener('click', addAssetFromPending);
     if ($('showAssetAddBtn')) $('showAssetAddBtn').addEventListener('click', () => {
@@ -183,7 +190,27 @@ const ProductEditor = (() => {
         <label>Действия при окончании (по порядку)</label>
         <div id="endActionsList"></div>
         <button type="button" class="btn small" id="addEndActionBtn"
-                style="margin-top:6px">+ Добавить действие</button>`;
+                style="margin-top:6px">＋ Добавить действие</button>
+        <div class="end-action-picker" id="endActionPicker" hidden>
+          <div class="end-action-picker-title">Что сделать после окончания?</div>
+          <div class="end-action-tiles">
+            <button type="button" class="end-action-tile" data-end-action="close">
+              <span class="end-action-icon">${Utils.iconSvg('archive',22)}</span>
+              <b>Закрыть продукт</b>
+              <small>Завершить и освободить средства</small>
+            </button>
+            <button type="button" class="end-action-tile" data-end-action="transfer">
+              <span class="end-action-icon">${Utils.iconSvg('workflow',22)}</span>
+              <b>Перевести средства</b>
+              <small>Перенести на другой продукт</small>
+            </button>
+            <button type="button" class="end-action-tile" data-end-action="change">
+              <span class="end-action-icon">${Utils.iconSvg('settings',22)}</span>
+              <b>Изменить условия</b>
+              <small>Задать новую ставку и срок</small>
+            </button>
+          </div>
+        </div>`;
     }
 
     if (!$('investmentBlock')) {
@@ -733,19 +760,14 @@ const ProductEditor = (() => {
     });
   }
 
-  function addEndAction(){
-    const choice = prompt(
-      'Тип действия:\n1 — Закрыть\n2 — Перевести на продукт\n3 — Изменить условия',
-      '1'
-    );
-    if (!choice) return;
-    const map = {'1':'close','2':'transfer','3':'change'};
-    const type = map[choice];
-    if (!type) return;
+  function addEndAction(type){
+    if (!['close','transfer','change'].includes(type)) return;
     const act = { type };
     if (type === 'transfer') act.targetId = '';
     if (type === 'change'){ act.newRate = null; act.newEndDate = null; }
     draftEndActions.push(act);
+    const picker = $('endActionPicker');
+    if (picker) picker.hidden = true;
     renderEndActions();
   }
 
