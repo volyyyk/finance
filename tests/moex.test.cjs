@@ -471,3 +471,19 @@ test('security search preserves and normalizes ISIN for safe identity matching',
     assert.equal(rows[0].isin,'RU000A1014L8');
   } finally { global.fetch=originalFetch; }
 });
+
+
+test('getProxyUrl uses the shared Cloudflare Worker by default and respects a valid user override', () => {
+  const originalStorage = global.localStorage;
+  try {
+    global.localStorage = { getItem: () => null };
+    assert.equal(MoexAPI.getProxyUrl(), 'https://autumn-mouse-2e3f.kudrin-dim11.workers.dev');
+    global.localStorage = { getItem: () => 'https://custom-worker.example' };
+    assert.equal(MoexAPI.getProxyUrl(), 'https://custom-worker.example');
+    global.localStorage = { getItem: () => 'http://insecure.example' };
+    assert.equal(MoexAPI.getProxyUrl(), 'https://autumn-mouse-2e3f.kudrin-dim11.workers.dev');
+  } finally {
+    if (originalStorage === undefined) delete global.localStorage;
+    else global.localStorage = originalStorage;
+  }
+});
