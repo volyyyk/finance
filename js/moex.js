@@ -163,16 +163,33 @@ const MoexAPI = (() => {
   }
 
   async function searchSecurity(q){
-    const url = `${ISS}/securities.json?q=${encodeURIComponent(q)}&iss.meta=off&limit=15`;
+    const query = String(q || '').trim();
+    if (!query) return [];
+    const url = `${ISS}/securities.json?q=${encodeURIComponent(query)}&iss.meta=off&limit=50`;
     const json = await fetchJSON(url);
-    return requireRows(json, 'securities').map(row => ({
-      ...row,
-      secid: row.secid ?? row.SECID,
-      shortname: row.shortname ?? row.SHORTNAME ?? row.name ?? row.NAME ?? row.secid ?? row.SECID,
-      type: row.type ?? row.TYPE ?? '',
-      primary_boardid: row.primary_boardid ?? row.PRIMARY_BOARDID ?? row.primary_board ?? '',
-      isin: String(row.isin ?? row.ISIN ?? row.isin_code ?? row.ISINCODE ?? '').trim().toUpperCase()
-    }));
+    const rows = requireRows(json, 'securities').map(row => {
+      const secid = row.secid ?? row.SECID ?? '';
+      const shortname = row.shortname ?? row.SHORTNAME ?? row.name ?? row.NAME ?? secid;
+      const fullname = row.secname ?? row.SECNAME ?? row.fullname ?? row.FULLNAME ?? row.latinname ?? row.LATINNAME ?? '';
+      return {
+        ...row, secid, shortname, fullname,
+        type: row.type ?? row.TYPE ?? '',
+        primary_boardid: row.primary_boardid ?? row.PRIMARY_BOARDID ?? row.primary_board ?? '',
+        isin: String(row.isin ?? row.ISIN ?? row.isin_code ?? row.ISINCODE ?? '').trim().toUpperCase()
+      };
+    });
+    const normalize = value => String(value || '').toLocaleLowerCase('ru').replace(/[ё]/g,'е').replace(/[^a-zа-я0-9]/gi,'');
+    const needle = normalize(query);
+    const score = row => {
+      const ticker = normalize(row.secid), short = normalize(row.shortname), full = normalize(row.fullname), isin = normalize(row.isin);
+      if (ticker === needle || isin === needle) return 100;
+      if (short === needle || full === needle) return 90;
+      if (ticker.startsWith(needle)) return 80;
+      if (short.startsWith(needle) || full.startsWith(needle)) return 70;
+      if (ticker.includes(needle) || short.includes(needle) || full.includes(needle) || isin.includes(needle)) return 50;
+      return 0;
+    };
+    return rows.sort((a,b) => score(b)-score(a));
   }
 
   function parseBlock(block){
