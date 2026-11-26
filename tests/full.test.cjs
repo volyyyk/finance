@@ -1337,3 +1337,40 @@ test('Simulator: bond maturity converts the market premium/discount without coun
   assert.ok(Math.abs(year.value - 1000) < 1e-6, 'на погашении остаётся полученный номинал');
   assert.ok(Math.abs(year.cumIncome) < 1e-6, 'ценовая премия/дисконт компенсируется при погашении');
 });
+
+
+test('Bonds.settleProduct: погашение переносит номинал в свободные деньги и удаляет позицию', () => {
+  const { mods } = simMods([{
+    id:'redeem-bond', type:'investment', amount:100, operations:[],
+    assets:[{
+      id:'bond-1',kind:'bond',secid:'BOND',qty:2,lastPrice:700,priceUnit:'rub',nominal:1000,
+      accountingFrom:'2026-01-01',maturityDate:'2026-11-20',
+      coupons:[],amortizations:[],paidEvents:{}
+    }]
+  }]);
+  const p=mods.Storage.get('redeem-bond');
+  mods.Bonds.settleProduct(p,'2026-11-26');
+  assert.equal(p.amount,2100,'100 свободных + 2 × 1000 номинала');
+  assert.equal(p.assets.length,0,'погашенная облигация удалена из портфеля');
+  assert.equal(mods.Simulator.portfolioValue(p),2100,'в балансе нет двойного учёта облигации');
+});
+
+test('Bonds.payments: maturity pays remaining principal after partial amortization', () => {
+  const { mods } = simMods([]);
+  const pays=mods.Bonds.payments({
+    kind:'bond',nominal:1000,accountingFrom:'2026-01-01',maturityDate:'2026-12-01',
+    coupons:[],amortizations:[{date:'2026-06-01',value:300},{date:'2026-12-01',value:200}]
+  });
+  const maturity=pays.find(p=>p.date==='2026-12-01' && p.type==='principal');
+  assert.equal(maturity.value,700,'на погашении возвращается оставшийся номинал, а не только частичная амортизация');
+});
+
+test('MoexAPI.chooseMarketRow: primary board wins over a stale preferred board', () => {
+  const { api } = moexSandbox(async () => ({ok:true,json:async()=>({})}));
+  const chosen=api.chooseMarketRow([
+    {BOARDID:'TQTE',LAST:2,IS_PRIMARY:0},
+    {BOARDID:'TQTF',LAST:2.1,IS_PRIMARY:1}
+  ],'TQTE');
+  assert.equal(chosen.BOARDID,'TQTF');
+  assert.equal(chosen.LAST,2.1);
+});
