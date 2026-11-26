@@ -13,6 +13,45 @@ const App = (() => {
     Bonds.settleAll();
     Dashboard.renderAll();
     renderProducts();
+    renderFinancialCheck();
+    updateBackupStatus();
+  } 
+  function renderFinancialCheck(){
+    const card = $('financialCheck');
+    if (!card) return;
+    const issues = [];
+    const products = Storage.all();
+    if (!products.length) issues.push({icon:'plus-circle',title:'Добавьте первый продукт',detail:'Начните со счетов, вкладов или инвестиций.'});
+    products.forEach(p => {
+      if (!p || !p.id || !Config.TYPES[p.type] || !Number.isFinite(Number(p.amount))){
+        issues.push({icon:'alert-triangle',title:'Проверьте данные продукта',detail:'Обнаружена запись с неполными или некорректными основными данными.'});
+        return;
+      }
+      if (p.type === 'investment') (p.assets || []).forEach(a => {
+        if (a.redeemed || a.kind === 'bond') return;
+        const stamp = a.moexUpdatedAt || a.updatedAt;
+        const age = stamp ? (Date.now() - Date.parse(stamp)) / 86400000 : Infinity;
+        if (!Number.isFinite(age) || age > 30){
+          issues.push({icon:'clock',title:'Проверьте котировки портфеля',detail:`${a.shortname || a.secid || p.name}: цена не обновлялась более 30 дней или дата обновления неизвестна.`});
+        }
+      });
+    });
+    const last = Backup.lastExport();
+    const days = last ? (Date.now() - last.getTime()) / 86400000 : Infinity;
+    if (days > 30) issues.push({icon:'download',title:'Создайте резервную копию',detail:last ? 'Последняя копия старше 30 дней.' : 'Данные хранятся только в этом браузере; резервная копия ещё не создавалась.'});
+    const visible = issues.slice(0,3);
+    card.hidden = false;
+    card.innerHTML = `
+      <div class="financial-check-head">
+        <div><h2>Состояние финансов</h2><p>Автоматическая проверка данных и резервной копии</p></div>
+        <span class="financial-check-count ${issues.length ? 'needs-attention' : 'all-good'}">${issues.length ? `${issues.length} замеч.` : 'Всё в порядке'}</span>
+      </div>
+      ${visible.length ? visible.map(x => `<div class="financial-check-item"><span class="fc-icon">${x.icon === 'download' ? '↓' : x.icon === 'clock' ? '◷' : x.icon === 'plus-circle' ? '+' : '!'}</span><div><b>${Utils.escapeHtml(x.title)}</b><small>${Utils.escapeHtml(x.detail)}</small></div></div>`).join('') : '<div class="financial-check-ok">Критичных замечаний по основным данным не обнаружено.</div>'}
+      ${issues.length > 3 ? `<small class="financial-check-more">И ещё ${issues.length - 3} замечаний.</small>` : ''}
+      ${days > 30 ? '<button class="btn small" id="financialBackupBtn" type="button">Создать резервную копию</button>' : ''}
+    `;
+    const backupButton = $('financialBackupBtn');
+    if (backupButton) backupButton.onclick = exportData;
   }
 
   function deleteSelected(){
@@ -114,18 +153,33 @@ const App = (() => {
   }
 
   // ===== Экспорт / Импорт / Сброс =====
+  function updateBackupStatus(){
+    const el = $('backupStatus');
+    if (!el || typeof Backup === 'undefined') return;
+    const last = Backup.lastExport();
+    el.textContent = last
+      ? `Последняя копия: ${last.toLocaleString('ru-RU')}`
+      : 'Резервная копия ещё не создавалась';
+  }
+
   function exportData(){
-    const data = JSON.stringify(Storage.all(), null, 2);
-    const blob = new Blob([data], {type:'application/json;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0,10);
-    a.href = url;
-    a.download = `finance-backup-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const data = JSON.stringify(Backup.create(), null, 2);
+      const blob = new Blob([data], {type:'application/json;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0,10);
+      a.href = url;
+      a.download = `finance-backup-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      updateBackupStatus();
+      renderFinancialCheck();
+    } catch(error) {
+      alert('Не удалось создать резервную копию: ' + (error.message || error));
+    }
   }
 
   // ===== Экспорт в Excel (.xls на основе HTML-таблицы) =====
@@ -216,15 +270,20 @@ ${rows}
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const parsed = JSON.parse(e.target.result);
-        if (!Array.isArray(parsed)) throw new Error('Ожидался массив продуктов');
-        Storage.replaceAll(parsed);
+        const parsed = Backup.parse(e.target.result);
+        const description = parsed.legacy
+          ? 'Это старая копия только со списком продуктов. Остальные разделы текущего приложения сохранятся.'
+          : `Будут заменены все данные приложения: ${parsed.products.length} продуктов, кешбэк, словари и сохранённые результаты.`;
+        if (!confirm(`Импорт резервной копии?\\n\\n${description}\\n\\nРекомендуется сначала скачать текущую копию.`)) return;
+        const count = Backup.restore(parsed);
         refresh();
-        alert(`Импортировано ${parsed.length} продуктов`);
+        updateBackupStatus();
+        alert(`Восстановлено продуктов: ${count}`);
       } catch(err){
-        alert('Ошибка импорта: ' + err.message);
+        alert('Импорт отменён: ' + (err.message || err));
       }
     };
+    reader.onerror = () => alert('Не удалось прочитать файл резервной копии');
     reader.readAsText(file);
   }
 
@@ -234,8 +293,7 @@ ${rows}
     if (!confirm('Сброс к демо-данным (seed) — шаг 1 из 3\n\nВсе текущие данные будут удалены и заменены демо-примерами. Продолжить?')) return;
     if (!confirm('Сброс к демо-данным — шаг 2 из 3\n\nЕсли данные нужны, сначала сделайте экспорт (Настройки → Экспорт). Удалить всё и загрузить seed?')) return;
     if (!confirm('Сброс к демо-данным — шаг 3 из 3\n\nПоследнее предупреждение: заменить все данные демо-примерами?')) return;
-    Storage.clear();
-    localStorage.removeItem('fin_goal');
+    Backup.clear();
     if (!Storage.loadFromSeed()){
       alert('В data/seed.js нет данных (window.SEED_DATA пуст или отсутствует)');
     } else {
@@ -248,8 +306,7 @@ ${rows}
     if (!confirm('Полный сброс — шаг 1 из 3\n\nБудут удалены ВСЕ данные, включая цель. Продолжить?')) return;
     if (!confirm('Полный сброс — шаг 2 из 3\n\nЭто действие нельзя отменить. Если данные нужны, сначала сделайте экспорт. Удалить всё?')) return;
     if (!confirm('Полный сброс — шаг 3 из 3\n\nПоследнее предупреждение: удалить все данные без возможности восстановления?')) return;
-    localStorage.removeItem('fin_goal');
-    Storage.clear();
+    Backup.clear();
     refresh();
   }
 
