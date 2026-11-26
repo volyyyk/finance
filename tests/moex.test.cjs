@@ -62,3 +62,28 @@ test('lastPrice returns a current marketdata price and the actual selected board
     global.fetch = originalFetch;
   }
 });
+
+test('lastPrice retries a browser network/CORS failure through the public-data relay', async () => {
+  const originalFetch = global.fetch;
+  const requested = [];
+  global.fetch = async url => {
+    requested.push(String(url));
+    if (requested.length === 1) throw new TypeError('Failed to fetch');
+    return {
+      ok: true,
+      json: async () => ({
+        marketdata: { columns: ['BOARDID', 'LAST'], data: [['TQBR', 321.5]] },
+        securities: { columns: ['FACEVALUE'], data: [[1]] }
+      })
+    };
+  };
+  try {
+    const result = await MoexAPI.lastPrice('TEST_CORS_RELAY_1', 'TQBR', 'stock');
+    assert.equal(result.last, 321.5);
+    assert.equal(requested.length, 2);
+    assert.match(requested[0], /^https:\/\/iss\.moex\.com\/iss\//);
+    assert.match(requested[1], /^https:\/\/proxy\.cors\.dev\/https:\/\/iss\.moex\.com\/iss\//);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
