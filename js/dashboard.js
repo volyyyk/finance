@@ -651,7 +651,7 @@ const Dashboard = (() => {
     if (!evs.length){ panel.hidden = true; panel.innerHTML = ''; return; }
     const rows = evs.map(e=>`
       <div class="event ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}" data-evprod="${e.product ? e.product.id : ''}">
-        <div class="event-icon">${e.icon}</div>
+        <div class="event-icon">${Utils.iconSvg(e.icon,17)}</div>
         <div class="event-body">
           <div class="event-title">${escapeHtml(e.title)}</div>
           <div class="event-meta">${fmtDate(e.date)}</div>
