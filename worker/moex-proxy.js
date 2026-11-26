@@ -186,6 +186,53 @@ export default {
         return jsonResponse({error:'VIM asset debug failed',detail:String(error?.message||error).slice(0,200)},502);
       }
     }
+    if (incoming.pathname.startsWith('/vim-export-debug/')) {
+      if (request.method === 'OPTIONS') return new Response(null, { status:204, headers:CORS_HEADERS });
+      if (request.method !== 'GET') return jsonResponse({error:'Method not allowed'},405);
+      const fundId = incoming.pathname.split('/')[2];
+      const pages = {
+        '8000':'https://www.wealthim.ru/products/pif/opif/wimyao/',
+        '8002':'https://www.wealthim.ru/products/pif/opif/wimyo/'
+      };
+      const sourceUrl = pages[fundId];
+      if (!sourceUrl) return jsonResponse({error:'Unknown VIM fund'},404);
+      try {
+        const upstream = await fetch(sourceUrl,{headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'Mozilla/5.0 FinApp/1.0'}});
+        if (!upstream.ok) return jsonResponse({error:'VIM HTTP '+upstream.status},upstream.status);
+        const html = await upstream.text();
+        const clean = value => String(value||'').replace(/<script\\b[\\s\\S]*?<\\/script>/gi,' ')
+          .replace(/<style\\b[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ')
+          .replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"')
+          .replace(/&#39;|&apos;/gi,"'").replace(/\\s+/g,' ').trim();
+        const tagAttrs = tag => {
+          const attrs={};
+          for(const m of tag.matchAll(/([\\w:-]+)\\s*=\\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[m[1].toLowerCase()]=m[2]??m[3]??'';
+          return attrs;
+        };
+        const controls=[];
+        for(const m of html.matchAll(/<(a|button|input|form)\\b[^>]*>/gi)) {
+          const tag=m[0], attrs=tagAttrs(tag), at=m.index;
+          const tail=html.slice(at,Math.min(html.length,at+1600));
+          const textNear=clean(tail.slice(0,700));
+          if(/export|экспорт|xlsx|xls|показать|download|выгруз/i.test(tag+' '+textNear+' '+Object.values(attrs).join(' '))) {
+            controls.push({tagName:m[1].toLowerCase(),attributes:attrs,nearbyText:textNear.slice(0,320),html:html.slice(Math.max(0,at-240),Math.min(html.length,at+900))});
+          }
+        }
+        const contexts=[];
+        for(const token of ['Экспорт в html','Экспорт в xlsx','xlsx','download','export','Показать','fondTableModal','form-to-filter','date-choice','FOND_ID','37558764','37558766']) {
+          let at=-1,count=0;
+          while((at=html.toLowerCase().indexOf(token.toLowerCase(),at+1))>=0&&count<5) {
+            contexts.push({token,snippet:html.slice(Math.max(0,at-700),Math.min(html.length,at+1500))});
+            count++;
+          }
+        }
+        const forms=[...html.matchAll(/<form\\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0]),nearby:clean(html.slice(m.index,Math.min(html.length,m.index+3500))).slice(0,1200)})).slice(0,30);
+        const anchors=[...html.matchAll(/<a\\b[^>]*>/gi)].map(m=>({tag:m[0],attributes:tagAttrs(m[0])})).slice(0,200);
+        return jsonResponse({fundId,sourceUrl,pageStatus:upstream.status,htmlLength:html.length,forms,controls:controls.slice(0,80),anchors,contexts:contexts.slice(0,60)},200);
+      } catch(error) {
+        return jsonResponse({error:'VIM export diagnostics failed',detail:String(error?.message||error).slice(0,200)},502);
+      }
+    }
     if (incoming.pathname.startsWith('/vim/')) {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
       if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed' }, 405);
