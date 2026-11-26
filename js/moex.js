@@ -315,7 +315,7 @@ const MoexAPI = (() => {
       : await resolveMarkets(secid, board, kind);
     const visited = new Set();
     for (const market of markets){
-      const key = market.engine + '/' + market.market;
+      const key = market.engine + '/' + market.market + '/' + (market.board || board || '');
       if (visited.has(key)) continue;
       visited.add(key);
       const selectedBoard = market.board || board;
