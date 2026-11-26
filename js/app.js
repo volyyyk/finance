@@ -6,7 +6,7 @@ const App = (() => {
   const { $ } = Utils;
 
   function renderProducts(){
-    ProductList.render((id) => ProductEditor.open(id, App.refresh));
+    ProductList.render((id) => ProductEditor.open(id, App.refresh), (id) => ProductDetail.open(id, (productId) => { ProductDetail.close(); ProductEditor.open(productId, App.refresh); }));
   }
 
   function refresh(){
@@ -412,6 +412,7 @@ ${rows}
     }
 
     if (typeof ProductInsights !== 'undefined') ProductInsights.init();
+    if (typeof ProductDetail !== 'undefined') ProductDetail.init();
 
     // 3. Загружаем данные
     const firstRun = bootstrapData();
