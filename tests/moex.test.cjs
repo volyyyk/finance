@@ -573,3 +573,38 @@ test('annualizeTrend uses the observed period and never projects a loss below -1
   assert.equal(MoexAPI.annualizeTrend(100, 0, 1), -100);
   assert.equal(MoexAPI.annualizeTrend(0, 100, 1), null);
 });
+
+
+test('refreshSixMonth falls back to one-month history and stores annualized trend', async () => {
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : ['2026-05-31T12:00:00Z'])); }
+    static now() { return new Date('2026-05-31T12:00:00Z').getTime(); }
+  }
+  const requested=[];
+  const sandbox={
+    navigator:{onLine:true},AbortSignal,Map,Date:FixedDate,
+    fetch:async url=>{
+      const u=String(url);requested.push(u);
+      if(u.includes('/candles.json')){
+        const params=new URL(u).searchParams;
+        const oneMonth=params.get('from')==='2026-03-18'&&params.get('till')==='2026-04-01';
+        return {ok:true,json:async()=>({candles:{columns:['begin','close'],data:oneMonth?[['2026-04-01 00:00:00',100]]:[]}})};
+      }
+      if(u.includes('/boards.json'))return {ok:true,json:async()=>({boards:{columns:['engine'],data:[]}})};
+      return {ok:true,json:async()=>({
+        marketdata:{columns:['BOARDID','LAST'],data:[['TQTF',110]]},
+        securities:{columns:['FACEVALUE','FACEUNIT','SHORTNAME'],data:[[1,'RUB','Fund']]}
+      })};
+    }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync('js/moex.js','utf8')+'\nglobalThis.api=MoexAPI;',sandbox);
+  const fund={kind:'fund',secid:'TEST_FUND_ONE_MONTH',board:'TQTF'};
+  await sandbox.api.refreshSixMonth(fund);
+  assert.equal(fund.historyMonths,1);
+  assert.equal(fund.historyBase,100);
+  assert.equal(fund.historyAnnualPct,(Math.pow(1.1,12)-1)*100);
+  assert.equal(fund.sixMonthPct,10);
+  assert.equal(fund.yieldMonth,'2026-05');
+  assert.equal(requested.filter(x=>x.includes('/candles.json')).length,4);
+});
