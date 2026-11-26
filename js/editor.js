@@ -724,15 +724,17 @@ const ProductEditor = (() => {
           <input type="date" data-act-end="${i}" value="${a.newEndDate ?? ''}">
         </div>`;
       }
-      const label = a.type === 'close' ? 'Закрыть'
-                  : a.type === 'transfer' ? '↔ Перевести'
+      const label = a.type === 'close' ? 'Закрыть продукт'
+                  : a.type === 'transfer' ? 'Перевести средства'
                   : 'Изменить условия';
-      return `<div class="op-row" style="flex-wrap:wrap">
+      const icon = a.type === 'close' ? 'archive'
+                 : a.type === 'transfer' ? 'workflow' : 'settings';
+      return `<div class="op-row end-action-row" style="flex-wrap:wrap">
         <div class="op-body" style="flex:1;min-width:180px">
-          <div><b>${i+1}.</b> ${label}</div>
+          <div class="end-action-row-title"><span class="end-action-row-icon">${Utils.iconSvg(icon,17)}</span><b>${label}</b></div>
           ${body}
         </div>
-        <button type="button" class="op-del" data-act-del="${i}">×</button>
+        <button type="button" class="op-del" data-act-del="${i}" aria-label="Удалить действие">×</button>
       </div>`;
     }).join('');
 
