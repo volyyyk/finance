@@ -87,17 +87,20 @@ export default {
         const assets = [...html.matchAll(/(?:src|href)=["']([^"']+\.(?:js|mjs)(?:\?[^"']*)?)["']/gi)].map(m=>m[1]).slice(0,100);
         const tables = [...html.matchAll(/<table\b[^>]*>/gi)].map(m=>m[0]).slice(0,20);
         const chartAt = html.indexOf('pif_bay-chart--wrapper');
-        const chartBlock = chartAt >= 0 ? html.slice(Math.max(0, chartAt - 1200), Math.min(html.length, chartAt + 14000)).replace(/\s+/g,' ') : null;
+        const chartBlock = chartAt >= 0 ? html.slice(Math.max(0, chartAt - 1200), Math.min(html.length, chartAt + 18000)).replace(/\s+/g,' ') : null;
         const formAt = html.indexOf('class="funds_list"');
-        const formBlock = formAt >= 0 ? html.slice(formAt, Math.min(html.length, formAt + 16000)).replace(/\s+/g,' ') : null;
-        const dataAttrs = [...html.matchAll(/\bdata-[\w:-]+=["'][^"']*["']/gi)].map(m=>m[0]).slice(0,100);
-        const endpoints = [...new Set((html.match(/[^"'\s<>]*(?:ajax|api|chart|quote|history|download)[^"'\s<>]*/gi)||[]).filter(x=>x.length<500))].slice(0,100);
+        const formBlock = formAt >= 0 ? html.slice(formAt, Math.min(html.length, formAt + 30000)).replace(/\s+/g,' ') : null;
+        const htmlTail = html.slice(Math.max(0, html.length - 18000)).replace(/\s+/g,' ');
+        const formTags = [...html.matchAll(/<(?:form|input|select|option|button|a)\b[^>]*>/gi)].map(m=>m[0]).filter(tag=>/funds_list|period|date|fond|export|download|xlsx|html|ajax|chart|submit/i.test(tag)).slice(0,240);
+        const resourceRefs = [...new Set([...html.matchAll(/(?:src|href|action)=["']([^"']+)["']/gi)].map(m=>m[1]).filter(x=>/\.(?:js|mjs|css)(?:[?#]|$)|ajax|api|chart|quote|history|download|export|xlsx/i.test(x)))].slice(0,160);
+        const dataAttrs = [...html.matchAll(/\bdata-[\w:-]+=["'][^"']*["']/gi)].map(m=>m[0]).slice(0,160);
+        const endpoints = [...new Set((html.match(/[^"'\s<>]*(?:ajax|api|chart|quote|history|download|export|xlsx)[^"'\s<>]*/gi)||[]).filter(x=>x.length<500))].slice(0,160);
         const keywordContexts = [];
-        for (const token of ['date-choice','form-to-filter','period','fondTableModal','chartBlock','ajax']) {
+        for (const token of ['date-choice','form-to-filter','period','fondTableModal','chartBlock','ajax','DATE_ACTIVE_FROM','SHARE_COST','GRAPH','FOND_ID','QUOTES_IBLOCK','Экспорт в xlsx','download.php']) {
           const at = html.toLowerCase().indexOf(token.toLowerCase());
-          if (at >= 0) keywordContexts.push({token,snippet:html.slice(Math.max(0,at-300),Math.min(html.length,at+1800)).replace(/\s+/g,' ')});
+          if (at >= 0) keywordContexts.push({token,snippet:html.slice(Math.max(0,at-450),Math.min(html.length,at+2600)).replace(/\s+/g,' ')});
         }
-        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,scripts,assets,scriptTags,tables,dataAttrs,endpoints,chartBlock,formBlock,keywordContexts,contexts:contexts.slice(0,24)},200);
+        return jsonResponse({sourceUrl,htmlLength:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||null,scripts,assets,scriptTags,tables,dataAttrs,endpoints,resourceRefs,formTags,chartBlock,formBlock,htmlTail,keywordContexts,contexts:contexts.slice(0,30)},200);
       } catch(error) {
         return jsonResponse({error:'VIM debug request failed',detail:String(error?.message||error).slice(0,200)},502);
       }
