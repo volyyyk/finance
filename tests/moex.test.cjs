@@ -379,6 +379,7 @@ test('legacy VTBL is identified as closed-end RSHL and is not requested as a liv
     assert.equal(asset.secid,'RSHL');
     assert.equal(asset.legacySecid,'VTBL');
     assert.equal(asset.moexInactive,true);
+    assert.equal(asset.yieldMonth,MoexAPI.monthKey());
     assert.equal(asset.lastPrice,undefined);
     assert.equal(asset.avgPrice,2,'цена покупки остаётся доступной для оценки позиции');
     assert.equal(calls,0);
