@@ -94,28 +94,52 @@ const Bonds = (() => {
       .map(c => ({ ...c, type:'coupon', key:`coupon:${c.date}` }));
     const amortizations = (a.amortizations || []).filter(c => c.date >= start)
       .map(c => ({ ...c, type:'principal', key:`principal:${c.date}` }));
-    if (a.maturityDate && a.maturityDate >= start && !amortizations.some(c => c.date === a.maturityDate)) {
-      const earlier = amortizations.filter(c => c.date < a.maturityDate).reduce((s,c) => s + (c.value || 0), 0);
-      amortizations.push({ date:a.maturityDate, value:Math.max(0, (a.nominal || 0) - earlier), type:'principal', key:`principal:${a.maturityDate}` });
+    if (a.maturityDate && a.maturityDate >= start && a.nominal > 0) {
+      const earlier = amortizations.filter(c => c.date < a.maturityDate)
+        .reduce((s,c) => s + (c.value || 0), 0);
+      const remaining = Math.max(0, a.nominal - earlier);
+      const atMaturity = amortizations.find(c => c.date === a.maturityDate);
+      if (atMaturity) atMaturity.value = remaining;
+      else if (remaining > 0) amortizations.push({
+        date:a.maturityDate, value:remaining, type:'principal', key:`principal:${a.maturityDate}`
+      });
     }
     return [...coupons, ...amortizations].sort((a,b) => a.date.localeCompare(b.date));
   }
   function settleProduct(p, date = today(), list){
     let changed = false;
     if (p.type === 'investment') {
-      for (const a of p.assets || []) {
+      for (const a of [...(p.assets || [])]) {
         if (a.kind !== 'bond') continue;
         if (!a.accountingFrom) { a.accountingFrom = date; changed = true; }
         a.paidEvents ||= {};
         for (const pay of payments(a)) {
-          if (pay.date > date || pay.value == null || !Number.isFinite(pay.value) || pay.value < 0 || a.paidEvents[pay.key]) continue;
+          if (pay.date > date || pay.value == null || !Number.isFinite(pay.value) || pay.value < 0) continue;
           const amount = money(pay.value * (a.qty || 0));
+          const alreadyPaid = a.paidEvents[pay.key];
+          if (alreadyPaid){
+            // Миграция старых записей: ранее на дату погашения могла быть
+            // учтена только частичная амортизация, а остаток номинала терялся.
+            const paidAmount = Math.max(0, Number(alreadyPaid.amount) || 0);
+            if (pay.type === 'principal' && pay.date === a.maturityDate && paidAmount < amount){
+              const difference = money(amount - paidAmount);
+              p.amount = money((p.amount || 0) + difference);
+              a.paidEvents[pay.key] = {
+                date:pay.date, amount, type:pay.type, reconciled:true
+              };
+              changed = true;
+            }
+            continue;
+          }
           p.amount = money((p.amount || 0) + amount);
           a.paidEvents[pay.key] = { date:pay.date, amount, type:pay.type };
           changed = true;
         }
-        if (a.maturityDate && a.maturityDate <= date && a.paidEvents[`principal:${a.maturityDate}`] && !a.redeemed) {
-          a.redeemed = true; changed = true;
+        if (a.maturityDate && a.maturityDate <= date && a.paidEvents[`principal:${a.maturityDate}`]) {
+          // Сохраняем отметку для совместимости, но убираем позицию из портфеля.
+          a.redeemed = true;
+          p.assets = (p.assets || []).filter(item => item.id !== a.id);
+          changed = true;
         }
       }
     }

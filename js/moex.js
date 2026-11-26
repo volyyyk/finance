@@ -202,39 +202,84 @@ const MoexAPI = (() => {
     );
     if (!usable.length) return null;
     return usable.find(row => row.BOARDID === preferredBoard)
-      || usable.find(row => row.IS_PRIMARY === 1 || row.IS_PRIMARY === true)
+      || usable.find(row => Number(row.IS_PRIMARY) === 1)
       || usable[0];
   }
 
-  async function resolveMarket(secid, preferredBoard, kind){
+  async function resolveMarkets(secid, preferredBoard, kind){
     const fallback = kind === 'metal'
-      ? { engine:'currency', market:'selt', board:preferredBoard || 'CETS' }
-      : { engine:'stock', market:kind === 'bond' ? 'bonds' : 'shares', board:preferredBoard || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR') };
+      ? [{ engine:'currency', market:'selt', board:preferredBoard || 'CETS' }]
+      : [{ engine:'stock', market:kind === 'bond' ? 'bonds' : 'shares',
+          board:preferredBoard || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR') }];
     if (kind !== 'fund') return fallback;
     try {
       const json = await fetchJSON(`${ISS}/securities/${encodeURIComponent(secid)}/boards.json?iss.meta=off`, 5000);
       const available = requireRows(json, 'boards').filter(row =>
         row.engine && row.market && row.boardid && Number(row.is_traded ?? 1) !== 0
       );
-      const selected = available.find(row => row.boardid === preferredBoard)
-        || available.find(row => row.is_primary === 1 || row.is_primary === true)
-        || available[0];
-      if (selected) return { engine:selected.engine, market:selected.market, board:selected.boardid };
+      available.sort((a,b) => Number(b.is_primary === 1 || b.is_primary === true)
+        - Number(a.is_primary === 1 || a.is_primary === true));
+      const ordered = [
+        ...available.filter(row => row.is_primary === 1 || row.is_primary === true),
+        ...available.filter(row => row.boardid === preferredBoard && !(row.is_primary === 1 || row.is_primary === true)),
+        ...available.filter(row => row.boardid !== preferredBoard && !(row.is_primary === 1 || row.is_primary === true))
+      ];
+      const unique = [];
+      for (const row of ordered){
+        if (!unique.some(x => x.engine === row.engine && x.market === row.market && x.board === row.boardid))
+          unique.push({ engine:row.engine, market:row.market, board:row.boardid });
+      }
+      if (unique.length) return unique;
     } catch (error) {
-      // If board metadata is unavailable, retain the conventional market route.
       console.warn('MOEX board discovery failed for ' + secid, error);
     }
     return fallback;
+  }
+  async function resolveMarket(secid, preferredBoard, kind){
+    return (await resolveMarkets(secid, preferredBoard, kind))[0];
   }
 
   async function lastPrice(secid, board, kind){
     return cached(`price:${kind}:${board || ''}:${secid}`, CACHE_TTL, async () => {
       const bond = kind === 'bond';
-      const market = await resolveMarket(secid, board, kind);
-      const url = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
-      const json = await fetchJSON(url, kind === 'fund' ? 25000 : 30000);
-      const md = chooseMarketRow(requireRows(json, 'marketdata'), market.board);
-      const security = requireRows(json, 'securities')[0] || {};
+      const markets = await resolveMarkets(secid, board, kind);
+      let selected = null, security = {};
+      if (kind !== 'fund'){
+        // Stable, known route for shares, bonds and metals.
+        const market = markets[0];
+        const url = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
+        const json = await fetchJSON(url, 30000);
+        const md = chooseMarketRow(requireRows(json, 'marketdata'), market.board);
+        security = requireRows(json, 'securities')[0] || {};
+        if (md) selected = { md, market };
+      } else {
+        // Funds may have multiple boards (e.g. TQTE and TQTF). Query market
+        // level first, then choose a board that actually has a live quote.
+        const visitedMarkets = new Set();
+        for (const market of markets){
+          const marketKey = market.engine + '/' + market.market;
+          if (visitedMarkets.has(marketKey)) continue;
+          visitedMarkets.add(marketKey);
+          const base = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}`;
+          try {
+            const json = await fetchJSON(`${base}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`, 12000);
+            const md = chooseMarketRow(requireRows(json, 'marketdata'), board);
+            security = requireRows(json, 'securities')[0] || security;
+            if (md){ selected = { md, market }; break; }
+          } catch (error) {
+            console.warn('MOEX market quote lookup failed for ' + secid, error);
+          }
+        }
+        if (!selected){
+          const market = markets[0];
+          const url = `${ISS}/engines/${encodeURIComponent(market.engine)}/markets/${encodeURIComponent(market.market)}/boards/${encodeURIComponent(market.board)}/securities/${encodeURIComponent(secid)}.json?iss.meta=off`;
+          const json = await fetchJSON(url, 8000);
+          const md = chooseMarketRow(requireRows(json, 'marketdata'), market.board);
+          security = requireRows(json, 'securities')[0] || security;
+          if (md) selected = { md, market };
+        }
+      }
+      const md = selected?.md || null;
       // PREVPRICE/PREVLEGALCLOSEPRICE — прошлое закрытие, не текущая цена.
       const quoted = md
         ? [md.LAST, md.LCURRENTPRICE, md.MARKETPRICE, md.WAPRICE]
@@ -248,7 +293,7 @@ const MoexAPI = (() => {
         accruedInterest: number(security.ACCRUEDINT),
         maturityDate: security.MATDATE || null,
         currency: security.FACEUNIT || 'RUB',
-        board: md?.BOARDID || market.board || board || null,
+        board: md?.BOARDID || selected?.market?.board || board || null,
         quoteTime: md?.SYSTIME || md?.UPDATETIME || md?.TIME || null,
         updatedAt: last != null ? new Date().toISOString() : null,
       };
@@ -403,6 +448,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;

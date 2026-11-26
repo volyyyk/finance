@@ -307,7 +307,8 @@ test('resolveMarket uses the instrument primary board instead of assuming TQBR/T
     assert.deepEqual(market,{engine:'stock',market:'shares',board:'TQTF'});
     const quote = await MoexAPI.lastPrice('VTBL','TQBR','fund');
     assert.equal(quote.last,123.45);
-    assert.ok(requested.some(url=>url.includes('/boards/TQTF/securities/VTBL.json')));
+    assert.ok(requested.some(url=>url.includes('/markets/shares/securities/VTBL.json')),
+      'фонд запрашивается на уровне рынка, чтобы выбрать режим с действующей котировкой');
   } finally { global.fetch=originalFetch; }
 });
 
