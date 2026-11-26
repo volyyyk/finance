@@ -916,7 +916,7 @@ test('GoalBar: достигнутая цель, отсутствие темпа 
   sb.localStorage.removeItem('fin_goal');
   mods.GoalBar.render();
   assert.equal(sb.document.getElementById('goalCard').hidden, true);
-  assert.equal(sb.document.getElementById('createGoalBtn').textContent, '🎯 Создать цель');
+  assert.equal(sb.document.getElementById('createGoalBtn').textContent, 'Создать цель');
 });
 
 test('GoalBar.createOrEdit: имя и сумма из двух prompt сохраняются и рисуются', () => {
