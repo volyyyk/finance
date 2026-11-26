@@ -8,65 +8,90 @@ const MoexAPI = (() => {
   const CACHE_TTL = 10 * 60 * 1000;
   const cache = new Map();
 
+  function normalizeProxyUrl(value){
+    if (!value) return '';
+    try {
+      const url = new URL(String(value).trim());
+      if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || (url.pathname !== '/' && url.pathname !== '')) return '';
+      return url.origin;
+    } catch { return ''; }
+  }
+
+  function getProxyUrl(){
+    try { return normalizeProxyUrl(localStorage.getItem('moex_proxy_url') || ''); }
+    catch { return ''; }
+  }
+
+  async function requestJSON(target, ms){
+    const signal = AbortSignal.timeout(ms);
+    const timedOut = new Promise((_, reject) => {
+      signal.addEventListener('abort', () => {
+        const error = new Error('Тайм-аут запроса (' + Math.round(ms / 1000) + ' с)');
+        error.code = 'ETIMEDOUT';
+        reject(error);
+      }, { once: true });
+    });
+    return Promise.race([
+      (async () => {
+        const res = await fetch(target, {
+          headers: { 'Accept': 'application/json' },
+          signal,
+          cache: 'no-store',
+          credentials: 'omit'
+        });
+        if (!res.ok) {
+          const error = new Error('HTTP ' + res.status);
+          error.status = res.status;
+          throw error;
+        }
+        return await res.json();
+      })(),
+      timedOut
+    ]);
+  }
+
   async function fetchJSON(url, timeout = 12000){
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Нет подключения к интернету');
     const isMoex = url.startsWith(ISS + '/');
-    const request = async (target, ms) => {
-      const signal = AbortSignal.timeout(ms);
-      const timedOut = new Promise((_, reject) => {
-        signal.addEventListener('abort', () => {
-          const error = new Error('Тайм-аут запроса (' + Math.round(ms / 1000) + ' с)');
-          error.code = 'ETIMEDOUT';
-          reject(error);
-        }, { once: true });
-      });
-      return Promise.race([
-        (async () => {
-          const res = await fetch(target, {
-            headers: { 'Accept': 'application/json' },
-            signal,
-            cache: 'no-store',
-            credentials: 'omit'
-          });
-          if (!res.ok) {
-            const error = new Error('HTTP ' + res.status);
-            error.status = res.status;
-            throw error;
-          }
-          return await res.json();
-        })(),
-        timedOut
-      ]);
-    };
-    try {
-      return await request(url, timeout);
-    } catch (directError) {
-      // GitHub Pages is static and cannot provide its own same-origin proxy.
-      // Retry only public MOEX GETs, and only for browser/network failures or
-      // upstream 5xx. No balances, quantities or account data are transmitted.
-      const networkFailure = directError instanceof TypeError
-        || directError?.code === 'ETIMEDOUT'
-        || directError?.name === 'AbortError'
-        || directError?.name === 'TimeoutError'
-        || /failed to fetch|networkerror|load failed|тайм-аут|timed out/i.test(String(directError?.message || directError));
-      const temporaryFailure = Number(directError?.status) >= 500;
-      if (!isMoex || (!networkFailure && !temporaryFailure)) throw directError;
-      const relays = [
-        { name: 'cors.dev', url: 'https://proxy.cors.dev/' + url },
-        { name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) }
-      ];
-      const failures = [];
-      for (const relay of relays){
-        try {
-          return await request(relay.url, Math.max(timeout, 10000));
-        } catch (error) {
-          failures.push(relay.name + ': ' + String(error?.message || error).slice(0, 90));
-        }
+    if (!isMoex) return requestJSON(url, timeout);
+
+    // При наличии личного Worker сначала идём через него: серверный fetch
+    // устраняет зависимость от CORS на стороне MOEX. Прокси получает только
+    // публичный URL ISS, никогда не данные портфеля или количество бумаг.
+    const proxy = getProxyUrl();
+    const targets = [];
+    if (proxy) targets.push({ name: 'Cloudflare Worker', url: proxy + url.slice(ISS.length) });
+    targets.push({ name: 'MOEX ISS', url });
+    targets.push({ name: 'cors.dev', url: 'https://proxy.cors.dev/' + url });
+    targets.push({ name: 'AllOrigins', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) });
+
+    const failures = [];
+    for (let i = 0; i < targets.length; i++){
+      const target = targets[i];
+      try {
+        return await requestJSON(target.url, Math.max(timeout, target.name === 'MOEX ISS' ? timeout : 10000));
+      } catch (error) {
+        failures.push(target.name + ': ' + String(error?.message || error).slice(0, 90));
+        const retryable = error instanceof TypeError
+          || error?.code === 'ETIMEDOUT'
+          || error?.name === 'AbortError'
+          || error?.name === 'TimeoutError'
+          || Number(error?.status) === 429
+          || Number(error?.status) >= 500
+          || /failed to fetch|networkerror|load failed|тайм-аут|timed out/i.test(String(error?.message || error));
+        if (!retryable) throw error;
       }
-      throw new Error('MOEX: прямой запрос не прошёл (' +
-        String(directError?.message || directError).slice(0, 70) +
-        '); резервные каналы недоступны (' + failures.join('; ') + ')');
     }
+    throw new Error('Не удалось получить данные MOEX: ' + failures.join('; '));
+  }
+
+  async function testProxy(value){
+    const proxy = normalizeProxyUrl(value);
+    if (!proxy) throw new Error('Укажите корректный HTTPS-адрес Cloudflare Worker без пути');
+    const data = await requestJSON(proxy + '/iss/engines/stock/markets/shares/securities/VTBR.json?iss.meta=off&iss.only=marketdata', 12000);
+    if (!data || !data.marketdata || !Array.isArray(data.marketdata.columns) || !Array.isArray(data.marketdata.data))
+      throw new Error('Worker ответил, но формат данных MOEX некорректен');
+    return { ok:true, rows:data.marketdata.data.length };
   }
 
   function cached(key, ttl, loader){
@@ -273,6 +298,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, monthKey, keyRate, chooseMarketRow, normalizeProxyUrl, getProxyUrl, testProxy };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
