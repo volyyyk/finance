@@ -94,16 +94,22 @@ const Bonds = (() => {
       .map(c => ({ ...c, type:'coupon', key:`coupon:${c.date}` }));
     const amortizations = (a.amortizations || []).filter(c => c.date >= start)
       .map(c => ({ ...c, type:'principal', key:`principal:${c.date}` }));
-    if (a.maturityDate && a.maturityDate >= start && !amortizations.some(c => c.date === a.maturityDate)) {
-      const earlier = amortizations.filter(c => c.date < a.maturityDate).reduce((s,c) => s + (c.value || 0), 0);
-      amortizations.push({ date:a.maturityDate, value:Math.max(0, (a.nominal || 0) - earlier), type:'principal', key:`principal:${a.maturityDate}` });
+    if (a.maturityDate && a.maturityDate >= start && a.nominal > 0) {
+      const earlier = amortizations.filter(c => c.date < a.maturityDate)
+        .reduce((s,c) => s + (c.value || 0), 0);
+      const remaining = Math.max(0, a.nominal - earlier);
+      const atMaturity = amortizations.find(c => c.date === a.maturityDate);
+      if (atMaturity) atMaturity.value = remaining;
+      else if (remaining > 0) amortizations.push({
+        date:a.maturityDate, value:remaining, type:'principal', key:`principal:${a.maturityDate}`
+      });
     }
     return [...coupons, ...amortizations].sort((a,b) => a.date.localeCompare(b.date));
   }
   function settleProduct(p, date = today(), list){
     let changed = false;
     if (p.type === 'investment') {
-      for (const a of p.assets || []) {
+      for (const a of [...(p.assets || [])]) {
         if (a.kind !== 'bond') continue;
         if (!a.accountingFrom) { a.accountingFrom = date; changed = true; }
         a.paidEvents ||= {};
@@ -114,8 +120,11 @@ const Bonds = (() => {
           a.paidEvents[pay.key] = { date:pay.date, amount, type:pay.type };
           changed = true;
         }
-        if (a.maturityDate && a.maturityDate <= date && a.paidEvents[`principal:${a.maturityDate}`] && !a.redeemed) {
-          a.redeemed = true; changed = true;
+        if (a.maturityDate && a.maturityDate <= date && a.paidEvents[`principal:${a.maturityDate}`]) {
+          // Погашенная позиция удаляется из портфеля; её номинал уже
+          // зачислен в p.amount как свободные деньги брокерского счёта.
+          p.assets = (p.assets || []).filter(item => item.id !== a.id);
+          changed = true;
         }
       }
     }
