@@ -262,6 +262,23 @@ const ISS = 'http://iss.moex.com/iss';
       }
     }
     if (!rows.length && settled.length && settled.every(s => s.status === 'rejected')){
+      // Сеть недоступна (телефон): ищем в снапшоте портфеля.
+      const snap = await snapshotQuotes().catch(() => null);
+      const snapRows = [];
+      if (snap && snap.quotes){
+        for (const [secid, q] of Object.entries(snap.quotes)){
+          if (q.last > 0 && (secid.toLowerCase().includes(query.toLowerCase()) ||
+              (q.shortname || '').toLowerCase().includes(query.toLowerCase()))){
+            snapRows.push({ secid, shortname: q.shortname || secid, fullname: q.shortname || secid,
+              type: q.kind === 'bond' ? 'bond' : q.kind === 'fund' ? 'fund_ppif' : q.kind === 'metal' ? 'metal' : 'share',
+              primary_boardid: q.board || '', isin: '' });
+          }
+        }
+      }
+      if (snapRows.length){
+        const norm = s => String(s || '').toLowerCase();
+        return snapRows.sort((a, b) => norm(b.shortname).indexOf(norm(query)) - norm(a.shortname).indexOf(norm(query)));
+      }
       throw settled[0].reason;
     }
     const mapped = rows.map(row => {
@@ -705,7 +722,7 @@ const ISS = 'http://iss.moex.com/iss';
     // с телефона, где ISS и прокси недоступны, это единственный канал.
     const snap = await snapshotQuotes().catch(() => null);
     const sq = snapshotEntry(asset, snap);
-    const snapTs = sq && sq.last > 0 ? Date.parse(sq.generatedAt || '') : NaN;
+    const snapTs = sq && sq.last > 0 ? Date.parse((snap && snap.generatedAt) || '') : NaN;
     const assetTs = Date.parse(asset.moexUpdatedAt || '');
     if (sq && sq.last > 0 && (!Number.isFinite(assetTs) || snapTs > assetTs)){
       asset.lastPrice = sq.last;

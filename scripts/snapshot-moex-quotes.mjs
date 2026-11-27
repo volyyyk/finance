@@ -39,7 +39,7 @@ async function lastPrice(secid, board, kind){
   const sec = s.data?.length ? Object.fromEntries(s.columns.map((c, x) => [c, s.data[0][x]])) : {};
   const nominal = Number(sec.FACEVALUE) || (kind === 'bond' ? 1000 : null);
   const last = best == null ? null : (kind === 'bond' && nominal ? best * nominal / 100 : best);
-  return { last, nominal: nominal || null };
+  return { last, nominal: nominal || null, shortname: String(sec.SHORTNAME || sec.SHORTNAME_RUS || secid) };
 }
 
 async function candleClose(secid, board, kind, dateFrom, dateTo){
@@ -77,7 +77,7 @@ for (const item of WL){
     if (cur == null && base == null){ quotes[secid] = { stale: true }; failed++; continue; }
     const hPct = base != null && cur != null ? (cur / base - 1) * 100 : null;
     quotes[secid] = {
-      last: cur, board, kind,
+      last: cur, board, kind, shortname: price.shortname,
       date: iso(now),
       historyMonths: months,
       historyBase: base,

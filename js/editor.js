@@ -877,6 +877,10 @@ const { $, uid, fmtDate, fmtMoney, escapeHtml } = Utils;
     </div></div>`).join('');
   }
 
+  function kindLabel(kind){
+    return ({stock:'Акции',bond:'Облигации',fund:'Фонды',metal:'Металлы'})[kind] || kind;
+  }
+
   async function searchAsset(){
     if (typeof MoexAPI === 'undefined') {
       alert(T('Модуль MoexAPI не загружен'));
@@ -954,10 +958,21 @@ const { $, uid, fmtDate, fmtMoney, escapeHtml } = Utils;
         '<div class="op-meta">' + escapeHtml(r.type) + ' · ' + escapeHtml(r.primary_boardid || '') +
         (r.isin ? ' · ' + escapeHtml(r.isin) : '') + '</div></div></div>'
       ).join('');
-      if (!html) html = '<div class="op-meta">Нет подходящих бумаг этого типа</div>';
+      if (!html){
+        // Ничего в текущем виде — предлагаем виды, где результаты есть.
+        const KINDS = [['stock','Акции'],['bond','Облигации'],['fund','Фонды'],['metal','Металлы']];
+        const found = KINDS.filter(([k]) => rows.some(r => typeMatches(r.type, k))).slice(0, 3);
+        html = found.length
+          ? '<div class="op-meta">В виде «' + kindLabel(kind) + '» ничего нет. Посмотреть в:</div>' +
+            found.map(([k, l]) => '<button type="button" class="btn small" data-suggest-kind="' + k + '" style="margin:0 4px 4px 0">' + l + '</button>').join('')
+          : '<div class="op-meta">Нет подходящих бумаг этого типа</div>';
+      }
       box.innerHTML = html;
       box.querySelectorAll('[data-pick]').forEach(row=>{
         row.onclick = () => pickAsset({...searchResults[Number(row.dataset.pick)],kind});
+      });
+      box.querySelectorAll('[data-suggest-kind]').forEach(btn=>{
+        btn.onclick = () => { $('assetKind').value = btn.dataset.suggestKind; searchAsset(); };
       });
       chooseSavedAsset(box,savedMatches,kind);
       bindLocalFunds();
