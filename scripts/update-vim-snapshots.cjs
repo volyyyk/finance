@@ -29,6 +29,13 @@ const FUND_NAMES = {
   '8002': 'Фонд рублёвых облигаций'
 };
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+// Запасной источник: агрегатор investfunds.ru хостится в России и публикует
+// ту же официальную стоимость пая; страница отдаёт последнюю точку
+// (дата в шапке сводной таблицы, строки «Пай» и «СЧА»).
+const INVF_FUNDS = {
+  '8000': 'https://investfunds.ru/funds/14179/',
+  '8002': 'https://investfunds.ru/funds/14183/'
+};
 
 // Обработчик /vim/<правила> берётся из воркера без изменений:
 // страница фонда, пагинация и разбор таблицы не дублируются.
@@ -78,21 +85,82 @@ function readSnapshot(file){
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
 
+// Официальный сайт закрывает запросы из-за рубежа (403 / урезанная страница),
+// поэтому из GitHub Actions история снимается с investfunds.ru: одна свежая
+// точка дописывается к уже сохранённой истории.
+function parseInvfPoint(html){
+  const widgetAt = html.indexOf('Динамика стоимости пая и СЧА');
+  const seg = widgetAt >= 0 ? html.slice(widgetAt, widgetAt + 60000) : html;
+  const dateMatch = seg.match(/<th class="[^"]*"><div class="js_t_w">(\d{2}\.\d{2}\.\d{4})<\/div><\/th>/);
+  const row = label => {
+    const m = seg.match(new RegExp('<td class="main">' + label + '</td>\\s*<td[^>]*>\\s*<div class="js_td_width"><b>([\\d\\s.,]+)</b>', 'u'));
+    if (!m) return null;
+    const n = Number(m[1].replace(/\s/g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  };
+  const date = dateMatch ? dateMatch[1].split('.').reverse().join('-') : null;
+  const price = row('Пай');
+  const nav = row('СЧА');
+  if (!DAY.test(date || '') || !(price > 0)) return null;
+  return { date, price, nav: nav > 0 ? nav : null };
+}
+
+async function fetchInvfPoint(id, fetchImpl){
+  const source = INVF_FUNDS[id];
+  if (!source) throw new Error('нет запасного источника для фонда ' + id);
+  const response = await fetchImpl(source, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+    }
+  });
+  if (!response.ok) throw new Error('investfunds вернул HTTP ' + response.status);
+  const html = await response.text();
+  const point = parseInvfPoint(html);
+  if (!point) throw new Error('investfunds не отдал стоимость пая');
+  return point;
+}
+
 const sameHistory = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 async function updateSnapshots({ dir = SNAPSHOT_DIR, fetchImpl = timedFetch } = {}){
   const worker = loadWorker(fetchImpl);
   const results = [];
   for (const [id, name] of Object.entries(FUND_NAMES)){
+    const file = path.join(dir, id + '.json');
     try {
-      const response = await worker.fetch(new Request('https://vim.local/vim/' + id));
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error +
-        (data.upstreamStatus ? ' (HTTP ' + data.upstreamStatus + ')' : '') +
-        (data.detail ? ' — ' + data.detail : ''));
-      const snapshot = normalize(data);
-      if (!isValid(snapshot)) throw new Error('сайт вернул ответ без истории стоимости пая');
-      const file = path.join(dir, id + '.json');
+      let snapshot, source;
+      try {
+        const response = await worker.fetch(new Request('https://vim.local/vim/' + id));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error +
+          (data.upstreamStatus ? ' (HTTP ' + data.upstreamStatus + ')' : '') +
+          (data.detail ? ' — ' + data.detail : ''));
+        snapshot = normalize(data);
+        if (!isValid(snapshot)) throw new Error('сайт вернул ответ без истории стоимости пая');
+        source = 'wealthim';
+      } catch (primaryError) {
+        // Официальный сайт недоступен (геоблок) — дописываем свежую точку
+        // из investfunds к сохранённой истории.
+        const point = await fetchInvfPoint(id, fetchImpl);
+        const stored = readSnapshot(file);
+        if (!stored || !Array.isArray(stored.history) || !stored.history.length){
+          throw new Error('снимка ещё нет, точку investfunds дописать некуда: ' + primaryError);
+        }
+        if (point.date <= stored.date){
+          results.push({ id, name, action: 'unchanged', date: stored.date, price: stored.price, source: 'investfunds', storedDate: stored.date });
+          continue;
+        }
+        stored.history.push(point);
+        stored.history.sort((a, b) => a.date.localeCompare(b.date));
+        stored.date = point.date;
+        stored.price = point.price;
+        stored.nav = point.nav;
+        stored.historyCount = stored.history.length;
+        stored.fetchedAt = new Date().toISOString();
+        snapshot = stored;
+        source = 'investfunds';
+      }
       const stored = readSnapshot(file);
       const action = !stored ? 'created'
         : stored.date > snapshot.date ? 'stale'
@@ -102,7 +170,7 @@ async function updateSnapshots({ dir = SNAPSHOT_DIR, fetchImpl = timedFetch } = 
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(file, serialize(snapshot));
       }
-      results.push({ id, name, action, date: snapshot.date, price: snapshot.price, storedDate: stored?.date ?? null });
+      results.push({ id, name, action, date: snapshot.date, price: snapshot.price, source, storedDate: stored?.date ?? null });
     } catch (error){
       results.push({ id, name, action: 'failed', error: String(error?.message || error) });
     }
@@ -126,4 +194,4 @@ if (require.main === module){
   });
 }
 
-module.exports = { updateSnapshots, normalize, isValid, serialize, FUND_NAMES };
+module.exports = { updateSnapshots, normalize, isValid, serialize, parseInvfPoint, FUND_NAMES };

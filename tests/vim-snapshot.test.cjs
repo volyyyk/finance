@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { updateSnapshots, normalize, isValid, serialize } = require('../scripts/update-vim-snapshots.cjs');
+const { updateSnapshots, normalize, isValid, serialize, parseInvfPoint } = require('../scripts/update-vim-snapshots.cjs');
 
 // Страницы официальной таблицы истории (как на wealthim.ru, по 20 строк,
 // здесь сокращены до двух точек). Страница 3 повторяет первую — обход
@@ -71,6 +71,74 @@ test('snapshot script: a failed fund is reported and keeps the stored snapshot',
   assert.equal(results[0].action, 'failed');
   assert.match(results[0].error, /HTTP 500/);
   assert.equal(fs.readFileSync(path.join(dir, '8000.json'), 'utf8'), storedBefore);
+});
+
+test('snapshot script: blocked site falls back to an investfunds point appended to stored history', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vim-snap-'));
+  // Стартовый снимок: история до 25.11
+  const seed = serialize(normalize({
+    fundId: '8002', source: 'https://www.wealthim.ru/products/pif/opif/wimyo/',
+    date: '2026-11-25', price: 102.63, nav: 268585833.38, historyCount: 2,
+    fetchedAt: '2026-11-26T10:00:00.000Z',
+    history: [
+      { date: '2026-11-24', price: 102.63, nav: 270228240.96 },
+      { date: '2026-11-25', price: 102.63, nav: 268585833.38 }
+    ]
+  }));
+  fs.writeFileSync(path.join(dir, '8002.json'), seed);
+  const invfHtml = `<html><div class="wdg_ttl"><h2>Динамика стоимости пая и СЧА</h2></div>
+    <table><thead><tr><th class="field_last_date"><div class="js_t_w">26.11.2026</div></th></tr></thead>
+    <tbody>
+      <tr class="field_fixed_0 rublast"><td class="main">Пай</td><td class="field_last_date main"><div class="js_td_width"><b>102.59</b></div></td></tr>
+      <tr class="field_fixed_1 rublast"><td class="main">СЧА</td><td class="field_last_date main"><div class="js_td_width"><b>269 481 230.76</b></div></td></tr>
+    </tbody></table></html>`;
+  const fetchImpl = async url => {
+    const u = String(url);
+    if (u.includes('wealthim')) return new Response('blocked', { status: 403 });
+    if (u.includes('investfunds')) return htmlResponse(invfHtml);
+    throw new Error('unexpected url ' + u);
+  };
+  const results = await updateSnapshots({ dir, fetchImpl });
+  const r = results.find(x => x.id === '8002');
+  assert.equal(r.action, 'updated');
+  assert.equal(r.source, 'investfunds');
+  const stored = JSON.parse(fs.readFileSync(path.join(dir, '8002.json'), 'utf8'));
+  assert.equal(stored.date, '2026-11-26');
+  assert.equal(stored.price, 102.59);
+  assert.equal(stored.history.length, 3, 'новая точка дописана к сохранённой истории');
+  assert.equal(stored.history[2].date, '2026-11-26');
+});
+
+test('snapshot script: an investfunds point older than the stored snapshot changes nothing', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vim-snap-'));
+  const seed = serialize(normalize({
+    fundId: '8000', source: 'https://www.wealthim.ru/products/pif/opif/wimyao/',
+    date: '2026-11-26', price: 103.77, nav: 607553805.14, historyCount: 1,
+    fetchedAt: '2026-11-27T10:00:00.000Z',
+    history: [{ date: '2026-11-26', price: 103.77, nav: 607553805.14 }]
+  }));
+  fs.writeFileSync(path.join(dir, '8000.json'), seed);
+  const invfHtml = `<html><h2>Динамика стоимости пая и СЧА</h2>
+    <table><thead><tr><th class="field_last_date"><div class="js_t_w">26.11.2026</div></th></tr></thead>
+    <tbody><tr><td class="main">Пай</td><td class="field_last_date main"><div class="js_td_width"><b>103.77</b></div></td></tr></tbody></table></html>`;
+  const fetchImpl = async url => String(url).includes('wealthim')
+    ? new Response('blocked', { status: 403 })
+    : htmlResponse(invfHtml);
+  const results = await updateSnapshots({ dir, fetchImpl });
+  const r = results.find(x => x.id === '8000');
+  assert.equal(r.action, 'unchanged', 'точка той же даты не дублируется');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, '8000.json'), 'utf8')).history.length, 1);
+});
+
+test('parseInvfPoint reads date, unit price and NAV from the investfunds summary table', () => {
+  const html = `<div class="wdg_ttl"><h2>Динамика стоимости пая и СЧА</h2></div>
+    <table><thead><tr><th class="field_last_date"><div class="js_t_w">26.11.2026</div></th></tr></thead>
+    <tbody>
+      <tr><td class="main">Пай</td><td class="field_last_date main"><div class="js_td_width"><b>102.59</b></div></td></tr>
+      <tr><td class="main">СЧА</td><td class="field_last_date main"><div class="js_td_width"><b>269 481 230.76</b></div></td></tr>
+    </tbody></table>`;
+  assert.deepEqual(parseInvfPoint(html), { date: '2026-11-26', price: 102.59, nav: 269481230.76 });
+  assert.equal(parseInvfPoint('<html>нет данных</html>'), null);
 });
 
 test('snapshot helpers: validation and one-point-per-line serialization', () => {
