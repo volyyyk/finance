@@ -19,7 +19,12 @@
 <header>
   <h1 class="brand-wordmark"><span class="brand-fin">Fin</span><span class="brand-app">App</span></h1>
   <div id="saveStatus" style="font-size:12px;color:var(--green);transition:opacity 0.3s;opacity:0;margin-left:15px;" data-i18n>✓ Сохранено</div>
-  <div class="header-actions">
+  <div class="lang-chips" role="group" aria-label="Язык">
+      <button type="button" class="chip" data-lang="ru">RU</button>
+      <button type="button" class="chip" data-lang="en">EN</button>
+      <button type="button" class="chip" data-lang="ar">ع</button>
+    </div>
+    <div class="header-actions">
     <div class="mode-tabs" role="tablist" aria-label="Режим приложения">
       <button class="tab active" id="tabMain" role="tab" data-i18n>Учёт</button>
       <button class="tab" id="tabCashback" role="tab" data-i18n>Кешбэк</button>
@@ -96,7 +101,8 @@
   <section class="stats" id="stats"></section>
   <section class="card financial-check" id="financialCheck" hidden aria-live="polite"></section>
   <section class="card goal-card" id="goalCard" hidden></section>
-  <section class="card welcome-card" id="welcomeCard" hidden aria-labelledby="welcomeTitle">
+  <div class="onboarding-overlay" id="onboardingOverlay">
+  <section class="card welcome-card" id="welcomeCard" aria-labelledby="welcomeTitle">
     <div class="welcome-visual" aria-hidden="true"><span>₽</span><i>✦</i></div>
     <div class="welcome-content">
       <span class="welcome-kicker" data-i18n>ВАШИ ФИНАНСЫ · ВАШИ ПРАВИЛА</span>
@@ -109,6 +115,7 @@
       <small data-i18n>Данные хранятся локально в этом браузере. Их можно экспортировать в настройках.</small>
     </div>
   </section>
+</div>
 
   <section class="card" id="portfolioSection">
     <div class="section-heading"><div><h2 data-i18n>Активы и обязательства</h2><p data-i18n>Все счета, вклады, долги и инвестиционные портфели</p></div><div class="section-heading-actions"><button class="btn small chart-toggle" id="portfolioChartBtn" aria-expanded="false" aria-controls="portfolioInsights" title="Структура портфеля по категориям" data-i18n-title><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></button><span class="section-kicker" data-i18n>МОЙ ПОРТФЕЛЬ</span></div></div>

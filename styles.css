@@ -1601,3 +1601,35 @@ html[data-theme="dark"] .cb-group.cb-l-high{border-left-color:#58bd8a}
   .btn,.product-group,.asset-group,.cb-group,.settings-panel{transition:none}
   .btn:active{transform:none}
 }
+
+
+/* ── Онбординг: полноэкранное приветствие ── */
+.onboarding-overlay{position:fixed;inset:0;z-index:300;display:none;
+  align-items:center;justify-content:center;padding:18px;
+  background:linear-gradient(165deg,var(--bg) 40%,color-mix(in srgb,var(--blue) 14%,var(--bg)))}
+.onboarding-overlay.show{display:flex}
+body.onboarding-lock{overflow:hidden}
+.onboarding-overlay .welcome-card{max-width:430px;width:100%;margin:0;
+  animation:onbIn .5s cubic-bezier(.2,.8,.2,1) both}
+.onboarding-overlay .welcome-visual span{display:inline-block;animation:pulse 2.8s ease-in-out infinite}
+@keyframes onbIn{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+
+/* ── Чипы языков в шапке ── */
+.lang-chips{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);
+  border-radius:9px;padding:2px}
+.lang-chips .chip{border:none;background:transparent;padding:4px 8px;border-radius:7px;
+  font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);font-family:inherit;
+  transition:background-color .2s ease,color .2s ease}
+.lang-chips .chip.active{background:var(--card);color:var(--text);
+  box-shadow:0 1px 3px rgba(15,23,42,.12)}
+
+/* ── Мягкое появление секций при загрузке ── */
+main > *{animation:sectionIn .35s ease both}
+main > section:nth-child(2){animation-delay:.05s}
+main > section:nth-child(3){animation-delay:.1s}
+@keyframes sectionIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .onboarding-overlay .welcome-card,.onboarding-overlay .welcome-visual span,main > *{animation:none}
+}

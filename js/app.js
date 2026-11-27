@@ -109,19 +109,24 @@ const { $ } = Utils;
   }
 
   function showFirstRun(){
-    const card = $('welcomeCard');
-    if (!card || localStorage.getItem('fin_onboarding_choice') !== 'pending') return;
-    card.hidden = false;
+    const overlay = $('onboardingOverlay');
+    if (!overlay || localStorage.getItem('fin_onboarding_choice') !== 'pending') return;
+    overlay.classList.add('show');
+    document.body.classList.add('onboarding-lock');
+    const close = () => {
+      overlay.classList.remove('show');
+      document.body.classList.remove('onboarding-lock');
+    };
     $('startBlankBtn').onclick = () => {
       localStorage.setItem('fin_onboarding_choice', 'blank');
-      card.hidden = true;
+      close();
       refresh();
     };
     $('startDemoBtn').onclick = () => {
       Storage.clear();
       if (Storage.loadFromSeed()) applySeedGoal();
       localStorage.setItem('fin_onboarding_choice', 'demo');
-      card.hidden = true;
+      close();
       refresh();
     };
   }
@@ -364,7 +369,7 @@ ${rows}
 
     // Язык интерфейса: русский / английский. Статическая разметка
     // перерисовывается словарём, динамическая — через refresh().
-    const langButtons = document.querySelectorAll('#langSwitch [data-lang]');
+    const langButtons = document.querySelectorAll('button[data-lang]');
     const syncLangButtons = () => langButtons.forEach(b =>
       b.classList.toggle('active', b.dataset.lang === I18n.lang));
     syncLangButtons();
