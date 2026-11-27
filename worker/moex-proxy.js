@@ -363,7 +363,7 @@ export default {
         const pointsByDate = new Map();
         let pagesFetched = 0;
         let firstPageLength = firstHtml.length;
-        while (queue.length && pagesFetched < 100) {
+        while (queue.length && pagesFetched < 35) {
           const pageUrl = queue.shift();
           let pageHtml;
           if (pageUrl === sourceUrl) {
