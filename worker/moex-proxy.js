@@ -354,8 +354,12 @@ export default {
         const firstHtml = await upstream.text();
         // The official fund history is server-rendered and paginated (20 rows per page).
         // Follow only pagination links found inside that same fund's history table.
-        const seenUrls = new Set([sourceUrl]);
-        const queue = [sourceUrl];
+        // The history table is returned by Bitrix when its pagination URL is requested.
+        // The user previously captured a successful official response for page 2:
+        // ?PAGEN_1=2&SIZEN_3=20. Use it as a bootstrap to discover the table pagination.
+        const pageTwoUrl = sourceUrl + '?PAGEN_1=2&SIZEN_3=20';
+        const seenUrls = new Set([sourceUrl, pageTwoUrl]);
+        const queue = [sourceUrl, pageTwoUrl];
         const pointsByDate = new Map();
         let pagesFetched = 0;
         let firstPageLength = firstHtml.length;
