@@ -726,7 +726,7 @@ const ISS = 'http://iss.moex.com/iss';
     const assetTs = Date.parse(asset.moexUpdatedAt || '');
     if (sq && sq.last > 0 && (!Number.isFinite(assetTs) || snapTs > assetTs)){
       asset.lastPrice = sq.last;
-      asset.moexUpdatedAt = sq.generatedAt;
+      asset.moexUpdatedAt = (snap && snap.generatedAt) || new Date().toISOString();
       asset.board = sq.board || asset.board;
       if (asset.kind === 'bond' && sq.historyMonths != null){
         asset.nominal = asset.nominal || 1000; asset.priceUnit = 'rub';
