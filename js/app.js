@@ -374,6 +374,7 @@ ${rows}
       I18n.applyStatic(document);
       syncLangButtons();
       if (typeof Charts !== 'undefined' && Charts.resetThemeCache) Charts.resetThemeCache();
+      applyTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
       if ($('modalBg').classList.contains('show') && typeof ProductEditor !== 'undefined' && ProductEditor.refreshLang)
         ProductEditor.refreshLang();
       if (localStorage.getItem('fin_mode') === 'cashback' && window.Cashback) window.Cashback.render();

@@ -5,7 +5,7 @@ const CACHE_NAME = 'finance-cache-v63';
 const BASE = new URL('./', self.registration.scope);
 const ASSET_NAMES = [
   './', './index.html', './styles.css', './manifest.json',
-  './data/seed.js', './data/vim/8000.json', './data/vim/8002.json', './js/i18n.js',
+  './data/seed.js', './data/vim/8000.json', './data/vim/8002.json', './js/i18n.js', './js/i18n.js',
   './js/core.js', './js/moex.js', './js/vim.js', './js/simulator.js', './js/bonds.js',
   './js/charts.js', './js/results.js', './js/cashback.js', './js/editor.js', './js/dashboard.js',
   './js/notifications.js', './js/product-insights.js', './js/product-detail.js', './js/backup.js', './js/app.js',
@@ -17,7 +17,6 @@ const META_CACHE = 'finance-meta';
 const META_URL = new URL('./meta', BASE).toString();
 const ICON_URL = new URL('./icons/finapp.svg', BASE).toString();
 const DAY_MS = 86400000;
-// Тексты уведомлений на языке интерфейса, переданном страницей в fin-meta.
 const NOTIFY_STRINGS = {
   ru: {
     reviewTitle: 'Пора свериться с расходами',
@@ -28,7 +27,6 @@ const NOTIFY_STRINGS = {
     today: 'сегодня', tomorrow: 'завтра', inDays: d => `через ${d} дн.`,
     paySuffix: (title, amount) => `${title}${amount ? ': ' + amount.toLocaleString('ru-RU') + ' ₽' : ''} — `,
     months: ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'],
-    amountLocale: 'ru-RU',
   },
   en: {
     reviewTitle: 'Time to review expenses',
@@ -39,11 +37,20 @@ const NOTIFY_STRINGS = {
     today: 'today', tomorrow: 'tomorrow', inDays: d => `in ${d} d.`,
     paySuffix: (title, amount) => `${title}${amount ? ': ' + amount.toLocaleString('en-US') + ' ₽' : ''} — `,
     months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
-    amountLocale: 'en-US',
+  },
+  ar: {
+    reviewTitle: 'مراجعة المصروفات',
+    reviewBody: 'اليوم يوم مراجعة المصروفات. افتح التطبيق وتحقق من مصروفات الأسبوع.',
+    cbTitle: 'الكاش باك للشهر الجديد',
+    cbBody: month => `بدأ ${month} — أضف فئات الكاش باك للشهر`,
+    payTitle: 'دفptide قادمة',
+    today: 'اليوم', tomorrow: 'غدًا', inDays: d => `بعد ${d} أيام`,
+    paySuffix: (title, amount) => `${title}${amount ? ': ' + amount.toLocaleString('en-US') + ' ₽' : ''} — `,
+    months: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
   }
 };
-const notifyStrings = meta => NOTIFY_STRINGS[(meta && meta.lang) === 'en' ? 'en' : 'ru'];
-
+const notifyStrings = meta => NOTIFY_STRINGS[(meta && meta.lang) === 'en' ? 'en' : (meta && meta.lang) === 'ar' ? 'ar' : 'ru'];
+// Тексты уведомлений на языке интерфейса, переданном страницей в fin-meta.
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(async cache => {
     // Каждый ресурс кэшируется отдельно: один недоступный файл

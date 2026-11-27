@@ -1501,3 +1501,17 @@ test('Simulator.investmentForecast: годовая потеря ограниче
   assert.equal(f.annual, -1000, 'даже при −300% потеря не может превышать стоимость позиции');
   assert.equal(f.annualPct, -100);
 });
+
+test('Simulator.investmentForecast: годовой доход облигаций = изменение цены + купоны', () => {
+  const { mods } = simMods([{ id:'bond-income', type:'investment', amount:0, operations:[], assets:[
+    { id:'b1', kind:'bond', secid:'OFZ_T', qty:10, lastPrice:1000, priceUnit:'rub', nominal:1000,
+      historyAnnualPct:5, couponAmount:70, couponFreq:2,
+      coupons:[{date:dayFromNow(30),value:70},{date:dayFromNow(180),value:70}], amortizations:[], paidEvents:{} }
+  ]}]);
+  const p = mods.Storage.get('bond-income');
+  const f = mods.Simulator.investmentForecast(p);
+  // купоны за год: 2 × 70 ₽ × 10 шт = 1400; цена: +5% от 10 000 = +500
+  assert.equal(f.rows[0].coupons, 1400, 'купонные выплаты за 12 месяцев учтены');
+  assert.equal(f.rows[0].priceChange, 500, 'изменение стоимости учтено отдельно');
+  assert.equal(f.annual, 1900, 'итого = купоны + изменение цены');
+});
