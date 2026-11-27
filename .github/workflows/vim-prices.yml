@@ -1,14 +1,11 @@
-name: VIM fund prices
+name: Market snapshots
 
-# Официальная стоимость пая открытых ПИФ «Яндекс Пэй» (ВИМ) не приходит
-# с биржи: скрипт снимает её со страницы wealthim.ru и кладёт в data/vim/.
-# GitHub Pages публикует снимки вместе с сайтом — приложение читает их
-# напрямую, без Cloudflare Worker.
 on:
   schedule:
-    # ~08:30 и ~17:30 МСК: ВИМ публикует стоимость пая по итогам дня
-    - cron: '30 5 * * *'
-    - cron: '30 14 * * *'
+    # ~08:35 и ~17:35 МСК: фонды ВИМ публикуют пай по итогам дня,
+    # MOEX ISS отдаёт свечи и marketdata
+    - cron: '35 5 * * *'
+    - cron: '35 14 * * *'
   workflow_dispatch:
 
 permissions:
@@ -26,14 +23,18 @@ jobs:
           node-version: 22
       - name: Update VIM price snapshots
         run: node scripts/update-vim-snapshots.cjs
+        continue-on-error: true
+      - name: Update MOEX quote snapshots
+        run: node scripts/snapshot-moex-quotes.mjs
+        continue-on-error: true
       - name: Commit updated snapshots
         run: |
-          if git diff --quiet -- data/vim; then
-            echo "Снимки не изменились"
+          if git diff --quiet -- data/vim data/moex-quotes.json; then
+            echo "Снапшоты не изменились"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/vim
-          git commit -m "Update VIM fund price snapshots"
+          git add data/vim data/moex-quotes.json
+          git commit -m "Update market snapshots"
           git push

@@ -1,0 +1,402 @@
+[
+ {
+  "secid": "VTBR",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "SBER",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "YDEX",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "RU000A10F512",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A101XN7",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10G0E9",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10CTJ5",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A104JQ3",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10BW96",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A104FG2",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10G1X7",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10D491",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "SU26253RMFS3",
+  "kind": "bond",
+  "board": "TQOB"
+ },
+ {
+  "secid": "RU000A10EXF1",
+  "kind": "bond",
+  "board": "TQRD"
+ },
+ {
+  "secid": "RU000A10DDG3",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10CCG7",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10EAQ6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10CU97",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10BFP3",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10B461",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10AZN8",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10CU30",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10FC88",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10B495",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10F850",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10FV44",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10C758",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10E6S8",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10BBG1",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10GBM8",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "AKGD",
+  "kind": "fund",
+  "board": "TQBR"
+ },
+ {
+  "secid": "AKMB",
+  "kind": "fund",
+  "board": "TQBR"
+ },
+ {
+  "secid": "GLDRUB_TOM",
+  "kind": "metal",
+  "board": "CETS"
+ },
+ {
+  "secid": "PLDRUB_TOM",
+  "kind": "metal",
+  "board": "CETS"
+ },
+ {
+  "secid": "LQDT",
+  "kind": "fund",
+  "board": "TQBR"
+ },
+ {
+  "secid": "VSEH",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "X5",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "MGTSP",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "MAGN",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "MTSS",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "BELU",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "LEAS",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "TATNP",
+  "kind": "stock",
+  "board": "TQBR"
+ },
+ {
+  "secid": "RU000A10FQB1",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10AG48",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10AUG3",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10CM06",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10ERC0",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10EJR5",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10B3S8",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10B2U6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10AS28",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10BFX7",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10CB66",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A1094F2",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10ENA3",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10F6J6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10B0R6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10F9N2",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10BPX6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10FSE1",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10ADD6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10AHE5",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10AYF7",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10B2D2",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10CS83",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "SU26238RMFS4",
+  "kind": "bond",
+  "board": "TQOB"
+ },
+ {
+  "secid": "SU26250RMFS9",
+  "kind": "bond",
+  "board": "TQOB"
+ },
+ {
+  "secid": "RU000A10BP87",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A1055Y4",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A1099W6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10F6V1",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10ASE2",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10DD97",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A0JXZB2",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10D3S6",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10BQM7",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "RU000A10D1J9",
+  "kind": "bond",
+  "board": "TQCB"
+ },
+ {
+  "secid": "AKME",
+  "kind": "fund",
+  "board": "TQBR"
+ },
+ {
+  "secid": "SLVRUB_TOM",
+  "kind": "metal",
+  "board": "CETS"
+ }
+]
