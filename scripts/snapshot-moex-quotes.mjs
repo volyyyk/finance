@@ -13,21 +13,31 @@ const OUT = path.join(ROOT, 'data', 'moex-quotes.json');
 const UA = 'Mozilla/5.0 FinApp/1.0';
 const DAY = 86400000;
 
+const WORKER = 'https://autumn-mouse-2e3f.kudrin-dim11.workers.dev';
+
 async function getJSON(url, ms = 15000){
-  const c = new AbortController();
-  const t = setTimeout(() => c.abort(), ms);
-  try {
-    const r = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: c.signal });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return await r.json();
-  } finally { clearTimeout(t); }
+  // Прямой HTTP ISS с раннера; при блокировке — через воркер (он тоже
+  // ходит к MOEX по HTTP и доступен из облака).
+  for (const target of [url, WORKER + '/iss' + url.slice(url.indexOf('/iss/'))]){
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), ms);
+    try {
+      const r = await fetch(target, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: c.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } catch (e){
+      if (target.startsWith(WORKER)) throw e;
+    } finally { clearTimeout(t); }
+  }
+  throw new Error('unreachable');
 }
 
 const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
 async function lastPrice(secid, board, kind){
-  const market = kind === 'bond' ? 'bonds' : 'shares';
-  const url = `http://iss.moex.com/iss/engines/stock/markets/${market}/boards/${board}/securities/${secid}.json?iss.meta=off&iss.only=marketdata,securities&iss.json=compact&iss.version=on`;
+  const market = kind === 'metal' ? 'selt' : kind === 'bond' ? 'bonds' : 'shares';
+  const engine = kind === 'metal' ? 'currency' : 'stock';
+  const url = `http://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board || (kind === 'metal' ? 'CETS' : '')}/securities/${secid}.json?iss.meta=off&iss.only=marketdata,securities&iss.json=compact&iss.version=on`;
   const d = await getJSON(url);
   const md = d.marketdata, s = d.securities;
   const col = i => Object.fromEntries(md.columns.map((c, x) => [c, i[x]]));
@@ -43,8 +53,9 @@ async function lastPrice(secid, board, kind){
 }
 
 async function candleClose(secid, board, kind, dateFrom, dateTo){
-  const market = kind === 'bond' ? 'bonds' : 'shares';
-  const url = `http://iss.moex.com/iss/engines/stock/markets/${market}/boards/${board}/securities/${secid}/candles.json?iss.meta=off&iss.only=candles&candles.columns=begin,close&interval=24&start=0&from=${dateFrom}&till=${dateTo}`;
+  const market = kind === 'metal' ? 'selt' : kind === 'bond' ? 'bonds' : 'shares';
+  const engine = kind === 'metal' ? 'currency' : 'stock';
+  const url = `http://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board || (kind === 'metal' ? 'CETS' : '')}/securities/${secid}/candles.json?iss.meta=off&iss.only=candles&candles.columns=begin,close&interval=24&start=0&from=${dateFrom}&till=${dateTo}`;
   const d = await getJSON(url);
   const rows = (d.candles?.data || []).map(r => ({ date: String(r[0]).slice(0,10), close: Number(r[1]) }))
     .filter(r => r.date && r.close > 0).sort((a,b) => b.date.localeCompare(a.date));
