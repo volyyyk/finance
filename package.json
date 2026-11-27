@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Локальное PWA-приложение без backend и сборки. Для тестов: npm test.",
   "scripts": {
-    "test": "node --test tests/*.test.cjs"
+    "test": "node --test tests/*.test.cjs",
+    "update:vim": "node scripts/update-vim-snapshots.cjs"
   },
   "keywords": [],
   "author": "",

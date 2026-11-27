@@ -833,18 +833,18 @@ const ProductEditor = (() => {
       shortname:'Яндекс Пэй — Фонд акций и облигаций',
       fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд акций и облигаций»',
       customName:'Яндекс Пэй — Фонд акций и облигаций',
-      lastPrice:101.36,priceUnit:'rub',moexUpdatedAt:'2026-09-30T00:00:00.000Z',
-      historyMonths:1,historyBase:100.68,historyBaseDate:'2026-08-31',
-      sixMonthPct:(101.36/100.68-1)*100,historyPct:(101.36/100.68-1)*100,historyAnnualPct:(Math.pow(101.36/100.68,12)-1)*100,
-      navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'},
+      lastPrice:103.77,priceUnit:'rub',moexUpdatedAt:'2026-11-26T00:00:00.000Z',
+      historyMonths:1,historyBase:106.31,historyBaseDate:'2026-10-27',
+      sixMonthPct:(103.77/106.31-1)*100,historyPct:(103.77/106.31-1)*100,historyAnnualPct:(Math.pow(103.77/106.31,12)-1)*100,
+      navDate:'26.11.2026',navSource:'КИД ВИМ Инвестиции'},
     {kind:'fund',quoteSource:'vim',secid:'PIF8002',rulesNumber:'8002',
       shortname:'Яндекс Пэй — Фонд рублёвых облигаций',
       fullname:'ОПИФ РФИ «Яндекс Пэй. Фонд рублёвых облигаций»',
       customName:'Яндекс Пэй — Фонд рублёвых облигаций',
-      lastPrice:100.91,priceUnit:'rub',moexUpdatedAt:'2026-09-30T00:00:00.000Z',
-      historyMonths:1,historyBase:100.38,historyBaseDate:'2026-08-31',
-      sixMonthPct:(100.91/100.38-1)*100,historyPct:(100.91/100.38-1)*100,historyAnnualPct:(Math.pow(100.91/100.38,12)-1)*100,
-      navDate:'30.09.2026',navSource:'КИД ВИМ Инвестиции'}
+      lastPrice:102.59,priceUnit:'rub',moexUpdatedAt:'2026-11-26T00:00:00.000Z',
+      historyMonths:1,historyBase:101.98,historyBaseDate:'2026-10-27',
+      sixMonthPct:(102.59/101.98-1)*100,historyPct:(102.59/101.98-1)*100,historyAnnualPct:(Math.pow(102.59/101.98,12)-1)*100,
+      navDate:'26.11.2026',navSource:'КИД ВИМ Инвестиции'}
   ];
   function localFundMatches(query,kind){
     if(kind!=='fund')return [];
@@ -993,11 +993,11 @@ const ProductEditor = (() => {
       pendingAsset = asset;
       if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
       $('bondPreview').textContent = asset.quoteSource === 'vim'
-        ? 'Официальная стоимость пая ВИМ: ' + fmtMoney(asset.lastPrice) + ' ₽ на ' + asset.navDate +
-          '. СЧА: ' + (asset.nav == null ? 'нет данных' : fmtMoney(asset.nav) + ' ₽') +
+        ? 'Официальная стоимость пая ВИМ: ' + fmtMoney(asset.lastPrice) + ' на ' + asset.navDate +
+          '. СЧА: ' + (asset.nav == null ? 'нет данных' : fmtMoney(asset.nav)) +
           '. История: ' + (asset.historyMonths || '—') + ' мес.; автоматическое обновление.'
         : asset.quoteSource === 'manual'
-        ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} ₽ на ${asset.navDate}. История: ${asset.historyMonths} мес.; котировка обновляется вручную.`
+        ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} на ${asset.navDate}. История: ${asset.historyMonths} мес.; котировка обновляется вручную.`
         : kind === 'bond'
           ? `${asset.couponDescription} · номинал ${fmtMoney(asset.nominal || 0)} · купон ${asset.couponAmount == null ? 'не объявлен' : fmtMoney(asset.couponAmount)} · ближайший ${fmtDate(asset.nextCouponDate)} · погашение ${fmtDate(asset.maturityDate)}`
           : kind === 'fund' && asset.moexInactive
@@ -1091,7 +1091,7 @@ const ProductEditor = (() => {
     const totalPct = (last.price / first.price - 1) * 100;
     const recent = points.slice(-8).reverse().map(p =>
       '<div class="op-meta" style="display:flex;justify-content:space-between;gap:12px"><span>' +
-      escapeHtml(p.date.split('-').reverse().join('.')) + '</span><b>' + fmtMoney(p.price) + ' ₽</b></div>'
+      escapeHtml(p.date.split('-').reverse().join('.')) + '</span><b>' + fmtMoney(p.price) + '</b></div>'
     ).join('');
     return '<details class="vim-history-details"><summary>График и история стоимости пая</summary>' +
       '<div style="padding:8px 0"><svg viewBox="0 0 300 88" role="img" aria-label="График стоимости инвестиционного пая" style="display:block;width:100%;max-width:420px;height:auto;overflow:visible">' +
@@ -1116,13 +1116,13 @@ const ProductEditor = (() => {
     // Историческое изменение цены за полгода — основа сценарного прогноза
     // для акций, фондов, облигаций и металлов.
     const yieldTxt = a.quoteSource === 'vim'
-      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? 'нет данных' : fmtMoney(a.nav) + ' ₽'} · изменение за ${a.historyMonths || '—'} мес.: ${a.historyPct == null ? 'нет данных' : Utils.fmtPct(a.historyPct) + '%'} · годовой темп: ${a.historyAnnualPct == null ? 'нет данных' : Utils.fmtPct(a.historyAnnualPct) + '%'} · автообновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
+      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? 'нет данных' : fmtMoney(a.nav)} · изменение за ${a.historyMonths || '—'} мес.: ${a.historyPct == null ? 'нет данных' : Utils.fmtPct(a.historyPct)} · годовой темп: ${a.historyAnnualPct == null ? 'нет данных' : Utils.fmtPct(a.historyAnnualPct)} · автообновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
       : a.quoteSource === 'manual'
-      ? `<div class="op-meta">Последняя официальная стоимость пая: ${fmtMoney(a.lastPrice)} ₽ на ${escapeHtml(a.navDate || 'неизвестную дату')} · история ${a.historyMonths || 1} мес. · котировка обновляется вручную</div>`
+      ? `<div class="op-meta">Последняя официальная стоимость пая: ${fmtMoney(a.lastPrice)} на ${escapeHtml(a.navDate || 'неизвестную дату')} · история ${a.historyMonths || 1} мес. · котировка обновляется вручную</div>`
       : a.moexInactive
       ? `<div class="op-meta">Фонд закрыт и не торгуется; динамика за последние 6 мес. отсутствует, рост в прогнозе не предполагается</div>`
       : a.sixMonthPct != null
-      ? `<div class="op-meta">Изменение цены за ${a.historyMonths || 6} мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · годовой прогноз ${a.historyAnnualPct == null ? 'не рассчитан' : Utils.fmtPct(a.historyAnnualPct) + '%'} · учтено в прогнозе</div>`
+      ? `<div class="op-meta">Изменение цены за ${a.historyMonths || 6} мес.: <b class="${a.sixMonthPct >= 0 ? 'green' : 'red'}">${Utils.fmtPct(a.sixMonthPct)}</b> · годовой прогноз ${a.historyAnnualPct == null ? 'не рассчитан' : Utils.fmtPct(a.historyAnnualPct)} · учтено в прогнозе</div>`
       : `<div class="op-meta">История цены за 12/6/3/1 мес. пока недоступна · рост не предполагается</div>`;
     const quoteTime = Date.parse(a.moexUpdatedAt || '');
     const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;

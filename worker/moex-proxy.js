@@ -23,6 +23,9 @@ const VIM_FUNDS = {
   '8000': { url:'https://www.wealthim.ru/products/pif/opif/wimyao/', graphId:'37558764' },
   '8002': { url:'https://www.wealthim.ru/products/pif/opif/wimyo/', graphId:'37558766' }
 };
+// Сайт ВИМ отдаёт полную страницу только обычным браузерам: собственный
+// User-Agent воркера получал урезанную разметку без таблицы истории.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
 // Read official JavaScript GRAPH records without evaluating page scripts.
 // Parse the official history table rendered on each fund page.
@@ -67,27 +70,9 @@ function parseVimTable(html) {
   return null;
 }
 
-// Collect the history table and its Bitrix pagination links from the official fund page.
+// Collect the history table from one page of the official fund page.
 function parseVimHistoryPage(html) {
-  const clean = value => String(value || '')
-    .replace(/<br\s*\/?\s*>/gi, ' ')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
-    .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/\s+/g, ' ').trim();
-  const points = parseVimTable(html) || [];
-  const links = [];
-  const tableAt = html.indexOf('id="table"');
-  const paginationAt = tableAt >= 0 ? html.indexOf('bx_pagination_bottom', tableAt) : html.indexOf('bx_pagination_bottom');
-  if (paginationAt >= 0) {
-    const block = html.slice(paginationAt, paginationAt + 16000);
-    for (const match of block.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi)) {
-      const href = match[1].replace(/&amp;/g, '&');
-      if (/PAGEN_\d+=\d+/.test(href)) links.push(href);
-    }
-  }
-  return { points, links: [...new Set(links)] };
+  return parseVimTable(html) || [];
 }
 
 function parseVimGraph(html, rulesNumber) {
@@ -176,7 +161,7 @@ export default {
       if (!sourceUrl) return jsonResponse({ error:'Unknown VIM fund' },404);
       try {
         const upstream = await fetch(sourceUrl, {
-          headers:{ Accept:'text/html,application/xhtml+xml', 'User-Agent':'Mozilla/5.0 FinApp/1.0' },
+          headers:{ Accept:'text/html,application/xhtml+xml', 'User-Agent':BROWSER_UA },
           cf:{ cacheEverything:true, cacheTtl:300 }
         });
         if (!upstream.ok) return jsonResponse({error:'VIM HTTP '+upstream.status},upstream.status);
@@ -224,7 +209,7 @@ export default {
       const sourceUrl = pages[fundId];
       if (!sourceUrl) return jsonResponse({error:'Unknown VIM fund'},404);
       try {
-        const page = await fetch(sourceUrl,{headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'Mozilla/5.0 FinApp/1.0'}});
+        const page = await fetch(sourceUrl,{headers:{Accept:'text/html,application/xhtml+xml','User-Agent':BROWSER_UA}});
         if (!page.ok) return jsonResponse({error:'VIM HTTP '+page.status},page.status);
         const html = await page.text();
         const origin = new URL(sourceUrl).origin;
@@ -233,7 +218,7 @@ export default {
         const assets = [];
         for (const url of selected) {
           try {
-            const r = await fetch(url,{headers:{Accept:'application/javascript,text/javascript,*/*','User-Agent':'Mozilla/5.0 FinApp/1.0'}});
+            const r = await fetch(url,{headers:{Accept:'application/javascript,text/javascript,*/*','User-Agent':BROWSER_UA}});
             const body = await r.text();
             const matches = [];
             for (const token of ['download.php','FOND_ID','QUOTES_IBLOCK','chart','history','quotes','ajax','date-choice','funds_list','period','GRAPH_FUNDS','GRAPH','exportTable','set_graph','8000','8002']) {
@@ -262,7 +247,7 @@ export default {
       const sourceUrl = pages[fundId];
       if (!sourceUrl) return jsonResponse({error:'Unknown VIM fund'},404);
       try {
-        const upstream = await fetch(sourceUrl,{headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'Mozilla/5.0 FinApp/1.0'}});
+        const upstream = await fetch(sourceUrl,{headers:{Accept:'text/html,application/xhtml+xml','User-Agent':BROWSER_UA}});
         if (!upstream.ok) return jsonResponse({error:'VIM HTTP '+upstream.status},upstream.status);
         const html = await upstream.text();
         const clean = value => String(value||'').replace(/<script\b[\s\S]*?<\/script>/gi,' ')
@@ -337,71 +322,43 @@ export default {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
       if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed' }, 405);
       const fundId = incoming.pathname.split('/')[2];
-      const pages = {
-        '8000': 'https://www.wealthim.ru/products/pif/opif/wimyao/',
-        '8002': 'https://www.wealthim.ru/products/pif/opif/wimyo/'
-      };
-      const sourceUrl = pages[fundId];
+      const sourceUrl = VIM_FUNDS[fundId]?.url;
       if (!sourceUrl) return jsonResponse({ error: 'Unknown VIM fund' }, 404);
       try {
-        const upstream = await fetch(sourceUrl, {
-          headers: { 'Accept': 'text/html,application/xhtml+xml', 'User-Agent': 'Mozilla/5.0 FinApp/1.0' },
-          cf: { cacheEverything: true, cacheTtl: 21600 }
-        });
-        if (!upstream.ok) return jsonResponse({
-          error: 'VIM source returned HTTP ' + upstream.status, upstreamStatus: upstream.status
-        }, upstream.status);
-        const firstHtml = await upstream.text();
-        // The official fund history is server-rendered and paginated (20 rows per page).
-        // Follow only pagination links found inside that same fund's history table.
-        // The history table is returned by Bitrix when its pagination URL is requested.
-        // The user previously captured a successful official response for page 2:
-        // ?PAGEN_1=2&SIZEN_3=20. Use it as a bootstrap to discover the table pagination.
-        const pageTwoUrl = sourceUrl + '?PAGEN_1=2&SIZEN_3=20';
-        const seenUrls = new Set([sourceUrl, pageTwoUrl]);
-        const queue = [sourceUrl, pageTwoUrl];
+        // The official history is server-rendered and paginated (20 rows per page).
+        // Only the PAGEN_1 parameter actually flips the table page: the PAGEN_3
+        // links rendered in the pagination block return page 1 again.
         const pointsByDate = new Map();
         let pagesFetched = 0;
-        let firstPageLength = firstHtml.length;
-        while (queue.length && pagesFetched < 35) {
-          const pageUrl = queue.shift();
-          let pageHtml;
-          if (pageUrl === sourceUrl) {
-            pageHtml = firstHtml;
-          } else {
-            const pageResponse = await fetch(pageUrl, {
-              headers: {
-                'Accept': 'text/html,application/xhtml+xml',
-                'User-Agent': 'Mozilla/5.0 FinApp/1.0',
-                'Referer': sourceUrl
-              },
-              cf: { cacheEverything: true, cacheTtl: 21600 }
-            });
-            if (!pageResponse.ok) continue;
-            pageHtml = await pageResponse.text();
-          }
+        let firstHtml = null;
+        let upstreamStatus = null;
+        const fetchPage = async pageUrl => {
+          const upstream = await fetch(pageUrl, {
+            headers: { 'Accept': 'text/html,application/xhtml+xml', 'User-Agent': BROWSER_UA, Referer: sourceUrl },
+            cf: { cacheEverything: true, cacheTtl: 21600 }
+          });
+          if (!upstream.ok) { upstreamStatus = upstream.status; return null; }
+          return await upstream.text();
+        };
+        for (let page = 1; page <= 15; page++) {
+          const pageUrl = page === 1 ? sourceUrl : sourceUrl + '?PAGEN_1=' + page + '&SIZEN_3=20';
+          const pageHtml = await fetchPage(pageUrl);
+          if (!pageHtml) break;
           pagesFetched++;
-          const parsed = parseVimHistoryPage(pageHtml);
-          for (const point of parsed.points) pointsByDate.set(point.date, point);
-          for (const href of parsed.links) {
-            try {
-              const nextUrl = new URL(href, sourceUrl);
-              if (nextUrl.origin !== 'https://www.wealthim.ru' ||
-                  nextUrl.pathname !== new URL(sourceUrl).pathname) continue;
-              const normalized = nextUrl.toString();
-              if (!seenUrls.has(normalized)) {
-                seenUrls.add(normalized);
-                queue.push(normalized);
-              }
-            } catch {}
-          }
+          if (page === 1) firstHtml = pageHtml;
+          const before = pointsByDate.size;
+          for (const point of parseVimHistoryPage(pageHtml)) pointsByDate.set(point.date, point);
+          // A page without new dates means the table ended (or the site started
+          // serving page 1 again) — stop crawling to save subrequests.
+          if (pointsByDate.size === before) break;
         }
         let history = [...pointsByDate.values()].sort((a,b) => a.date.localeCompare(b.date));
         // Retain the embedded official graph parser as a fallback if the table markup changes.
-        if (!history.length) history = parseVimGraph(firstHtml, fundId) || [];
+        if (!history.length && firstHtml) history = parseVimGraph(firstHtml, fundId) || [];
         if (!history.length) return jsonResponse({
           error: 'VIM page loaded, but no official history table was found',
-          sourceUrl, htmlLength: firstPageLength, pagesFetched,
+          sourceUrl, htmlLength: firstHtml ? firstHtml.length : 0, pagesFetched,
+          ...(upstreamStatus ? { upstreamStatus } : {}),
           expectedGraphId: VIM_FUNDS[fundId].graphId
         }, 502);
         const latest = history[history.length - 1];

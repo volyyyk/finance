@@ -1,6 +1,16 @@
 /* ============================================================
    vim.js — официальные данные открытых ПИФ Яндекс Пэй / ВИМ
    Источник: wealthim.ru; проксирование только двух разрешённых фондов.
+
+   Цена приходит по двум независимым каналам:
+   1) снимок data/vim/<номер правил>.json — официальная история,
+      обновляемая скриптом scripts/update-vim-snapshots.cjs и
+      публикуемая вместе с приложением (GitHub Pages); работает
+      даже когда сайт ВИМ недоступен браузеру;
+   2) живой запрос через Cloudflare Worker (worker/moex-proxy.js).
+
+   Оба запроса идут параллельно; ошибка одного канала цену не ломает.
+   Только если не ответил ни один — остаётся последняя подтверждённая.
    ============================================================ */
 const VIMAPI = (() => {
   const DEFAULT_WORKER = 'https://autumn-mouse-2e3f.kudrin-dim11.workers.dev';
@@ -9,6 +19,17 @@ const VIMAPI = (() => {
     '8002': { secid:'PIF8002', name:'Яндекс Пэй — Фонд рублёвых облигаций' }
   };
   const number = value => Number.isFinite(Number(value)) ? Number(value) : null;
+  // Снимки лежат рядом с index.html, поэтому и в корне домена (Netlify),
+  // и в подкаталоге вроде /finance/ (GitHub Pages) путь одинаковый.
+  // На file:// и в тестовом окружении снимок недоступен — остаётся воркер.
+  function snapshotBase(){
+    try {
+      if (typeof location !== 'undefined' && /^https?:$/.test(location.protocol)) {
+        return new URL('./', location.href).toString();
+      }
+    } catch {}
+    return null;
+  }
   function workerUrl(){
     try {
       const configured = localStorage.getItem('moex_proxy_url');
@@ -20,7 +41,25 @@ const VIMAPI = (() => {
     } catch {}
     return DEFAULT_WORKER;
   }
-  async function fetchFund(rulesNumber){
+  async function fetchSnapshot(rulesNumber){
+    const base = snapshotBase();
+    if (!base) throw new Error('снимок цен недоступен');
+    const response = await fetch(base + 'data/vim/' + encodeURIComponent(rulesNumber) + '.json', {
+      headers:{ Accept:'application/json' }, cache:'no-store', credentials:'omit',
+      signal:AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('снимок цен вернул HTTP ' + response.status);
+    const body = await response.text();
+    let data;
+    try { data = JSON.parse(body); }
+    catch { throw new Error('снимок цен вернул не JSON'); }
+    if (!data || !Array.isArray(data.history) || !data.history.length ||
+        !(number(data.price) > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(data.date || '')) {
+      throw new Error('снимок цен без корректной стоимости пая');
+    }
+    return data;
+  }
+  async function fetchLive(rulesNumber){
     if (!FUNDS[String(rulesNumber)]) throw new Error('Неизвестный номер правил ПИФ');
     const response = await fetch(workerUrl() + '/vim/' + encodeURIComponent(rulesNumber), {
       headers:{ Accept:'application/json' }, cache:'no-store', credentials:'omit',
@@ -78,15 +117,25 @@ const VIMAPI = (() => {
   async function refreshAsset(asset){
     const id = String(asset?.rulesNumber || '').replace(/[^0-9]/g,'');
     if (!FUNDS[id]) return asset;
-    const data = await fetchFund(id);
-    if (!(number(data.price)>0) || !/^\d{4}-\d{2}-\d{2}$/.test(data.date || '')) {
-      throw new Error('ВИМ вернул некорректную стоимость пая или дату');
-    }
-    data.history = [...data.history, {date:data.date,price:data.price,nav:data.nav}];
-    return applyHistory(asset,data);
+    const settled = await Promise.allSettled([fetchLive(id), fetchSnapshot(id)]);
+    const datasets = [];
+    for (const s of settled) if (s.status === 'fulfilled') datasets.push(s.value);
+    if (!datasets.length) throw settled[0].reason;
+    // Свежайшая шапка из ответивших источников; точки истории сливаются
+    // (applyHistory дедуплицирует по дате, сохраняя прежние точки актива).
+    const best = datasets.reduce((a,b) => (String(a.date) > String(b.date) ? a : b));
+    return applyHistory(asset, {
+      fundId: best.fundId,
+      source: best.source,
+      fetchedAt: best.fetchedAt,
+      date: best.date,
+      price: best.price,
+      nav: best.nav,
+      history: datasets.flatMap(d => d.history)
+    });
   }
   function isVimAsset(asset){
     return !!asset && !!FUNDS[String(asset.rulesNumber || '').replace(/[^0-9]/g,'')];
   }
-  return { FUNDS, fetchFund, refreshAsset, isVimAsset };
+  return { FUNDS, fetchSnapshot, fetchLive, refreshAsset, isVimAsset };
 })();

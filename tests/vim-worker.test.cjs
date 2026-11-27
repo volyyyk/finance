@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function loadWorker(html) {
-  const sandbox = { URL, Response, Request, fetch: async () => new Response(html, { status:200, headers:{'Content-Type':'text/html'} }), setTimeout, Promise, Map, Date, String, Number, RegExp };
+function loadWorker(html, fetchImpl) {
+  const sandbox = { URL, Response, Request, fetch: fetchImpl || (async () => new Response(html, { status:200, headers:{'Content-Type':'text/html'} })), setTimeout, Promise, Map, Date, String, Number, RegExp };
   vm.createContext(sandbox);
   const source = fs.readFileSync(require.resolve('../worker/moex-proxy.js'), 'utf8').replace('export default {', 'globalThis.worker = {');
   vm.runInContext(source, sandbox);
@@ -63,4 +63,40 @@ test('Worker parses official VIM history table when GRAPH JS data is absent', as
 test('Worker only exposes the two allowlisted VIM funds', async () => {
   const response = await loadWorker('<html></html>').fetch(new Request('https://worker.test/vim/8001'));
   assert.equal(response.status, 404);
+});
+
+test('Worker crawls the whole official history via PAGEN_1 pagination and stops on a repeated page', async () => {
+  const page1 = tableHtml();
+  const page2 = `<html><body><table>
+    <thead><tr><th>Дата</th><th>Стоимость пая, руб.</th><th>Изменение стоимости пая %</th><th>Стоимость чистых активов, руб.</th><th>Изменение чистых активов %</th><th>Количество выданных инвестиционных паев</th></tr></thead>
+    <tbody>
+      <tr><td>23.11.2026</td><td>102.50</td><td>0.10 %</td><td>224 000 000.00</td><td>0.20 %</td><td>2150000.00</td></tr>
+      <tr><td>20.11.2026</td><td>102.00</td><td>0.00</td><td>223 000 000.00</td><td>0.00</td><td>2140000.00</td></tr>
+    </tbody></table></body></html>`;
+  const requested = [];
+  const fetchImpl = async url => {
+    requested.push(String(url));
+    const u = String(url);
+    // Страница 3 отдаёт содержимое первой: дата-дубликат завершает обход.
+    const body = u.includes('PAGEN_1=3') ? page1 : u.includes('PAGEN_1=2') ? page2 : page1;
+    return new Response(body, { status:200, headers:{'Content-Type':'text/html'} });
+  };
+  const response = await loadWorker(null, fetchImpl).fetch(new Request('https://worker.test/vim/8000'));
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.history.length, 4, 'точки со всех страниц объединены');
+  assert.equal(data.date, '2026-11-25');
+  assert.equal(data.pagesFetched, 3, 'обход остановлен на странице без новых дат');
+  assert.ok(requested.some(u => u.includes('PAGEN_1=2') && u.includes('SIZEN_3=20')), 'пагинация идёт через PAGEN_1');
+});
+
+test('Worker keeps page 1 data when a pagination page fails', async () => {
+  const fetchImpl = async url => {
+    if (String(url).includes('PAGEN_1=')) return new Response('upstream broke', { status: 500 });
+    return new Response(tableHtml(), { status:200, headers:{'Content-Type':'text/html'} });
+  };
+  const response = await loadWorker(null, fetchImpl).fetch(new Request('https://worker.test/vim/8002'));
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.history.length, 2);
 });
