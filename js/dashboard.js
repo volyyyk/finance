@@ -27,7 +27,14 @@ const Events = (() => {
   function all(){
     const v = (typeof Storage.version === 'function') ? Storage.version() : null;
     if (v !== null && memo.list && v === memo.version) return memo.list;
-    const list = computeAll();
+    let list = computeAll();
+    // «Платёж по долгу» накануне льготного периода и само событие
+    // льготного периода — одна оплата: оставляем платёж, скрываем дубль.
+    const pays = list.filter(e => e.debtTo);
+    list = list.filter(e => {
+      if (!e.graceFor) return true;
+      return !pays.some(d => d.debtTo === e.graceFor && Math.abs(d.date - e.date) <= 86400000);
+    });
     if (v !== null) memo = { version: v, list };
     return list;
   }
@@ -53,7 +60,7 @@ const Events = (() => {
         const d = parseDate(p.gracePeriodEndDate);
         if (d && d >= today){
           list.push({ date:d, product:p, icon:'clock',
-            title:T('Льготный период: ') + p.name, direction:'out', amount: p.amount });
+            title:T('Льготный период: ') + p.name, direction:'out', amount: p.amount, graceFor: p.id });
         }
       }
       
@@ -65,14 +72,14 @@ const Events = (() => {
           if (d && d >= today){
             list.push({ date:d, product:p, icon: op.direction==='in'?'arrow-down-left':'arrow-up-right',
               title:`${opTitle}: ${p.name}`,
-              amount:op.amount, direction:op.direction });
+              amount:op.amount, direction:op.direction, debtTo: op.debtTargetId || null });
           }
         } else {
           const d = nextOccurrence(op.date, op.frequency);
           if (d && (!op.endDate || d <= parseDate(op.endDate))){
             list.push({ date:d, product:p, icon: op.direction==='in'?'⬇️':'⬆️',
               title:`${opTitle}: ${p.name}`,
-              amount:op.amount, direction:op.direction });
+              amount:op.amount, direction:op.direction, debtTo: op.debtTargetId || null });
           }
         }
       });
