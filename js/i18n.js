@@ -1156,7 +1156,8 @@ const I18n = (() => {
     '<details class="vim-history-details"><summary>График и история стоимости пая</summary>': '<details class="vim-history-details"><summary>Unit price chart and history</summary>',
     '<b>Пополнения и снятия</b><small>Регулярные и разовые операции</small><span aria-hidden="true">⌄</span>': '<b>Deposits and withdrawals</b><small>Regular and one-off operations</small><span aria-hidden="true">⌄</span>',
     '<span>Ориентировочный доход за срок</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму, ставку и срок</small>': '<span>Estimated income over the term</span><b id="effectMoney">—</b><small id="effectPercent">Enter an amount, rate and term</small>',
-    '<option value="">Обычное снятие (в расход)</option>': '<option value="">Regular withdrawal (an expense)</option>',  };
+    '<option value="">Обычное снятие (в расход)</option>': '<option value="">Regular withdrawal (an expense)</option>',
+  };
 
   function t(ru, params){
     if (typeof ru !== 'string') return ru;
