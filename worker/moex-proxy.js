@@ -26,6 +26,17 @@ const VIM_FUNDS = {
 // Сайт ВИМ отдаёт полную страницу только обычным браузерам: собственный
 // User-Agent воркера получал урезанную разметку без таблицы истории.
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+// Fetch с жёстким тайм-аутом через AbortController — работает в любом
+// рантайме воркера, в отличие от AbortSignal.timeout.
+const timedFetch = async (url, init = {}, ms = 6000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 // Read official JavaScript GRAPH records without evaluating page scripts.
 // Parse the official history table rendered on each fund page.
@@ -332,15 +343,25 @@ export default {
         let pagesFetched = 0;
         let firstHtml = null;
         let upstreamStatus = null;
+        // Тайм-аут на страницу и общий лимит обхода: если сайт ВИМ
+        // отвечает медленно или блокирует запрос, воркер отдаёт
+        // диагностический ответ за секунды, а не висит бесконечно.
+        const crawlStarted = Date.now();
         const fetchPage = async pageUrl => {
-          const upstream = await fetch(pageUrl, {
-            headers: { 'Accept': 'text/html,application/xhtml+xml', 'User-Agent': BROWSER_UA, Referer: sourceUrl },
-            cf: { cacheEverything: true, cacheTtl: 21600 }
-          });
-          if (!upstream.ok) { upstreamStatus = upstream.status; return null; }
-          return await upstream.text();
+          try {
+            const upstream = await timedFetch(pageUrl, {
+              headers: { 'Accept': 'text/html,application/xhtml+xml', 'User-Agent': BROWSER_UA, Referer: sourceUrl },
+              cf: { cacheEverything: true, cacheTtl: 21600 }
+            }, 6000);
+            if (!upstream.ok) { upstreamStatus = upstream.status; return null; }
+            return await upstream.text();
+          } catch {
+            if (!upstreamStatus) upstreamStatus = 'network error or timeout';
+            return null;
+          }
         };
         for (let page = 1; page <= 15; page++) {
+          if (Date.now() - crawlStarted > 12000) break;
           const pageUrl = page === 1 ? sourceUrl : sourceUrl + '?PAGEN_1=' + page + '&SIZEN_3=20';
           const pageHtml = await fetchPage(pageUrl);
           if (!pageHtml) break;

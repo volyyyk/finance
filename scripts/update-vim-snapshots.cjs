@@ -40,7 +40,7 @@ const INVF_FUNDS = {
 // Обработчик /vim/<правила> берётся из воркера без изменений:
 // страница фонда, пагинация и разбор таблицы не дублируются.
 function loadWorker(fetchImpl){
-  const sandbox = { URL, Request, Response, fetch: fetchImpl, setTimeout };
+  const sandbox = { URL, Request, Response, AbortController, clearTimeout, fetch: fetchImpl, setTimeout };
   vm.createContext(sandbox);
   const source = fs.readFileSync(path.join(ROOT, 'worker', 'moex-proxy.js'), 'utf8')
     .replace('export default {', 'globalThis.worker = {');

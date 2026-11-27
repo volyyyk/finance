@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 function loadWorker(html, fetchImpl) {
-  const sandbox = { URL, Response, Request, fetch: fetchImpl || (async () => new Response(html, { status:200, headers:{'Content-Type':'text/html'} })), setTimeout, Promise, Map, Date, String, Number, RegExp };
+  const sandbox = { URL, Response, Request, AbortController, clearTimeout, fetch: fetchImpl || (async () => new Response(html, { status:200, headers:{'Content-Type':'text/html'} })), setTimeout, Promise, Map, Date, String, Number, RegExp };
   vm.createContext(sandbox);
   const source = fs.readFileSync(require.resolve('../worker/moex-proxy.js'), 'utf8').replace('export default {', 'globalThis.worker = {');
   vm.runInContext(source, sandbox);
