@@ -174,7 +174,9 @@ const { $ } = Utils;
           continue;
         }
         if (a.quoteSource === 'manual') continue;
-        if (['stock','fund','bond','metal'].includes(a.kind) && (a.yieldMonth !== month || (a.kind === 'fund' && ['VTBL','RSHL'].includes(a.secid) && !a.moexInactive))){
+        if (['stock','fund','bond','metal'].includes(a.kind) && (a.yieldMonth !== month
+          || (a.historyAnnualPct == null && a.historyAttemptMonth !== month)
+          || (a.kind === 'fund' && ['VTBL','RSHL'].includes(a.secid) && !a.moexInactive))){
           tasks.push(async () => {
             try {
               const before = JSON.stringify(a);

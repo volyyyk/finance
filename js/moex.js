@@ -541,6 +541,7 @@ const ISS = 'http://iss.moex.com/iss';
       && Date.now() - quoteTime < 30 * 86400000;
     const cur = (quoteIsFresh || savedQuoteUsable) && Number(asset.lastPrice) > 0
       ? Number(asset.lastPrice) : null;
+    asset.historyAttemptMonth = monthKey();
     if (cur == null || !Number.isFinite(Number(cur)) || cur < 0){
       asset.historyMonths = null; asset.historyPct = null; asset.historyAnnualPct = null;
       return asset;
