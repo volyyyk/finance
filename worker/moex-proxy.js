@@ -70,21 +70,21 @@ function parseVimTable(html) {
 // Collect the history table and its Bitrix pagination links from the official fund page.
 function parseVimHistoryPage(html) {
   const clean = value => String(value || '')
-    .replace(/<br\\s*\\/?\\s*>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
     .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'")
-    .replace(/\\s+/g, ' ').trim();
+    .replace(/\s+/g, ' ').trim();
   const points = parseVimTable(html) || [];
   const links = [];
   const tableAt = html.indexOf('id="table"');
   const paginationAt = tableAt >= 0 ? html.indexOf('bx_pagination_bottom', tableAt) : html.indexOf('bx_pagination_bottom');
   if (paginationAt >= 0) {
     const block = html.slice(paginationAt, paginationAt + 16000);
-    for (const match of block.matchAll(/<a\\b[^>]*href=["']([^"']+)["'][^>]*>/gi)) {
+    for (const match of block.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi)) {
       const href = match[1].replace(/&amp;/g, '&');
-      if (/PAGEN_\\d+=\\d+/.test(href)) links.push(href);
+      if (/PAGEN_\d+=\d+/.test(href)) links.push(href);
     }
   }
   return { points, links: [...new Set(links)] };
