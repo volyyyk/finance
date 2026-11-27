@@ -67,6 +67,29 @@ function parseVimTable(html) {
   return null;
 }
 
+// Collect the history table and its Bitrix pagination links from the official fund page.
+function parseVimHistoryPage(html) {
+  const clean = value => String(value || '')
+    .replace(/<br\\s*\\/?\\s*>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
+    .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/\\s+/g, ' ').trim();
+  const points = parseVimTable(html) || [];
+  const links = [];
+  const tableAt = html.indexOf('id="table"');
+  const paginationAt = tableAt >= 0 ? html.indexOf('bx_pagination_bottom', tableAt) : html.indexOf('bx_pagination_bottom');
+  if (paginationAt >= 0) {
+    const block = html.slice(paginationAt, paginationAt + 16000);
+    for (const match of block.matchAll(/<a\\b[^>]*href=["']([^"']+)["'][^>]*>/gi)) {
+      const href = match[1].replace(/&amp;/g, '&');
+      if (/PAGEN_\\d+=\\d+/.test(href)) links.push(href);
+    }
+  }
+  return { points, links: [...new Set(links)] };
+}
+
 function parseVimGraph(html, rulesNumber) {
   const fund = VIM_FUNDS[rulesNumber];
   if (!fund) return null;
@@ -328,16 +351,59 @@ export default {
         if (!upstream.ok) return jsonResponse({
           error: 'VIM source returned HTTP ' + upstream.status, upstreamStatus: upstream.status
         }, upstream.status);
-        const html = await upstream.text();
-        const history = parseVimGraph(html, fundId) || parseVimTable(html);
-        if (!history) return jsonResponse({
-          error: 'VIM page loaded, but no official GRAPH data or history table was found',
-          sourceUrl, htmlLength: html.length, expectedGraphId: VIM_FUNDS[fundId].graphId
+        const firstHtml = await upstream.text();
+        // The official fund history is server-rendered and paginated (20 rows per page).
+        // Follow only pagination links found inside that same fund's history table.
+        const seenUrls = new Set([sourceUrl]);
+        const queue = [sourceUrl];
+        const pointsByDate = new Map();
+        let pagesFetched = 0;
+        let firstPageLength = firstHtml.length;
+        while (queue.length && pagesFetched < 100) {
+          const pageUrl = queue.shift();
+          let pageHtml;
+          if (pageUrl === sourceUrl) {
+            pageHtml = firstHtml;
+          } else {
+            const pageResponse = await fetch(pageUrl, {
+              headers: {
+                'Accept': 'text/html,application/xhtml+xml',
+                'User-Agent': 'Mozilla/5.0 FinApp/1.0',
+                'Referer': sourceUrl
+              },
+              cf: { cacheEverything: true, cacheTtl: 21600 }
+            });
+            if (!pageResponse.ok) continue;
+            pageHtml = await pageResponse.text();
+          }
+          pagesFetched++;
+          const parsed = parseVimHistoryPage(pageHtml);
+          for (const point of parsed.points) pointsByDate.set(point.date, point);
+          for (const href of parsed.links) {
+            try {
+              const nextUrl = new URL(href, sourceUrl);
+              if (nextUrl.origin !== 'https://www.wealthim.ru' ||
+                  nextUrl.pathname !== new URL(sourceUrl).pathname) continue;
+              const normalized = nextUrl.toString();
+              if (!seenUrls.has(normalized)) {
+                seenUrls.add(normalized);
+                queue.push(normalized);
+              }
+            } catch {}
+          }
+        }
+        let history = [...pointsByDate.values()].sort((a,b) => a.date.localeCompare(b.date));
+        // Retain the embedded official graph parser as a fallback if the table markup changes.
+        if (!history.length) history = parseVimGraph(firstHtml, fundId) || [];
+        if (!history.length) return jsonResponse({
+          error: 'VIM page loaded, but no official history table was found',
+          sourceUrl, htmlLength: firstPageLength, pagesFetched,
+          expectedGraphId: VIM_FUNDS[fundId].graphId
         }, 502);
         const latest = history[history.length - 1];
         return jsonResponse({
           fundId, graphFundId: VIM_FUNDS[fundId].graphId, source: sourceUrl,
-          fetchedAt: new Date().toISOString(),
+          fetchedAt: new Date().toISOString(), pagesFetched, historyCount: history.length,
           date: latest.date, price: latest.price, nav: latest.nav, history
         }, 200, { 'Cache-Control': 'public, max-age=300, s-maxage=1800' });
       } catch (error) {
