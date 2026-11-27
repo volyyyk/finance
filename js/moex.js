@@ -205,11 +205,37 @@ const ISS = 'http://iss.moex.com/iss';
   async function searchSecurity(q){
     const query = String(q || '').trim();
     if (!query) return [];
-    const url = `${ISS}/securities.json?q=${encodeURIComponent(query)}&iss.meta=off&limit=50`;
-    // Поиск — интерактивный сценарий: не держим форму 25–30 секунд,
-    // если один из публичных реле недоступен.
-    const json = await fetchJSON(url, 15000);
-    const rows = requireRows(json, 'securities').map(row => {
+    // Многословный запрос («ОФЗ 26248») полнотекстовый поиск ISS разбирает
+    // плохо: находит индексы, но не саму облигацию. Дублируем запрос
+    // числовыми токенами (26248) и вариантами без служебных слов.
+    const tokens = query.split(/\s+/).filter(Boolean);
+    const variants = [query];
+    for (const tok of tokens){
+      if (/^\d{3,5}$/.test(tok) && !variants.includes(tok)) variants.push(tok);
+    }
+    if (tokens.length > 1){
+      const joined = tokens.filter(t => !/^(офз|су)$/i.test(t)).join(' ');
+      if (joined && joined !== query && !variants.includes(joined)) variants.unshift(joined);
+    }
+    const settled = await Promise.allSettled(
+      variants.slice(0, 3).map(v => fetchJSON(
+        `${ISS}/securities.json?q=${encodeURIComponent(v)}&iss.meta=off&limit=50`, 15000)
+        .then(json => requireRows(json, 'securities'))));
+    const rows = [];
+    const seenSecid = new Set();
+    for (const s of settled){
+      if (s.status !== 'fulfilled') continue;
+      for (const row of s.value){
+        const key = String(row.secid ?? row.SECID ?? '') + '|' + String(row.isin ?? row.ISIN ?? '');
+        if (seenSecid.has(key)) continue;
+        seenSecid.add(key);
+        rows.push(row);
+      }
+    }
+    if (!rows.length && settled.length && settled.every(s => s.status === 'rejected')){
+      throw settled[0].reason;
+    }
+    const mapped = rows.map(row => {
       const secid = row.secid ?? row.SECID ?? '';
       const shortname = row.shortname ?? row.SHORTNAME ?? row.name ?? row.NAME ?? secid;
       const fullname = row.secname ?? row.SECNAME ?? row.fullname ?? row.FULLNAME ?? row.latinname ?? row.LATINNAME ?? '';
@@ -231,7 +257,7 @@ const ISS = 'http://iss.moex.com/iss';
       if (ticker.includes(needle) || short.includes(needle) || full.includes(needle) || isin.includes(needle)) return 50;
       return 0;
     };
-    return rows.sort((a,b) => score(b)-score(a));
+    return mapped.sort((a,b) => score(b)-score(a));
   }
 
   async function securityMetadata(secid){
