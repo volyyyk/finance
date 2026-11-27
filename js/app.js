@@ -158,26 +158,36 @@ const App = (() => {
     if (typeof MoexAPI === 'undefined' || !navigator.onLine) return;
     const month = MoexAPI.monthKey();
     let changed = false;
+    const tasks = [];
     for (const p of Storage.all()){
       if (p.type !== 'investment' || !Array.isArray(p.assets)) continue;
       for (const a of p.assets){
         if (a.redeemed) continue;
         if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(a)) {
           if (a.yieldMonth !== month) {
-            try { const before = JSON.stringify(a); await VIMAPI.refreshAsset(a); if (before !== JSON.stringify(a)) changed = true; }
-            catch { /* ВИМ недоступен — сохраняем последнюю подтверждённую цену */ }
+            tasks.push(async () => {
+              try { const before = JSON.stringify(a); await VIMAPI.refreshAsset(a); if (before !== JSON.stringify(a)) changed = true; }
+              catch { /* ВИМ недоступен — сохраняем последнюю подтверждённую цену */ }
+            });
           }
           continue;
         }
         if (a.quoteSource === 'manual') continue;
         if (['stock','fund','bond','metal'].includes(a.kind) && (a.yieldMonth !== month || (a.kind === 'fund' && ['VTBL','RSHL'].includes(a.secid) && !a.moexInactive))){
-          try {
-            const before = JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth]);
-            await MoexAPI.refreshSixMonth(a);
-            if (before !== JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
-          } catch { /* Нет сети или данных MOEX — повторим при следующем заходе */ }
+          tasks.push(async () => {
+            try {
+              const before = JSON.stringify(a);
+              await MoexAPI.refreshSixMonth(a);
+              if (before !== JSON.stringify([a.secid, a.legacySecid, a.moexInactive, a.moexStatusText, a.lastPrice, a.moexUpdatedAt, a.sixMonthBase, a.sixMonthPct, a.yieldMonth])) changed = true;
+            } catch { /* Нет сети или данных MOEX — повторим при следующем заходе */ }
+          });
         }
       }
+    }
+    // Небольшие параллельные пачки: месячный проход по сотне бумаг
+    // вместо минут идёт секундами, не заваливая ISS одновременными запросами.
+    for (let i = 0; i < tasks.length; i += 6){
+      await Promise.all(tasks.slice(i, i + 6).map(run => run()));
     }
     if (changed && !$('modalBg').classList.contains('show')){
       Storage.save(Storage.all());
@@ -484,8 +494,8 @@ ${rows}
         let changed = false;
         // Небольшие параллельные пачки ускоряют большие портфели,
         // не создавая десятки одновременных запросов к публичному ISS.
-        for (let i = 0; i < assets.length; i += 4) {
-          await Promise.all(assets.slice(i, i + 4).map(async a => {
+        for (let i = 0; i < assets.length; i += 6) {
+          await Promise.all(assets.slice(i, i + 6).map(async a => {
             if (a.redeemed) return;
             const now = Date.now();
             if (typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(a)) {

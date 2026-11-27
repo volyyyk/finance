@@ -1,7 +1,8 @@
 :root{
-  --bg:#f4f6fa; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
-  --green:#15803d; --red:#b91c1c; --blue:#234e78;
+  --bg:#f4f6fa; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e6eaf1;
+  --green:#15803d; --red:#b91c1c; --blue:#1d6fd6;
   --chart-grid:#e2e8f0; --chart-text:#94a3b8; --input:#ffffff;
+  --card-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 28px rgba(15,23,42,.05);
   color-scheme:light;
 }
 /* Тёмная тема: глубокий тёмно-синий фон, пастельные акценты.
@@ -12,6 +13,7 @@ html[data-theme="dark"]{
   --green:#5fd38a; --red:#f08c8c; --blue:#91bce6;
   --chart-grid:#243654; --chart-text:#93a6c4;
   --input:#1a2a47;
+  --card-shadow:none;
   color-scheme:dark;
 }
 /* Поля ввода и списки чуть светлее окружающего фона (не белые),
@@ -56,25 +58,32 @@ html[data-theme="dark"] .cal-cell.today.has-events .cal-dot{background:#0b1424}
 html[data-theme="dark"] .install-content,html[data-theme="dark"] .install-guide summary span{color:var(--muted)}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
-header{background:var(--card);padding:14px 24px;display:flex;justify-content:space-between;
+  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+header{background:color-mix(in srgb,var(--card) 82%,transparent);
+  backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
+  padding:14px 24px;display:flex;justify-content:space-between;
   align-items:center;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;
   flex-wrap:wrap;gap:10px}
-header h1{font-size:17px;margin:0}
+header h1{font-size:17px;margin:0;letter-spacing:-.01em}
 .header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:column;gap:18px}
-.card{background:var(--card);border-radius:12px;padding:18px;border:1px solid var(--border)}
+main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+.card{background:var(--card);border-radius:16px;padding:20px;border:1px solid var(--border);
+  box-shadow:var(--card-shadow)}
 .card h2{font-size:14px;margin:0 0 14px;font-weight:600;color:var(--muted);
   text-transform:uppercase;letter-spacing:.05em}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.stat-card{background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid var(--border)}
+.stat-card{background:var(--card);border-radius:16px;padding:16px 18px;border:1px solid var(--border);
+  box-shadow:var(--card-shadow)}
 .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.stat-value{font-size:20px;font-weight:700;margin-bottom:2px}
-.stat-sub{font-size:11px;color:var(--muted)}
+.stat-value{font-size:22px;font-weight:700;margin-bottom:2px;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.stat-sub{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .green{color:var(--green)} .red{color:var(--red)}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .charts-row{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
-.chart-card{background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--border)}
+.chart-card{background:var(--card);border-radius:16px;padding:16px;border:1px solid var(--border);
+  box-shadow:var(--card-shadow)}
 .chart-card h3{margin:0 0 8px;font-size:12px;color:var(--muted);font-weight:600;
   text-transform:uppercase;letter-spacing:.05em}
 .chart-card canvas{width:100%;height:140px;display:block}
@@ -85,7 +94,7 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
 .event-body{flex:1;min-width:0}
 .event-title{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .event-meta{font-size:11px;color:var(--muted)}
-.event-amount{font-weight:600;font-size:12px;white-space:nowrap}
+.event-amount{font-weight:600;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .empty{color:var(--muted);text-align:center;padding:20px;font-size:13px}
 .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .cal-header button{border:1px solid var(--border);background:var(--card);width:28px;height:28px;
@@ -111,34 +120,37 @@ main{max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:col
 .prod-name{font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px}
 .badge{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--bg);color:var(--muted);font-weight:500}
 .prod-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.prod-amount{text-align:right;margin-right:6px}
-.amount-val{font-weight:600;font-size:13px}
+.prod-amount{text-align:right;margin-right:6px;font-variant-numeric:tabular-nums}
+.amount-val{font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
 .amount-sub{font-size:11px}
-.btn{padding:7px 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);
-  cursor:pointer;font-size:12px;font-weight:500;color:var(--text);font-family:inherit}
+.btn{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);
+  cursor:pointer;font-size:12px;font-weight:500;color:var(--text);font-family:inherit;
+  transition:transform .15s ease,background-color .2s ease,border-color .2s ease,box-shadow .2s ease}
 .btn:hover{background:var(--bg)}
-.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
-.btn.primary:hover{background:#1d4ed8}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue);
+  box-shadow:0 1px 3px color-mix(in srgb,var(--blue) 35%,transparent)}
+.btn.primary:hover{background:#1663c2}
 .btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
 .btn.danger:hover{background:#991b1b}
 .btn.small{padding:5px 9px;font-size:11px}
 .btn.ghost{background:transparent}
 .actions-bar{display:flex;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
 .forecast-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.forecast-col{background:var(--bg);border-radius:10px;padding:14px}
+.forecast-col{background:var(--bg);border-radius:12px;padding:14px}
 .forecast-col h3{margin:0 0 10px;font-size:11px;color:var(--muted);font-weight:600;
   text-transform:uppercase;letter-spacing:.05em}
 .fc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
   border-bottom:1px solid var(--border);font-size:12px}
 .fc-row:last-child{border-bottom:none}
 .fc-label{color:var(--muted);width:65px;flex-shrink:0}
-.fc-value{font-weight:600;flex:1;text-align:right;padding-right:10px}
+.fc-value{font-weight:600;flex:1;text-align:right;padding-right:10px;font-variant-numeric:tabular-nums}
 .fc-gain{font-size:11px;width:110px;text-align:right;flex-shrink:0}
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;
   align-items:center;justify-content:center;z-index:100;padding:20px}
 .modal-bg.show{display:flex}
-.modal{background:var(--card);border-radius:12px;padding:22px;width:100%;max-width:560px;
-  max-height:92vh;overflow-y:auto}
+.modal{background:var(--card);border-radius:18px;padding:24px;width:100%;max-width:560px;
+  max-height:92vh;overflow-y:auto;box-shadow:0 24px 60px rgba(3,7,18,.22)}
 .modal h2{margin:0 0 18px;font-size:17px}
 .field{margin-bottom:12px}
 .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:500}
@@ -418,7 +430,7 @@ html[data-theme="dark"] .goal-fill{background:linear-gradient(90deg,#2f7a52,#5fd
 .goal-create-bar{justify-content:center}
 
 /* Активы портфеля: раскрывающиеся списки по видам и названиям */
-.asset-group{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg)}
+.asset-group{border:1px solid var(--border);border-radius:13px;margin-bottom:8px;background:var(--bg)}
 .asset-group>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
   padding:10px 12px;min-height:44px;user-select:none;font-weight:600;flex-wrap:wrap}
 .asset-group>summary::-webkit-details-marker{display:none}
@@ -471,7 +483,7 @@ html[data-theme="dark"] .goal-fill{background:linear-gradient(90deg,#2f7a52,#5fd
   text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
 
 /* Группы одинаковых типов продуктов (вклады, карты, инвестиции…) */
-.product-group{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;
+.product-group{border:1px solid var(--border);border-radius:13px;margin-bottom:10px;
   background:var(--bg)}
 .product-group>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
   padding:10px 12px;min-height:44px;user-select:none;font-weight:600;flex-wrap:wrap}
@@ -1579,4 +1591,13 @@ html[data-theme="dark"] .cb-group.cb-l-high{border-left-color:#58bd8a}
 @media(max-width:380px){
   .product-row [data-open]{min-width:72px;padding:6px 7px;font-size:10px}
   .product-row [data-refresh]{width:34px;min-width:34px;flex-basis:34px}
+}
+
+
+/* Доступный фокус и мягкие переходы групп (в духе системных приложений) */
+:focus-visible{outline:2px solid color-mix(in srgb,var(--blue) 65%,transparent);outline-offset:2px}
+.product-group,.asset-group,.cb-group,.settings-panel{transition:border-color .25s ease,box-shadow .25s ease}
+@media (prefers-reduced-motion:reduce){
+  .btn,.product-group,.asset-group,.cb-group,.settings-panel{transition:none}
+  .btn:active{transform:none}
 }

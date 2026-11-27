@@ -432,11 +432,17 @@ const MoexAPI = (() => {
       const base = root + route + '/securities/' + encodeURIComponent(secid) + '/candles.json';
       const params = ['iss.meta=off','iss.only=candles','candles.columns=begin,close',
         'interval=24','start=0','from='+encodeURIComponent(dateFrom),'till='+encodeURIComponent(dateTo)];
-      const json = await fetchJSON(base+'?'+params.join('&'),12000);
-      return requireRows(json,'candles').map(row=>({
-        date:String(row.begin||row.BEGIN||'').slice(0,10),close:number(row.close??row.CLOSE)
-      })).filter(row=>row.date&&row.date<=dateTo&&row.date>=dateFrom&&row.close>0)
-        .sort((a,b)=>b.date.localeCompare(a.date));
+      // Дневные свечи меняются максимум раз в сутки: кэшируем на 12 часов,
+      // чтобы месячный проход доходности по сотне бумаг не повторял одинаковые
+      // запросы (включая пустые ответы по свежим выпускам).
+      return cached(`candles:${market.engine}:${market.market}:${selectedBoard || ''}:${secid}:${dateFrom}:${dateTo}`,
+        12 * 60 * 60 * 1000, async () => {
+          const json = await fetchJSON(base+'?'+params.join('&'),12000);
+          return requireRows(json,'candles').map(row=>({
+            date:String(row.begin||row.BEGIN||'').slice(0,10),close:number(row.close??row.CLOSE)
+          })).filter(row=>row.date&&row.date<=dateTo&&row.date>=dateFrom&&row.close>0)
+            .sort((a,b)=>b.date.localeCompare(a.date));
+        });
     }
 
     for(const market of candidates){
