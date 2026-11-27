@@ -195,8 +195,8 @@ export default {
       if (request.method !== 'GET') return jsonResponse({error:'Method not allowed'},405);
       const fundId = incoming.pathname.split('/')[2];
       const pages = {
-        '8000':'https://www.wealthim.ru/products/pif/opif/wimyao/',
-        '8002':'https://www.wealthim.ru/products/pif/opif/wimyo/'
+        '8000':'https://www.wealthim.ru/products/pif/funds_dinamic_gr/',
+        '8002':'https://www.wealthim.ru/products/pif/funds_dinamic_gr/'
       };
       const sourceUrl = pages[fundId];
       if (!sourceUrl) return jsonResponse({error:'Unknown VIM fund'},404);
@@ -206,14 +206,14 @@ export default {
         const html = await page.text();
         const origin = new URL(sourceUrl).origin;
         const srcs = [...new Set([...html.matchAll(/<script\b[^>]*src=["']([^"']+)["'][^>]*>/gi)].map(m=>new URL(m[1],sourceUrl).toString()).filter(u=>new URL(u).origin===origin))];
-        const selected = srcs.filter(u=>/page_|template_|core\.min|moment|jquery/i.test(u)).slice(0,16);
+        const selected = srcs.slice(0,40);
         const assets = [];
         for (const url of selected) {
           try {
             const r = await fetch(url,{headers:{Accept:'application/javascript,text/javascript,*/*','User-Agent':'Mozilla/5.0 FinApp/1.0'}});
             const body = await r.text();
             const matches = [];
-            for (const token of ['download.php','FOND_ID','QUOTES_IBLOCK','chart','history','quotes','ajax','date-choice','funds_list','period','8000','8002']) {
+            for (const token of ['download.php','FOND_ID','QUOTES_IBLOCK','chart','history','quotes','ajax','date-choice','funds_list','period','GRAPH_FUNDS','GRAPH','exportTable','set_graph','8000','8002']) {
               let at=-1,count=0;
               while ((at=body.toLowerCase().indexOf(token.toLowerCase(),at+1))>=0 && count<3) {
                 matches.push({token,snippet:body.slice(Math.max(0,at-350),Math.min(body.length,at+700)).replace(/\s+/g,' ')});
