@@ -1,28 +1,28 @@
 {
- "generatedAt": "2026-11-27T20:18:32.482Z",
+ "generatedAt": "2026-11-27T20:20:20.876Z",
  "count": 80,
  "quotes": {
   "VTBR": {
-   "last": 57.415,
+   "last": 57.4,
    "board": "TQBR",
    "kind": "stock",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 68.25,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -15.875457875457876,
-   "historyAnnualPct": -15.875457875457876
+   "historyPct": -15.897435897435896,
+   "historyAnnualPct": -15.897435897435896
   },
   "SBER": {
-   "last": 289.01,
+   "last": 289,
    "board": "TQBR",
    "kind": "stock",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 293.7,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -1.5968675519237308,
-   "historyAnnualPct": -1.5968675519237308
+   "historyPct": -1.6002723867892366,
+   "historyAnnualPct": -1.6002723867892366
   },
   "YDEX": {
    "last": 3262,
@@ -36,15 +36,15 @@
    "historyAnnualPct": -18.612774451097803
   },
   "RU000A10F512": {
-   "last": 627.8,
+   "last": 627.7,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 3,
    "historyBase": 1011.4,
    "historyBaseDate": "2026-08-01",
-   "historyPct": -37.92762507415463,
-   "historyAnnualPct": -85.15454720841817
+   "historyPct": -37.93751235910619,
+   "historyAnnualPct": -85.1640036634358
   },
   "RU000A101XN7": {
    "last": 950.2,
@@ -91,15 +91,15 @@
    "historyAnnualPct": -47.39833414992651
   },
   "RU000A10BW96": {
-   "last": 453.7,
+   "last": 453.6,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 1143.7,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -60.33050625163943,
-   "historyAnnualPct": -60.33050625163943
+   "historyPct": -60.33924980327009,
+   "historyAnnualPct": -60.33924980327009
   },
   "RU000A104FG2": {
    "last": 952,
@@ -168,15 +168,15 @@
    "historyAnnualPct": -14.603178679351226
   },
   "RU000A10CCG7": {
-   "last": 771.8,
+   "last": 766.4,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 970,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -20.43298969072166,
-   "historyAnnualPct": -20.43298969072166
+   "historyPct": -20.989690721649488,
+   "historyAnnualPct": -20.989690721649488
   },
   "RU000A10EAQ6": {
    "last": 566.5,
@@ -245,26 +245,26 @@
    "historyAnnualPct": -28.395061728395067
   },
   "RU000A10FC88": {
-   "last": 507.7,
+   "last": 511.9,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 3,
    "historyBase": 1004.9,
    "historyBaseDate": "2026-08-01",
-   "historyPct": -49.47755995621455,
-   "historyAnnualPct": -93.4846572302856
+   "historyPct": -49.059607921186185,
+   "historyAnnualPct": -93.26637179486104
   },
   "RU000A10B495": {
-   "last": 1027.7,
+   "last": 1028.5,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 1064.9,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -3.4932857545309504,
-   "historyAnnualPct": -3.4932857545309504
+   "historyPct": -3.4181613297023294,
+   "historyAnnualPct": -3.4181613297023294
   },
   "RU000A10F850": {
    "last": 989.9,
@@ -300,15 +300,15 @@
    "historyAnnualPct": -15.88235294117647
   },
   "RU000A10E6S8": {
-   "last": 919.2,
+   "last": 919.1,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 6,
    "historyBase": 1023.9,
    "historyBaseDate": "2026-05-01",
-   "historyPct": -10.225607969528273,
-   "historyAnnualPct": -19.405585355591747
+   "historyPct": -10.235374548295727,
+   "historyAnnualPct": -19.42312017515245
   },
   "RU000A10BBG1": {
    "last": 749.92,
@@ -333,15 +333,15 @@
    "historyAnnualPct": null
   },
   "AKGD": {
-   "last": 214.76,
+   "last": 214.82,
    "board": "TQBR",
    "kind": "fund",
    "date": "2026-11-27",
    "historyMonths": 3,
    "historyBase": 229.1,
    "historyBaseDate": "2026-08-01",
-   "historyPct": -6.259275425578348,
-   "historyAnnualPct": -22.782946695139927
+   "historyPct": -6.2330859886512435,
+   "historyAnnualPct": -22.696618419253557
   },
   "AKMB": {
    "last": 2.0004,
@@ -361,26 +361,26 @@
    "stale": true
   },
   "LQDT": {
-   "last": 2.145,
+   "last": 2.1451,
    "board": "TQBR",
    "kind": "fund",
    "date": "2026-11-27",
    "historyMonths": 3,
    "historyBase": 2.0519,
    "historyBaseDate": "2026-08-01",
-   "historyPct": 4.5372581509820265,
-   "historyAnnualPct": 19.42202199821297
+   "historyPct": 4.5421316828305525,
+   "historyAnnualPct": 19.444293396524937
   },
   "VSEH": {
-   "last": 87.18,
+   "last": 87.24,
    "board": "TQBR",
    "kind": "stock",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 63.39,
    "historyBaseDate": "2025-11-01",
-   "historyPct": 37.52957879791767,
-   "historyAnnualPct": 37.52957879791767
+   "historyPct": 37.624230951254134,
+   "historyAnnualPct": 37.624230951254134
   },
   "X5": {
    "last": 2365.5,
@@ -427,15 +427,15 @@
    "historyAnnualPct": -15.397881251539792
   },
   "BELU": {
-   "last": 276.6,
+   "last": 276.2,
    "board": "TQBR",
    "kind": "stock",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 384,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -27.968749999999996,
-   "historyAnnualPct": -27.968749999999996
+   "historyPct": -28.07291666666667,
+   "historyAnnualPct": -28.07291666666667
   },
   "LEAS": {
    "last": 681.1,
@@ -515,15 +515,15 @@
    "historyAnnualPct": -68.97690402235736
   },
   "RU000A10EJR5": {
-   "last": 720.1,
+   "last": 724,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 6,
    "historyBase": 1014.2,
    "historyBaseDate": "2026-05-01",
-   "historyPct": -28.998225202129756,
-   "historyAnnualPct": -49.58747975552518
+   "historyPct": -28.613685663577204,
+   "historyAnnualPct": -49.03994125461437
   },
   "RU000A10B3S8": {
    "last": 1016.5,
@@ -581,15 +581,15 @@
    "historyAnnualPct": -7.492880290680537
   },
   "RU000A1094F2": {
-   "last": 1001,
+   "last": 1000.7,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 997.4,
    "historyBaseDate": "2025-11-01",
-   "historyPct": 0.36093843994384756,
-   "historyAnnualPct": 0.36093843994384756
+   "historyPct": 0.3308602366152158,
+   "historyAnnualPct": 0.3308602366152158
   },
   "RU000A10ENA3": {
    "last": 939.8,
@@ -713,26 +713,26 @@
    "historyAnnualPct": -24.823113207547177
   },
   "SU26238RMFS4": {
-   "last": 508.35,
+   "last": 508.4,
    "board": "TQOB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 572.74,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -11.242448580507736,
-   "historyAnnualPct": -11.242448580507736
+   "historyPct": -11.2337186157768,
+   "historyAnnualPct": -11.2337186157768
   },
   "SU26250RMFS9": {
-   "last": 788.33,
+   "last": 788.34,
    "board": "TQOB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 863.99,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -8.757045799141194,
-   "historyAnnualPct": -8.757045799141194
+   "historyPct": -8.755888378337707,
+   "historyAnnualPct": -8.755888378337707
   },
   "RU000A10BP87": {
    "last": 759.8,
@@ -779,15 +779,15 @@
    "historyAnnualPct": -87.81275200120164
   },
   "RU000A10ASE2": {
-   "last": 1008.6,
+   "last": 1007.6,
    "board": "TQCB",
    "kind": "bond",
    "date": "2026-11-27",
    "historyMonths": 12,
    "historyBase": 1083,
    "historyBaseDate": "2025-11-01",
-   "historyPct": -6.869806094182829,
-   "historyAnnualPct": -6.869806094182829
+   "historyPct": -6.962142197599263,
+   "historyAnnualPct": -6.962142197599263
   },
   "RU000A10DD97": {
    "last": 540,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* Снапшот котировок MOEX для бумаг из data/watchlist.json.
-   Источник: ISS HTTPS (из облака сертификаты валидны). Для каждой бумаги:
+   Источник: ISS HTTP — у MOEX сертификаты не из общих хранилищ, HTTPS недоступен из облака и на телефонах. Для каждой бумаги:
    последняя цена + годовая экстраполяция по свечам 12/6/3/1 мес.
    Результат: data/moex-quotes.json — приложение читает его с Pages. */
 import fs from 'node:fs';
@@ -27,7 +27,7 @@ const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-$
 
 async function lastPrice(secid, board, kind){
   const market = kind === 'bond' ? 'bonds' : 'shares';
-  const url = `https://iss.moex.com/iss/engines/stock/markets/${market}/boards/${board}/securities/${secid}.json?iss.meta=off&iss.only=marketdata,securities&iss.json=compact&iss.version=on`;
+  const url = `http://iss.moex.com/iss/engines/stock/markets/${market}/boards/${board}/securities/${secid}.json?iss.meta=off&iss.only=marketdata,securities&iss.json=compact&iss.version=on`;
   const d = await getJSON(url);
   const md = d.marketdata, s = d.securities;
   const col = i => Object.fromEntries(md.columns.map((c, x) => [c, i[x]]));
@@ -44,7 +44,7 @@ async function lastPrice(secid, board, kind){
 
 async function candleClose(secid, board, kind, dateFrom, dateTo){
   const market = kind === 'bond' ? 'bonds' : 'shares';
-  const url = `https://iss.moex.com/iss/engines/stock/markets/${market}/boards/${board}/securities/${secid}/candles.json?iss.meta=off&iss.only=candles&candles.columns=begin,close&interval=24&start=0&from=${dateFrom}&till=${dateTo}`;
+  const url = `http://iss.moex.com/iss/engines/stock/markets/${market}/boards/${board}/securities/${secid}/candles.json?iss.meta=off&iss.only=candles&candles.columns=begin,close&interval=24&start=0&from=${dateFrom}&till=${dateTo}`;
   const d = await getJSON(url);
   const rows = (d.candles?.data || []).map(r => ({ date: String(r[0]).slice(0,10), close: Number(r[1]) }))
     .filter(r => r.date && r.close > 0).sort((a,b) => b.date.localeCompare(a.date));
