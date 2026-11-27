@@ -149,7 +149,7 @@ const ISS = 'http://iss.moex.com/iss';
 
     const failures = [];
     const deadline = Date.now() + Math.max(1000, timeout);
-    const budgets = timeout <= 15000 ? [5000,1000,4000,4000,5000] : [8000,8000,8000,8000,8000];
+    const budgets = timeout <= 15000 ? [8000,1000,4000,4000,5000] : [8000,8000,8000,8000,8000];
     for (let targetIndex=0; targetIndex<targets.length; targetIndex++){
       const target = targets[targetIndex];
       const remaining = deadline - Date.now();
