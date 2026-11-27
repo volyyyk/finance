@@ -1,3 +1,4 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    cashback.js — режим «Кешбэк»: категории кешбэка банков на месяц
    Зависит: Utils (в браузере)
@@ -15,7 +16,8 @@
 
 // ===== Чистая логика без DOM и localStorage =====
 const CbLogic = (() => {
-  const uid = () => Math.random().toString(36).slice(2, 10);
+const T = s => (typeof I18n !== 'undefined' ? I18n.t(s) : s);
+    const uid = () => Math.random().toString(36).slice(2, 10);
 
   function monthKey(d = new Date()){
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -45,7 +47,7 @@ const CbLogic = (() => {
         .filter(b => b && b.id)
         .map(b => ({
           id: b.id,
-          name: String(b.name || '').trim() || 'Банк',
+          name: String(b.name || '').trim() || T('Банк'),
           cats: (Array.isArray(b.cats) ? b.cats : [])
             .filter(c => c && c.id && String(c.name || '').trim())
             .map(c => ({
@@ -281,10 +283,10 @@ const Cashback = typeof document !== 'undefined' ? (() => {
   const { $, uid, escapeHtml } = Utils;
   const LS_M = 'fin_cashback';  // кешбэки месяцев: текущий + предзаказ следующего
   const LS_D = 'fin_cbDict';    // словарь: постоянные банки и категории
-  const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля',
-                  'августа','сентября','октября','ноября','декабря'];
-  const MONTHS_NOM = ['январь','февраль','март','апрель','май','июнь','июль',
-                      'август','сентябрь','октябрь','ноябрь','декабрь'];
+  const MONTHS = [T('января'),T('февраля'),T('марта'),T('апреля'),T('мая'),T('июня'),T('июля'),
+                  T('августа'),T('сентября'),T('октября'),T('ноября'),T('декабря')];
+  const MONTHS_NOM = [T('январь'),T('февраль'),T('март'),T('апрель'),T('май'),T('июнь'),T('июль'),
+                      T('август'),T('сентябрь'),T('октябрь'),T('ноябрь'),T('декабрь')];
   let mode = 'view';    // view | edit | dict
   let allSort = 'bank'; // bank | cat — сортировка общего списка
   let activeMonth = null;  // null — текущий месяц, иначе ключ предзаказа
@@ -393,10 +395,10 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       // Переключатель месяца: текущий и предзаказ следующего (с 15 дней
       // до его начала)
       root.innerHTML =
-        `<span class="cb-month-title">Кешбэк · ${monthTitle(data.month)}${isNextMonth(data.month) ? ' · предзаказ' : ''}</span>` +
+        `<span class="cb-month-title">Кешбэк · ${monthTitle(data.month)}${isNextMonth(data.month) ? T(' · предзаказ') : ''}</span>` +
         `<span class="cb-month-tabs">` + allowed.map(k =>
           `<button class="cb-tab${k === data.month ? ' active' : ''}" data-cbmonth="${k}"` +
-          ` title="${isNextMonth(k) ? 'Предзаказ кешбэка на следующий месяц' : 'Кешбэк текущего месяца'}">${monthShort(k)}</button>`
+          ` title="${isNextMonth(k) ? T('Предзаказ кешбэка на следующий месяц') : T('Кешбэк текущего месяца')}">${monthShort(k)}</button>`
         ).join('') + `</span>`;
     } else {
       root.textContent = `Кешбэк · ${monthTitle(data.month)}`;
@@ -470,10 +472,10 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     }
     if (btn && ok){
       const old = btn.textContent;
-      btn.textContent = '✓ Скопировано';
+      btn.textContent = T('✓ Скопировано');
       setTimeout(() => { btn.textContent = old; }, 1500);
     } else if (!ok){
-      alert('Не удалось скопировать автоматически — выделите и скопируйте текст вручную');
+      alert(T('Не удалось скопировать автоматически — выделите и скопируйте текст вручную'));
     }
   }
 
@@ -484,23 +486,23 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       .sort((a, b) => a.localeCompare(b, 'ru'));
     const cats = catNames(data, dict);
     return [
-      'Ты — помощник по кешбэк-программам банков. Я отправлю тебе фото или описание условий кешбэка банка.',
+      T('Ты — помощник по кешбэк-программам банков. Я отправлю тебе фото или описание условий кешбэка банка.'),
       '',
-      'Твоя задача: извлечь условия кешбэка и вернуть их в машиночитаемом виде.',
+      T('Твоя задача: извлечь условия кешбэка и вернуть их в машиночитаемом виде.'),
       '',
-      'Правила ответа:',
-      '1. В ответе должен быть ровно один блок кода с JSON — и ничего больше, до или после. Если на фото несколько банков, верни все банки отдельными объектами в одном JSON-массиве:',
+      T('Правила ответа:'),
+      T('1. В ответе должен быть ровно один блок кода с JSON — и ничего больше, до или после. Если на фото несколько банков, верни все банки отдельными объектами в одном JSON-массиве:'),
       '```json',
       '[{"bank":"Название банка","cashbacks":[{"category":"Категория","subcategory":null,"percent":5}]}]',
       '```',
-      '2. "subcategory" — null, если подкатегории нет. "percent" — число без знака %, можно дробное (например 3.5).',
-      '3. Максимально согласуй ответ с моими справочниками ниже: если банк или категория уже есть в списках, используй точно такое же написание. Новую категорию называй коротко (1–3 слова).',
-      '4. Если данных на фото не хватает (не видно процентов, категорию или срок действия) — сначала задай мне уточняющие вопросы и дождись ответа; блок кода пока не присылай. Не выдумывай категории и проценты.',
+      T('2. "subcategory" — null, если подкатегории нет. "percent" — число без знака %, можно дробное (например 3.5).'),
+      T('3. Максимально согласуй ответ с моими справочниками ниже: если банк или категория уже есть в списках, используй точно такое же написание. Новую категорию называй коротко (1–3 слова).'),
+      T('4. Если данных на фото не хватает (не видно процентов, категорию или срок действия) — сначала задай мне уточняющие вопросы и дождись ответа; блок кода пока не присылай. Не выдумывай категории и проценты.'),
       '',
-      'Банки, которые уже есть в приложении: ' + (banks.join(', ') || 'пока нет'),
-      'Категории кешбэка, которые уже есть: ' + (cats.join(', ') || 'пока нет'),
+      T('Банки, которые уже есть в приложении: ') + (banks.join(', ') || T('пока нет')),
+      T('Категории кешбэка, которые уже есть: ') + (cats.join(', ') || T('пока нет')),
       '',
-      'Месяц, для которого добавляем кешбэки: ' + monthTitle(data.month) + '.',
+      T('Месяц, для которого добавляем кешбэки: ') + monthTitle(data.month) + '.',
     ].join('\n');
   }
 
@@ -583,7 +585,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       const ta = $('cbPaste');
       const parsed = CbLogic.parseAiAnswer(ta ? ta.value : '');
       if (!parsed){
-        alert('Не удалось найти блок кода с JSON. Попросите нейросеть прислать ответ ещё раз — одним блоком кода.');
+        alert(T('Не удалось найти блок кода с JSON. Попросите нейросеть прислать ответ ещё раз — одним блоком кода.'));
         return;
       }
       importSkip = new Set();
@@ -608,13 +610,13 @@ const Cashback = typeof document !== 'undefined' ? (() => {
           <div class="cb-empty-art" aria-hidden="true"><span>₽</span><i>✦</i><b>+</b></div>
           <div class="cb-empty-copy">
             <span class="cb-eyebrow">ВАШИ ВЫГОДНЫЕ КАТЕГОРИИ</span>
-            <h3 id="cbEmptyTitle">${noBanks ? 'Начнём с первого банка' : 'Добавим первые категории?'}</h3>
+            <h3 id="cbEmptyTitle">${noBanks ? T('Начнём с первого банка') : T('Добавим первые категории?')}</h3>
             <p>${noBanks
-              ? 'Добавьте банки, которыми пользуетесь, и приложение покажет, где выгоднее платить в каждой категории.'
-              : 'Банки уже добавлены. Осталось указать проценты кешбэка — вручную или с помощью распознавания условий.'}</p>
+              ? T('Добавьте банки, которыми пользуетесь, и приложение покажет, где выгоднее платить в каждой категории.')
+              : T('Банки уже добавлены. Осталось указать проценты кешбэка — вручную или с помощью распознавания условий.')}</p>
             ${nextHint}
             <div class="cb-empty-actions">
-              <button class="btn primary" id="cbStartBtn">${noBanks ? '+ Добавить первый банк' : '+ Добавить категории'}</button>
+              <button class="btn primary" id="cbStartBtn">${noBanks ? T('+ Добавить первый банк') : T('+ Добавить категории')}</button>
               <button class="btn" id="cbEmptyPromptBtn">Заполнить по фото / ИИ</button>
             </div>
           </div>
@@ -743,9 +745,9 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       const value = parseFloat($('cbQVal').value);
       const bankId = $('cbQBank').value;
       const sub = $('cbQSubOn').checked ? $('cbQSub').value.trim() : '';
-      if (!name){ alert('Укажите категорию (выберите из списка или впишите новую)'); return; }
-      if (!(value > 0)){ alert('Укажите процент кешбэка'); return; }
-      if ($('cbQSubOn').checked && !sub){ alert('Укажите подкатегорию или снимите галочку'); return; }
+      if (!name){ alert(T('Укажите категорию (выберите из списка или впишите новую)')); return; }
+      if (!(value > 0)){ alert(T('Укажите процент кешбэка')); return; }
+      if ($('cbQSubOn').checked && !sub){ alert(T('Укажите подкатегорию или снимите галочку')); return; }
       mutate(d => {
         const bank = d.banks.find(x => x.id === bankId);
         if (bank) (bank.cats ||= []).push({ id: uid(), name, sub: sub || null, value });
@@ -852,9 +854,9 @@ const Cashback = typeof document !== 'undefined' ? (() => {
       const value = parseFloat(el.querySelector(`[data-newval="${bankId}"]`).value);
       const subOn = el.querySelector(`[data-subon="${bankId}"]`).checked;
       const sub = subOn ? el.querySelector(`[data-newsub="${bankId}"]`).value.trim() : '';
-      if (!name){ alert('Укажите категорию (выберите из списка или впишите новую)'); return; }
-      if (!(value > 0)){ alert('Укажите процент кешбэка'); return; }
-      if (subOn && !sub){ alert('Укажите подкатегорию или снимите галочку'); return; }
+      if (!name){ alert(T('Укажите категорию (выберите из списка или впишите новую)')); return; }
+      if (!(value > 0)){ alert(T('Укажите процент кешбэка')); return; }
+      if (subOn && !sub){ alert(T('Укажите подкатегорию или снимите галочку')); return; }
       mutate(d => {
         const bank = d.banks.find(x => x.id === bankId);
         if (bank) (bank.cats ||= []).push({ id: uid(), name, sub: sub || null, value });
@@ -864,7 +866,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     });
     $('cbAddBank').onclick = () => {
       const names = [...new Set($('cbNewBank').value.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean))];
-      if (!names.length){ alert('Укажите хотя бы один банк'); return; }
+      if (!names.length){ alert(T('Укажите хотя бы один банк')); return; }
       let added = 0;
       mutate(d => names.forEach(name => {
         if (d.banks.some(b => b.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru'))) return;
@@ -872,7 +874,7 @@ const Cashback = typeof document !== 'undefined' ? (() => {
         added++;
       }));
       names.forEach(name => remember('bank', name));
-      if (!added){ alert('Эти банки уже есть в списке'); return; }
+      if (!added){ alert(T('Эти банки уже есть в списке')); return; }
       render();
     };
     $('cbDone').onclick = () => { mode = 'view'; render(); };
@@ -914,13 +916,13 @@ const Cashback = typeof document !== 'undefined' ? (() => {
     });
     $('cbDictBankAdd').onclick = () => {
       const name = $('cbDictBankName').value.trim();
-      if (!name){ alert('Укажите название банка'); return; }
+      if (!name){ alert(T('Укажите название банка')); return; }
       saveDict(CbLogic.dictAdd(loadDict(), 'bank', name));
       render();
     };
     $('cbDictCatAdd').onclick = () => {
       const name = $('cbDictCatName').value.trim();
-      if (!name){ alert('Укажите название категории'); return; }
+      if (!name){ alert(T('Укажите название категории')); return; }
       saveDict(CbLogic.dictAdd(loadDict(), 'cat', name));
       render();
     };

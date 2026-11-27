@@ -1,6 +1,7 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* Full local-first backup/restore for all application-owned localStorage keys. */
 const Backup = (() => {
-  const PREFIX = 'fin_';
+const PREFIX = 'fin_';
   const FORMAT = 'finance-local-backup';
   const VERSION = 2;
 
@@ -14,7 +15,7 @@ const Backup = (() => {
   }
 
   function validateProducts(list){
-    if (!Array.isArray(list)) throw new Error('В резервной копии нет списка продуктов');
+    if (!Array.isArray(list)) throw new Error(T('В резервной копии нет списка продуктов'));
     const ids = new Set();
     for (const [i, p] of list.entries()){
       if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error(`Продукт №${i + 1}: неверный формат`);
@@ -33,7 +34,7 @@ const Backup = (() => {
   function parse(text){
     let parsed;
     try { parsed = JSON.parse(text); }
-    catch { throw new Error('Файл не является корректным JSON'); }
+    catch { throw new Error(T('Файл не является корректным JSON')); }
 
     // Совместимость с прежними резервными копиями: массив продуктов.
     if (Array.isArray(parsed)){
@@ -41,17 +42,17 @@ const Backup = (() => {
     }
 
     if (!parsed || parsed.format !== FORMAT || parsed.version !== VERSION || !parsed.storage || typeof parsed.storage !== 'object' || Array.isArray(parsed.storage)){
-      throw new Error('Неизвестный формат резервной копии или неподдерживаемая версия');
+      throw new Error(T('Неизвестный формат резервной копии или неподдерживаемая версия'));
     }
     const entries = {};
     for (const [key, value] of Object.entries(parsed.storage)){
-      if (!/^fin_[a-z0-9_]+$/i.test(key) || typeof value !== 'string') throw new Error('В резервной копии обнаружены некорректные данные приложения');
+      if (!/^fin_[a-z0-9_]+$/i.test(key) || typeof value !== 'string') throw new Error(T('В резервной копии обнаружены некорректные данные приложения'));
       entries[key] = value;
     }
-    if (!(Config.STORAGE_KEY in entries)) throw new Error('В резервной копии отсутствует основной список продуктов');
+    if (!(Config.STORAGE_KEY in entries)) throw new Error(T('В резервной копии отсутствует основной список продуктов'));
     let products;
     try { products = JSON.parse(entries[Config.STORAGE_KEY]); }
-    catch { throw new Error('Основной список продуктов повреждён'); }
+    catch { throw new Error(T('Основной список продуктов повреждён')); }
     validateProducts(products);
     for (const key of ['fin_cashback','fin_cbDict','fin_snapshots','fin_goal']){
       if (entries[key] == null) continue;
@@ -85,7 +86,7 @@ const Backup = (() => {
       Object.keys(appEntries()).forEach(key => localStorage.removeItem(key));
       Object.entries(before).forEach(([key,value]) => localStorage.setItem(key,value));
       Storage.replaceAll(beforeProducts);
-      throw new Error('Не удалось восстановить данные. Предыдущие данные возвращены: ' + (error.message || error));
+      throw new Error(T('Не удалось восстановить данные. Предыдущие данные возвращены: ') + (error.message || error));
     }
     return parsed.products.length;
   }

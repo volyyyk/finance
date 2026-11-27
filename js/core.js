@@ -92,13 +92,17 @@ const Utils = (() => {
     };
     return byTicker[ticker] || '';
   }
-  function fmtMoney(n){ return new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n); }
+  function fmtMoney(n){
+    const locale = (typeof I18n !== 'undefined' ? I18n.localeTag() : 'ru-RU');
+    if (locale === 'en-US') return '₽' + new Intl.NumberFormat('en-US',{maximumFractionDigits:0}).format(n);
+    return new Intl.NumberFormat(locale,{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n);
+  }
   function fmtPct(n){ return (n>=0?'+':'') + n.toFixed(2) + '%'; }
   function fmtDate(d){
     if(!d) return '—';
     const dt = (typeof d==='string') ? parseDate(d) : d;
     if(!dt) return '—';
-    return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});
+    return dt.toLocaleDateString((typeof I18n !== 'undefined' ? I18n.localeTag() : 'ru-RU'),{day:'2-digit',month:'2-digit',year:'numeric'});
   }
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

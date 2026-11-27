@@ -1,3 +1,4 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    simulator.js — Simulator, Stats
    Зависит: Config, Utils, Storage
@@ -30,7 +31,7 @@ function opOccurrencesInYear(op){
 }
 
 const Simulator = (() => {
-  const { parseDate } = Utils;
+const { parseDate } = Utils;
 
   // noEndLimit — режим «без событий»: операции не имеют даты окончания
   function opOccursInMonth(op, monthDate, opStartDate, noEndLimit){
@@ -422,7 +423,7 @@ const Simulator = (() => {
 
   function investmentForecast(product){
     const kinds = [
-      ['stock','Акции'],['bond','Облигации'],['fund','Фонды'],['metal','Металлы']
+      ['stock',T('Акции')],['bond',T('Облигации')],['fund',T('Фонды')],['metal',T('Металлы')]
     ];
     const rows = kinds.map(([kind,label]) => {
       const assets = (product.assets || []).filter(a => a.kind === kind && !a.redeemed);

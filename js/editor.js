@@ -1,10 +1,11 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    editor.js — ProductEditor
    Зависит: Config, Utils, Storage, MoexAPI
    ============================================================ */
 
 const ProductEditor = (() => {
-  const { $, uid, fmtDate, fmtMoney, escapeHtml } = Utils;
+const { $, uid, fmtDate, fmtMoney, escapeHtml } = Utils;
   let onSaved = null;
   let editingId = null;
   let draftOps = [];
@@ -29,8 +30,8 @@ const ProductEditor = (() => {
   // Быстрые кнопки драгметаллов, отфильтрованные по поисковому запросу:
   // «золот» — только золото, «SLV» — только серебро, мусор — ничего.
   const METALS = [
-    ['GLDRUB_TOM', 'Золото'], ['SLVRUB_TOM', 'Серебро'],
-    ['PLDRUB_TOM', 'Палладий'], ['PLTRUB_TOM', 'Платина'],
+    ['GLDRUB_TOM', T('Золото')], ['SLVRUB_TOM', T('Серебро')],
+    ['PLDRUB_TOM', T('Палладий')], ['PLTRUB_TOM', T('Платина')],
   ];
   function metalQuickList(q){
     const ql = (q || '').trim().toLowerCase();
@@ -47,17 +48,12 @@ const ProductEditor = (() => {
       $('searchResults').textContent = '';
       $('bondExtra').style.display = 'none';
       $('assetQty').step = $('assetKind').value === 'metal' ? '0.01' : '1';
-      $('assetQty').placeholder = $('assetKind').value === 'metal' ? 'Граммы' : 'Кол-во';
+      $('assetQty').placeholder = $('assetKind').value === 'metal' ? T('Граммы') : T('Кол-во');
     });
 
     const typeSel = $('f_type');
     if (typeSel) {
-      typeSel.innerHTML = '';
-      Object.entries(Config.TYPES).forEach(([k,v])=>{
-        const o = document.createElement('option');
-        o.value = k; o.textContent = v.label;
-        typeSel.appendChild(o);
-      });
+      buildTypeOptions();
       typeSel.addEventListener('change', updateVisibility);
     }
 
@@ -285,9 +281,9 @@ const ProductEditor = (() => {
       details.append(summary, body);
       return { details, body };
     };
-    const basics = makeSection('editorBasics','Основное','Тип, название и сумма',true);
-    const conditions = makeSection('editorConditions','Условия и доходность','Ставка, даты и дополнительные параметры');
-    const activity = makeSection('editorActivity','Операции и состав','Пополнения, снятия, активы и действия при окончании');
+    const basics = makeSection('editorBasics',T('Основное'),T('Тип, название и сумма'),true);
+    const conditions = makeSection('editorConditions',T('Условия и доходность'),T('Ставка, даты и дополнительные параметры'));
+    const activity = makeSection('editorActivity',T('Операции и состав'),T('Пополнения, снятия, активы и действия при окончании'));
     const take = (selector, target) => {
       const node = form.querySelector(selector);
       if (!node) return;
@@ -344,8 +340,8 @@ const ProductEditor = (() => {
     };
     wizard.querySelector('#wizardTypeGrid').innerHTML = Object.entries(Config.TYPES).map(([key,t]) =>
       `<button type="button" class="wizard-type-card" data-wiz-type="${key}">
-        <span class="wizard-type-icon">${Utils.iconSvg(t.icon,20)}</span><b>${t.label}</b>
-        <small>${key==='deposit'?'Сбережения и проценты':key==='investment'?'Брокерский счёт и активы':key==='debit_card'?'Деньги на карте или счёте':key==='credit_card'?'Лимит и задолженность':key==='loan'?'Кредит и выплаты':key==='apartment'?'Стоимость и аренда':'Регулярные платежи'}</small>
+        <span class="wizard-type-icon">${Utils.iconSvg(t.icon,20)}</span><b>${T(t.label)}</b>
+        <small>${key==='deposit'?T('Сбережения и проценты'):key==='investment'?T('Брокерский счёт и активы'):key==='debit_card'?T('Деньги на карте или счёте'):key==='credit_card'?T('Лимит и задолженность'):key==='loan'?T('Кредит и выплаты'):key==='apartment'?T('Стоимость и аренда'):T('Регулярные платежи')}</small>
       </button>`).join('');
     wizard.querySelectorAll('[data-wiz-type]').forEach(btn => btn.onclick = () => {
       $('f_type').value = btn.dataset.wizType;
@@ -368,13 +364,13 @@ const ProductEditor = (() => {
     });
     const note = document.createElement('p');
     note.className = 'editor-footnote';
-    note.textContent = 'Дополнительные параметры можно раскрыть ниже. Ничего важного не удалено.';
+    note.textContent = T('Дополнительные параметры можно раскрыть ниже. Ничего важного не удалено.');
     basics.body.appendChild(note);
   }
 
   function setWizardStep(step){
     wizardStep = Math.max(1, Math.min(4, step));
-    const labels = ['Выберите категорию','Основные данные','Условия и доходность','Операции и состав'];
+    const labels = [T('Выберите категорию'),T('Основные данные'),T('Условия и доходность'),T('Операции и состав')];
     const wizard = $('productWizard');
     if (!wizard) return;
     $('wizardStepLabel').textContent = `Шаг ${wizardStep} из 4 · ${labels[wizardStep-1]}`;
@@ -386,7 +382,7 @@ const ProductEditor = (() => {
     $('editorConditions').open = wizardStep === 3;
     $('editorActivity').open = wizardStep === 4;
     $('wizardBack').hidden = wizardStep === 1;
-    $('wizardNext').textContent = wizardStep === 4 ? 'Сохранить продукт' : 'Продолжить';
+    $('wizardNext').textContent = wizardStep === 4 ? T('Сохранить продукт') : T('Продолжить');
     $('wizardTypeGrid').querySelectorAll('[data-wiz-type]').forEach(btn =>
       btn.classList.toggle('selected', btn.dataset.wizType === $('f_type').value));
     wizard.querySelectorAll('[data-wiz-progress]').forEach((bar,i) => bar.classList.toggle('done', i < wizardStep));
@@ -415,7 +411,7 @@ const ProductEditor = (() => {
     const type = $('f_type')?.value || 'deposit';
     const amount = Number($('f_amount')?.value) || 0;
     const rate = Number($('f_rate')?.value) || 0;
-    let income = 0, baseValue = amount, label = 'Ориентировочный доход за срок';
+    let income = 0, baseValue = amount, label = T('Ориентировочный доход за срок');
     let detail = '';
 
     // Для вкладов и кредитов с датой окончания показываем доход/стоимость
@@ -442,28 +438,28 @@ const ProductEditor = (() => {
     } else if (type === 'expense'){
       if (!(amount > 0)) { preview.hidden = true; return; }
       income = -amount * 12;
-      label = 'Расходы за год';
-      detail = 'По текущей ежемесячной сумме';
+      label = T('Расходы за год');
+      detail = T('По текущей ежемесячной сумме');
     } else if (type === 'credit_card'){
       if (!(amount > 0 && rate > 0)) { preview.hidden = true; return; }
       income = -Math.abs(amount * rate / 100);
-      label = 'Ориентировочная стоимость долга за год';
-      detail = 'Без учёта льготного периода и погашений';
+      label = T('Ориентировочная стоимость долга за год');
+      detail = T('Без учёта льготного периода и погашений');
     } else if (type === 'apartment'){
       if (!(amount > 0 && rate > 0)) { preview.hidden = true; return; }
       income = amount * rate / 100
         + ($('f_rented')?.checked ? (Number($('f_rentPrice')?.value)||0)*12 : 0)
         - amount * (Number($('f_upkeepRate')?.value)||2) / 100;
-      label = 'Ориентировочный эффект за год';
-      detail = 'Рост стоимости, аренда и обслуживание';
+      label = T('Ориентировочный эффект за год');
+      detail = T('Рост стоимости, аренда и обслуживание');
     } else if (type === 'investment'){
       const assets = draftAssets.length ? draftAssets : (editingId ? (Storage.get(editingId)?.assets || []) : []);
       const previewProduct = { id:'investment-preview', type:'investment', amount, assets, operations:[] };
       const year = Simulator.simulateProduct(previewProduct, 12).history[12];
       income = year ? (year.cumIncome || 0) - (year.cumExpense || 0) : 0;
       baseValue = Simulator.portfolioValue(previewProduct);
-      label = 'Ориентировочный эффект за год';
-      detail = 'Сценарий по истории портфеля';
+      label = T('Ориентировочный эффект за год');
+      detail = T('Сценарий по истории портфеля');
       if (!(baseValue > 0)) { preview.hidden = true; return; }
     } else {
       preview.hidden = true;
@@ -476,6 +472,20 @@ const ProductEditor = (() => {
     money.className = income >= 0 ? 'green' : 'red';
     pct.textContent = detail + (baseValue > 0 ? ` · ${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(2)}% от суммы` : '');
     preview.hidden = false;
+  }
+
+  // Сборка списка типов с переводом; текущий выбор сохраняется
+  function buildTypeOptions(){
+    const typeSel = $('f_type');
+    if (!typeSel) return;
+    const current = typeSel.value;
+    typeSel.innerHTML = '';
+    Object.entries(Config.TYPES).forEach(([k,v])=>{
+      const o = document.createElement('option');
+      o.value = k; o.textContent = T(v.label);
+      typeSel.appendChild(o);
+    });
+    if (current) typeSel.value = current;
   }
 
   function updateVisibility(){
@@ -508,12 +518,12 @@ const ProductEditor = (() => {
     }
     if ($('label_amount')) {
       $('label_amount').textContent = isExpense
-        ? 'Сумма в месяц (₽)'
-        : isCredit ? 'Долг на текущий день (₽)'
-        : isInvest   ? 'Свободные деньги (кэш, может быть отрицательным) (₽)'
-        : isApartment ? 'Стоимость квартиры (₽)'
-        : t.liability ? 'Текущий долг (₽)'
-        : 'Текущая сумма (₽)';
+        ? T('Сумма в месяц (₽)')
+        : isCredit ? T('Долг на текущий день (₽)')
+        : isInvest   ? T('Свободные деньги (кэш, может быть отрицательным) (₽)')
+        : isApartment ? T('Стоимость квартиры (₽)')
+        : t.liability ? T('Текущий долг (₽)')
+        : T('Текущая сумма (₽)');
     }
     if ($('f_rate')) {
       // Для брокерского портфеля ручная ставка не используется:
@@ -523,9 +533,9 @@ const ProductEditor = (() => {
         $('f_rate').parentElement.style.display = (isExpense || isInvest) ? 'none' : '';
         const label = $('f_rate').parentElement.querySelector('label');
         if (label) {
-          label.textContent = isCredit ? 'Ставка по долгу (% годовых)'
-            : isApartment ? 'Рост стоимости квартиры (% в год)'
-            : 'Ставка (% годовых)';
+          label.textContent = isCredit ? T('Ставка по долгу (% годовых)')
+            : isApartment ? T('Рост стоимости квартиры (% в год)')
+            : T('Ставка (% годовых)');
         }
       }
       if (isApartment && !$('f_rate').value) {
@@ -559,7 +569,7 @@ const ProductEditor = (() => {
       setWizard(false);
       const p = Storage.get(id);
       if (!p){ close(); return; }
-      if ($('modalTitle')) $('modalTitle').textContent = 'Редактировать продукт';
+      if ($('modalTitle')) $('modalTitle').textContent = T('Редактировать продукт');
       if ($('f_id')) $('f_id').value = p.id;
       if ($('f_type')) $('f_type').value = p.type;
       if ($('f_name')) $('f_name').value = p.name;
@@ -580,7 +590,7 @@ const ProductEditor = (() => {
         : (p.endAction ? [p.endAction] : []);
       draftAssets = structuredClone(p.assets || []);
     } else {
-      if ($('modalTitle')) $('modalTitle').textContent = 'Новый продукт';
+      if ($('modalTitle')) $('modalTitle').textContent = T('Новый продукт');
       if ($('f_id')) $('f_id').value = '';
       if ($('f_start')) $('f_start').value = new Date().toISOString().slice(0,10);
       if ($('f_rate')) $('f_rate').value = 0;
@@ -593,6 +603,7 @@ const ProductEditor = (() => {
       if ($('f_offBudget')) $('f_offBudget').checked = false;
     }
 
+    if (typeof I18n !== 'undefined') buildTypeOptions();
     updateVisibility();
     if (!id) setWizard(true);
     renderEffectPreview();
@@ -660,7 +671,7 @@ const ProductEditor = (() => {
         <div class="op-dir ${cls}">${sign}</div>
         <div class="op-body">
           <div>${op.amount.toLocaleString('ru-RU')} ₽ · ${fLabel}${endTxt}</div>
-          <div class="op-meta">${op.date ? 'с '+fmtDate(op.date) : ''}${debtTxt}</div>
+          <div class="op-meta">${op.date ? T('с ')+fmtDate(op.date) : ''}${debtTxt}</div>
         </div>
         <button type="button" class="op-del" data-op="${op.id}">×</button>
       </div>`;
@@ -688,9 +699,9 @@ const ProductEditor = (() => {
     const freq = $('op_freq').value;
     const date = $('op_date').value;
     const endDate = freq === 'once' ? null : ($('op_endDate').value || null);
-    if (!amount || amount <= 0){ alert('Укажите сумму операции'); return; }
-    if (!date){ alert('Укажите дату первой операции'); return; }
-    if (freq !== 'once' && endDate && endDate < date){ alert('Дата окончания не может быть раньше даты первой операции'); return; }
+    if (!amount || amount <= 0){ alert(T('Укажите сумму операции')); return; }
+    if (!date){ alert(T('Укажите дату первой операции')); return; }
+    if (freq !== 'once' && endDate && endDate < date){ alert(T('Дата окончания не может быть раньше даты первой операции')); return; }
     // Снятие можно пометить как платёж по долгу конкретного продукта:
     // тогда в прогнозе платёж уменьшает долг, а не «списывается» второй раз.
     const debtTargetId = dir === 'out' ? ($('op_debtTarget')?.value || null) : null;
@@ -725,9 +736,9 @@ const ProductEditor = (() => {
           <input type="date" data-act-end="${i}" value="${a.newEndDate ?? ''}">
         </div>`;
       }
-      const label = a.type === 'close' ? 'Закрыть продукт'
-                  : a.type === 'transfer' ? 'Перевести средства'
-                  : 'Изменить условия';
+      const label = a.type === 'close' ? T('Закрыть продукт')
+                  : a.type === 'transfer' ? T('Перевести средства')
+                  : T('Изменить условия');
       const icon = a.type === 'close' ? 'archive'
                  : a.type === 'transfer' ? 'workflow' : 'settings';
       return `<div class="op-row end-action-row" style="flex-wrap:wrap">
@@ -791,7 +802,7 @@ const ProductEditor = (() => {
         const key = String(asset.secid || '') + '|' + normalizeAssetSearch(asset.customName);
         if (seen.has(key)) continue;
         seen.add(key);
-        matches.push({asset, productName:product.name || 'Брокерский счёт'});
+        matches.push({asset, productName:product.name || T('Брокерский счёт')});
       }
     }
     return matches.slice(0,8);
@@ -804,7 +815,7 @@ const ProductEditor = (() => {
         const a=match.asset;
         return '<div class="op-row" data-saved-pick="' + i + '" style="cursor:pointer">' +
           '<div class="op-body"><div><b>' + escapeHtml(a.customName) + '</b> <span class="badge">' +
-          escapeHtml(['manual','vim'].includes(a.quoteSource) ? ('Правила ПИФ ' + (a.rulesNumber || '')) : (a.secid || '')) + '</span></div><div class="op-meta">' +
+          escapeHtml(['manual','vim'].includes(a.quoteSource) ? (T('Правила ПИФ ') + (a.rulesNumber || '')) : (a.secid || '')) + '</span></div><div class="op-meta">' +
           escapeHtml(match.productName) + ' · сохранённое название</div></div></div>';
       }).join('');
   }
@@ -868,7 +879,7 @@ const ProductEditor = (() => {
 
   async function searchAsset(){
     if (typeof MoexAPI === 'undefined') {
-      alert('Модуль MoexAPI не загружен');
+      alert(T('Модуль MoexAPI не загружен'));
       return;
     }
     pendingAsset = null;
@@ -976,7 +987,7 @@ const ProductEditor = (() => {
     </div></div>`;
     if ($('bondExtra')) $('bondExtra').style.display = kind === 'bond' ? '' : 'none';
     $('assetPurchaseDate').value = Bonds.today();
-    $('bondPreview').textContent = 'Загрузка данных MOEX…';
+    $('bondPreview').textContent = T('Загрузка данных MOEX…');
     try {
       const asset = { ...picked, isin: String(picked.isin || picked.ISIN || '').trim().toUpperCase(),
         board: kind === 'metal' ? 'CETS' : (picked.primary_boardid || (kind === 'bond' ? 'TQOB' : kind === 'fund' ? 'TQTF' : 'TQBR')), kind };
@@ -993,9 +1004,9 @@ const ProductEditor = (() => {
       pendingAsset = asset;
       if (asset.lastPrice != null) $('assetAvgPrice').value = asset.lastPrice.toFixed(2);
       $('bondPreview').textContent = asset.quoteSource === 'vim'
-        ? 'Официальная стоимость пая ВИМ: ' + fmtMoney(asset.lastPrice) + ' на ' + asset.navDate +
-          '. СЧА: ' + (asset.nav == null ? 'нет данных' : fmtMoney(asset.nav)) +
-          '. История: ' + (asset.historyMonths || '—') + ' мес.; автоматическое обновление.'
+        ? T(T('Официальная стоимость пая ВИМ: ')) + fmtMoney(asset.lastPrice) + T(T(' на ')) + asset.navDate +
+          T('. СЧА: ') + (asset.nav == null ? T(T('нет данных')) : fmtMoney(asset.nav)) +
+          T('. История: ') + (asset.historyMonths || '—') + T(' мес.; автоматическое обновление.')
         : asset.quoteSource === 'manual'
         ? `Официальная стоимость пая: ${fmtMoney(asset.lastPrice)} на ${asset.navDate}. История: ${asset.historyMonths} мес.; котировка обновляется вручную.`
         : kind === 'bond'
@@ -1003,7 +1014,7 @@ const ProductEditor = (() => {
           : kind === 'fund' && asset.moexInactive
           ? asset.moexStatusText
           : kind === 'fund'
-          ? (asset.lastPrice != null ? `Цена пая: ${fmtMoney(asset.lastPrice)} · данные MOEX` : 'Свежая цена MOEX пока не получена; цену покупки можно указать вручную.')
+          ? (asset.lastPrice != null ? `Цена пая: ${fmtMoney(asset.lastPrice)} · данные MOEX` : T('Свежая цена MOEX пока не получена; цену покупки можно указать вручную.'))
           : kind === 'metal'
           ? `Цена за грамм: ${fmtMoney(asset.lastPrice || 0)} · унция: ${fmtMoney(asset.ouncePrice || 0)} · данные MOEX`
           : '';
@@ -1012,7 +1023,7 @@ const ProductEditor = (() => {
       if (myPick !== pickSeq) return;
       pendingAsset = null;
       $('addAssetBtn').disabled = true;
-      $('bondPreview').textContent = 'Не удалось подтвердить, что бумага торгуется: ' + e.message + '. Добавление заблокировано. Повторите проверку позже.';
+      $('bondPreview').textContent = T('Не удалось подтвердить, что бумага торгуется: ') + e.message + T('. Добавление заблокировано. Повторите проверку позже.');
     }
   }
 
@@ -1023,8 +1034,8 @@ const ProductEditor = (() => {
     const kind = pendingAsset.kind || $('assetKind').value;
     if (!(qty > 0) || (kind !== 'metal' && !Number.isInteger(qty)) || !Number.isFinite(avgPrice) || avgPrice <= 0) {
       alert(kind === 'metal'
-        ? 'Укажите вес в граммах (можно дробный) и цену покупки в рублях за грамм'
-        : 'Укажите целое положительное количество и цену покупки в рублях'); return;
+        ? T('Укажите вес в граммах (можно дробный) и цену покупки в рублях за грамм')
+        : T('Укажите целое положительное количество и цену покупки в рублях')); return;
     }
     try {
       if (pendingAsset.quoteSource !== 'manual' && !(typeof VIMAPI !== 'undefined' && VIMAPI.isVimAsset(pendingAsset))){
@@ -1032,12 +1043,12 @@ const ProductEditor = (() => {
         if (pendingAsset.moexInactive) throw new Error('Инструмент закрыт или снят с торгов');
       }
     } catch (error) {
-      alert('Нельзя добавить бумагу: не удалось подтвердить действующий допуск к торгам. ' + error.message);
+      alert(T('Нельзя добавить бумагу: не удалось подтвердить действующий допуск к торгам. ') + error.message);
       return;
     }
     const purchaseDate = $('assetPurchaseDate').value || Bonds.today();
     if (kind === 'bond' && (purchaseDate > Bonds.today() || (pendingAsset.maturityDate && purchaseDate >= pendingAsset.maturityDate))) {
-      alert('Дата покупки должна быть не позже сегодняшней даты и раньше погашения'); return;
+      alert(T('Дата покупки должна быть не позже сегодняшней даты и раньше погашения')); return;
     }
     const enteredName = ($('assetHumanName')?.value || '').trim();
     const sourceName = String(pendingAsset.shortname || pendingAsset.fullname || pendingAsset.secid || '').trim();
@@ -1116,7 +1127,7 @@ const ProductEditor = (() => {
     // Историческое изменение цены за полгода — основа сценарного прогноза
     // для акций, фондов, облигаций и металлов.
     const yieldTxt = a.quoteSource === 'vim'
-      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? 'нет данных' : fmtMoney(a.nav)} · изменение за ${a.historyMonths || '—'} мес.: ${a.historyPct == null ? 'нет данных' : Utils.fmtPct(a.historyPct)} · годовой темп: ${a.historyAnnualPct == null ? 'нет данных' : Utils.fmtPct(a.historyAnnualPct)} · автообновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
+      ? `<div class="op-meta">Официальная стоимость пая ВИМ: ${fmtMoney(a.lastPrice)} на ${escapeHtml(a.navDate || 'неизвестную дату')} · СЧА: ${a.nav == null ? T(T('нет данных')) : fmtMoney(a.nav)} · изменение за ${a.historyMonths || '—'} мес.: ${a.historyPct == null ? T(T('нет данных')) : Utils.fmtPct(a.historyPct)} · годовой темп: ${a.historyAnnualPct == null ? T(T('нет данных')) : Utils.fmtPct(a.historyAnnualPct)} · автообновление${a.vimError ? ' · ' + escapeHtml(a.vimError) : ''}</div>`
       : a.quoteSource === 'manual'
       ? `<div class="op-meta">Последняя официальная стоимость пая: ${fmtMoney(a.lastPrice)} на ${escapeHtml(a.navDate || 'неизвестную дату')} · история ${a.historyMonths || 1} мес. · котировка обновляется вручную</div>`
       : a.moexInactive
@@ -1128,10 +1139,10 @@ const ProductEditor = (() => {
     const quoteUsable = Number.isFinite(quoteTime) && Date.now() - quoteTime < 30 * 86400000;
     const visibleQuoteError = quoteUsable || a.moexInactive ? '' : (a.moexError || a.moexQuoteStatus || '');
     const quoteTxt = a.quoteSource === 'vim'
-      ? `<div class="op-meta">Источник: <a href="https://www.wealthim.ru/products/pif/opif/${a.rulesNumber === '8000' ? 'wimyao' : 'wimyo'}/" target="_blank" rel="noopener">ВИМ Инвестиции</a> · получено ${a.vimFetchedAt ? new Date(a.vimFetchedAt).toLocaleString('ru-RU') : 'ещё не обновлялось'}</div>`
+      ? `<div class="op-meta">Источник: <a href="https://www.wealthim.ru/products/pif/opif/${a.rulesNumber === '8000' ? 'wimyao' : 'wimyo'}/" target="_blank" rel="noopener">ВИМ Инвестиции</a> · получено ${a.vimFetchedAt ? new Date(a.vimFetchedAt).toLocaleString('ru-RU') : T('ещё не обновлялось')}</div>`
       : a.moexInactive
       ? `<div class="op-meta">${escapeHtml(a.moexStatusText || 'Биржевые торги прекращены; актуальной котировки MOEX нет')}</div>`
-      : `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : 'нет подтверждённой свежей цены'}${a.board ? ' · режим ' + escapeHtml(a.board) : ''}${visibleQuoteError ? ' · ' + escapeHtml(visibleQuoteError) : ''}</div>`;
+      : `<div class="op-meta">MOEX: ${a.moexUpdatedAt ? 'обновлено ' + new Date(a.moexUpdatedAt).toLocaleString('ru-RU') : T('нет подтверждённой свежей цены')}${a.board ? T(' · режим ') + escapeHtml(a.board) : ''}${visibleQuoteError ? ' · ' + escapeHtml(visibleQuoteError) : ''}</div>`;
     const couponTxt = a.kind === 'bond' ? `
       <div class="op-meta">${escapeHtml(a.couponDescription || 'Тип купона не определён')} · номинал ${fmtMoney(a.nominal || 0)}
       · купон ${a.couponAmount == null ? 'не объявлен' : fmtMoney(a.couponAmount)}
@@ -1141,7 +1152,7 @@ const ProductEditor = (() => {
       · зачислено: ${fmtMoney(paid)}</div>
       <div class="op-meta">Покупка: ${fmtMoney(a.avgPrice || 0)} / шт · НКД сейчас: ${fmtMoney(a.accruedInterest || 0)}</div>
       <details><summary>График выплат</summary><div class="bond-schedule">${Bonds.payments(a).map(c =>
-        `<div>${fmtDate(c.date)} · ${c.type === 'coupon' ? 'Купон' : 'Основной долг'} · ${c.value == null ? 'сумма не объявлена' : fmtMoney(c.value * (a.qty || 0))}${a.paidEvents?.[c.key] ? ' · зачислено' : ''}</div>`).join('') || 'График пока недоступен'}</div></details>` : '';
+        `<div>${fmtDate(c.date)} · ${c.type === 'coupon' ? T('Купон') : T('Основной долг')} · ${c.value == null ? T('сумма не объявлена') : fmtMoney(c.value * (a.qty || 0))}${a.paidEvents?.[c.key] ? ' · зачислено' : ''}</div>`).join('') || T('График пока недоступен')}</div></details>` : '';
     return `<div class="op-row">
       <div class="op-body">
         <div class="asset-detail-title"><b class="asset-name-track" tabindex="0">${escapeHtml(assetDisplayName(a))}</b>
@@ -1149,7 +1160,7 @@ const ProductEditor = (() => {
           <span class="badge">${escapeHtml(a.secid)}</span>${a.legacySecid ? `<span class="badge">бывш. ${escapeHtml(a.legacySecid)}</span>` : ''}</div>
         <div class="op-meta">${qtyTxt}
           = ${fmtMoney(total)}
-          ${a.lastPrice ? ' · рыночная цена' : ' · цена покупки'}</div>${yieldTxt}${quoteTxt}${a.quoteSource === 'vim' ? vimHistoryHtml(a) : ''}${couponTxt}
+          ${a.lastPrice ? T(' · рыночная цена') : T(' · цена покупки')}</div>${yieldTxt}${quoteTxt}${a.quoteSource === 'vim' ? vimHistoryHtml(a) : ''}${couponTxt}
       </div>
       <div class="asset-detail-actions">
         <button type="button" class="btn small" data-asset-rename="${a.id}" title="Изменить отображаемое название">Переименовать</button>
@@ -1192,7 +1203,7 @@ const ProductEditor = (() => {
     }
     return `<details class="asset-item">
       <summary>
-        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(['manual','vim'].includes(first.quoteSource) ? ('Правила ПИФ ' + first.rulesNumber) : (first.secid || ''))}</span></span>
+        <span class="ai-name"><b class="asset-name-track">${escapeHtml(name)}</b> <span class="badge">${escapeHtml(['manual','vim'].includes(first.quoteSource) ? (T('Правила ПИФ ') + first.rulesNumber) : (first.secid || ''))}</span></span>
         <span class="ai-meta">${qtyTxt} · ${fmtMoney(costTotal)}</span>
         ${extra}
       </summary>
@@ -1244,7 +1255,7 @@ const ProductEditor = (() => {
       b.onclick = () => {
         const asset = draftAssets.find(a => a.id === b.dataset.assetRename);
         if (!asset) return;
-        const next = prompt('Название актива для отображения:', assetDisplayName(asset));
+        const next = prompt(T('Название актива для отображения:'), assetDisplayName(asset));
         if (next === null) return;
         const value = next.trim().slice(0,100);
         if (value) asset.customName = value;
@@ -1346,6 +1357,13 @@ const ProductEditor = (() => {
     editingId = null;
   }
 
-  return { init, open, close, updateVisibility, typeMatches, metalQuickList, findSavedAssetMatches, assetDisplayName };
+    function refreshLang(){
+    if (typeof I18n === 'undefined') return;
+    I18n.applyStatic($('modalBg'));
+    buildTypeOptions();
+    updateVisibility(); renderEffectPreview(); renderOps(); renderEndActions(); renderAssets();
+  }
+
+  return { init, open, close, updateVisibility, typeMatches, metalQuickList, findSavedAssetMatches, assetDisplayName, refreshLang };
 })();
 

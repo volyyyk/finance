@@ -1,3 +1,4 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 (() => {
   const installButton = document.getElementById('installApp');
   const notice = document.getElementById('pwaNotice');
@@ -18,13 +19,13 @@
 
   function showStatus() {
     installButton.hidden = Boolean(installed || standalone());
-    offlineStatus.textContent = offlineIssue || (offlineReady ? 'Готово к работе без интернета' : 'Подготовка автономного режима…');
+    offlineStatus.textContent = offlineIssue || (offlineReady ? T('Готово к работе без интернета') : T('Подготовка автономного режима…'));
     updateButton.hidden = !waitingWorker;
     if (updateError) { message.textContent = updateError; notice.hidden = false; return; }
-    if (waitingWorker) message.textContent = 'Доступна новая версия. Сохраните открытые изменения перед обновлением.';
-    else if (!navigator.onLine) message.textContent = 'Нет подключения. Котировки и ставка ЦБ недоступны.' +
-      (offlineReady ? ' Приложение доступно без интернета.' : '');
-    else if (ios && !standalone() && document.getElementById('settingsMenu').open) message.textContent = 'Чтобы установить приложение, откройте меню «Поделиться» и выберите «На экран Домой».';
+    if (waitingWorker) message.textContent = T('Доступна новая версия. Сохраните открытые изменения перед обновлением.');
+    else if (!navigator.onLine) message.textContent = T('Нет подключения. Котировки и ставка ЦБ недоступны.') +
+      (offlineReady ? T(' Приложение доступно без интернета.') : '');
+    else if (ios && !standalone() && document.getElementById('settingsMenu').open) message.textContent = T('Чтобы установить приложение, откройте меню «Поделиться» и выберите «На экран Домой».');
     else { notice.hidden = true; return; }
     notice.hidden = false;
   }
@@ -39,7 +40,7 @@
     const prompt = installPrompt;
     installPrompt = null;
     try { await prompt.prompt(); await prompt.userChoice; }
-    catch (error) { guide.open = true; console.warn('Установка не завершена:', error); }
+    catch (error) { guide.open = true; console.warn(T('Установка не завершена:'), error); }
     showStatus();
   });
   window.addEventListener('appinstalled', () => {
@@ -52,7 +53,7 @@
   window.addEventListener('offline', showStatus);
   updateButton.addEventListener('click', () => {
     if (document.getElementById('modalBg').classList.contains('show')) {
-      updateError = 'Сначала сохраните или закройте редактор, затем нажмите «Обновить».';
+      updateError = T('Сначала сохраните или закройте редактор, затем нажмите «Обновить».');
       showStatus();
       updateError = '';
       return;
@@ -63,7 +64,7 @@
   showStatus();
 
   if (!('serviceWorker' in navigator) || !window.isSecureContext) {
-    offlineIssue = 'Автономный режим недоступен: откройте сайт по HTTPS в современном браузере';
+    offlineIssue = T('Автономный режим недоступен: откройте сайт по HTTPS в современном браузере');
     showStatus();
     return;
   }
@@ -103,7 +104,7 @@
         if (document.visibilityState === 'visible' && navigator.onLine) registration.update().catch(() => {});
       });
     } catch (error) {
-      offlineIssue = 'Автономный режим не подготовлен';
+      offlineIssue = T('Автономный режим не подготовлен');
       offlineStatus.textContent = offlineIssue;
       message.textContent = 'Не удалось подготовить работу без интернета. Перезагрузите страницу при стабильном подключении.';
       notice.hidden = false;

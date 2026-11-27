@@ -18,48 +18,55 @@
 
 <header>
   <h1 class="brand-wordmark"><span class="brand-fin">Fin</span><span class="brand-app">App</span></h1>
-  <div id="saveStatus" style="font-size:12px;color:var(--green);transition:opacity 0.3s;opacity:0;margin-left:15px;">✓ Сохранено</div>
+  <div id="saveStatus" style="font-size:12px;color:var(--green);transition:opacity 0.3s;opacity:0;margin-left:15px;" data-i18n>✓ Сохранено</div>
   <div class="header-actions">
     <div class="mode-tabs" role="tablist" aria-label="Режим приложения">
-      <button class="tab active" id="tabMain" role="tab">Учёт</button>
-      <button class="tab" id="tabCashback" role="tab">Кешбэк</button>
+      <button class="tab active" id="tabMain" role="tab" data-i18n>Учёт</button>
+      <button class="tab" id="tabCashback" role="tab" data-i18n>Кешбэк</button>
     </div>
     <details class="settings" id="settingsMenu">
-      <summary class="btn ghost" aria-label="Настройки" title="Настройки">
+      <summary class="btn ghost" aria-label="Настройки" title="Настройки" data-i18n-aria data-i18n-title>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></svg>
       </summary>
       <div class="settings-panel">
-        <h2>Настройки</h2>
-    <button class="btn ghost" id="installApp">Установить приложение</button>
-    <button class="btn ghost" id="enableNotifyBtn" title="Напоминание раз в неделю и за 3 дня до списаний">Включить уведомления</button>
+        <h2 data-i18n>Настройки</h2>
+    <button class="btn ghost" id="installApp" data-i18n>Установить приложение</button>
+    <button class="btn ghost" id="enableNotifyBtn" title="Напоминание раз в неделю и за 3 дня до списаний" data-i18n data-i18n-title>Включить уведомления</button>
     <div class="settings-field">
-      <label for="checkDay">День напоминания о сверке</label>
+      <label for="checkDay" data-i18n>День напоминания о сверке</label>
       <select id="checkDay">
-        <option value="1">понедельник</option>
-        <option value="2">вторник</option>
-        <option value="3">среда</option>
-        <option value="4">четверг</option>
-        <option value="5">пятница</option>
-        <option value="6">суббота</option>
-        <option value="0" selected>воскресенье</option>
+        <option value="1" data-i18n>понедельник</option>
+        <option value="2" data-i18n>вторник</option>
+        <option value="3" data-i18n>среда</option>
+        <option value="4" data-i18n>четверг</option>
+        <option value="5" data-i18n>пятница</option>
+        <option value="6" data-i18n>суббота</option>
+        <option value="0" selected data-i18n>воскресенье</option>
       </select>
     </div>
-    <div class="settings-field moex-proxy-settings">
-      <label for="moexProxyUrl">Сервер котировок MOEX (необязательно)</label>
-      <input id="moexProxyUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://your-worker.workers.dev">
-      <small>Собственный Cloudflare Worker обходит ограничения CORS. Адрес сохраняется только на этом устройстве.</small>
-      <button class="btn small" id="configureMoexProxyBtn" type="button">Проверить и сохранить сервер</button>
-      <small id="moexProxyStatus" role="status">Без Worker приложение использует прямой ISS и резервные каналы.</small>
+    <div class="settings-field">
+      <label data-i18n>Язык интерфейса</label>
+      <div class="mode-tabs" id="langSwitch">
+        <button type="button" class="tab" data-lang="ru">Русский</button>
+        <button type="button" class="tab" data-lang="en">English</button>
+      </div>
     </div>
-    <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему"><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg> Тёмная тема</button>
-    <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Полная резервная копия</button>
-    <p class="backup-status" id="backupStatus" role="status">Проверка резервной копии…</p>
-    <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Экспорт в Excel</button>
-    <button class="btn ghost" id="importBtn" title="Загрузить из JSON"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-5 5 5-5 5 5M4 17v4h16v-4"/></svg> Импорт</button>
-    <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.5-3"/></svg> Сброс к seed</button>
-    <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg> Сбросить всё (до нуля)</button>
+    <div class="settings-field moex-proxy-settings">
+      <label for="moexProxyUrl" data-i18n>Сервер котировок MOEX (необязательно)</label>
+      <input id="moexProxyUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://your-worker.workers.dev">
+      <small data-i18n>Собственный Cloudflare Worker обходит ограничения CORS. Адрес сохраняется только на этом устройстве.</small>
+      <button class="btn small" id="configureMoexProxyBtn" type="button" data-i18n>Проверить и сохранить сервер</button>
+      <small id="moexProxyStatus" role="status" data-i18n>Без Worker приложение использует прямой ISS и резервные каналы.</small>
+    </div>
+    <button class="btn ghost" id="themeToggle" title="Переключить светлую и тёмную тему"><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg> <span data-i18n> Тёмная тема</span></button>
+    <button class="btn ghost" id="exportBtn" title="Скачать резервную копию всех данных приложения"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> <span data-i18n>Полная резервная копия</span></button>
+    <p class="backup-status" id="backupStatus" role="status" data-i18n>Проверка резервной копии…</p>
+    <button class="btn ghost" id="exportExcelBtn" title="Скачать таблицу Excel с продуктами, общим балансом и долгом"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> <span data-i18n>Экспорт в Excel</span></button>
+    <button class="btn ghost" id="importBtn" title="Загрузить из JSON"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-5 5 5-5 5 5M4 17v4h16v-4"/></svg> <span data-i18n>Импорт</span></button>
+    <button class="btn ghost" id="resetBtn" title="Очистить localStorage и загрузить из data/seed.js"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.5-3"/></svg> <span data-i18n>Сброс к seed</span></button>
+    <button class="btn ghost" id="resetZeroBtn" title="Полностью удалить все данные без восстановления"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg> <span data-i18n>Сбросить всё (до нуля)</span></button>
           <details class="card install-guide" id="installGuide">
-    <summary>Установка на телефон · <span id="offlineStatus" role="status">Подготовка автономного режима…</span></summary>
+    <summary><span data-i18n>Установка на телефон · </span><span id="offlineStatus" role="status" data-i18n>Подготовка автономного режима…</span></summary>
     <div class="install-content">
       <p><strong>Android:</strong> откройте этот сайт в Chrome по HTTPS. Нажмите «Установить приложение» или выберите в меню браузера «Установить приложение» / «Добавить на главный экран».</p>
       <p><strong>iPhone и iPad:</strong> откройте сайт в Safari → «Поделиться» → «На экран Домой» → «Добавить».</p>
@@ -71,15 +78,15 @@
 
       </div>
     </details>
-    <button class="btn primary header-add" id="addBtn"><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> <span>Добавить продукт</span></button>
-    <button class="btn banks" id="cbBanksBtn" hidden title="Постоянные банки и категории кешбэка">Банки</button>
+    <button class="btn primary header-add" id="addBtn" title="Добавить продукт" data-i18n-title><svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> <span data-i18n>Добавить продукт</span></button>
+    <button class="btn banks" id="cbBanksBtn" hidden title="Постоянные банки и категории кешбэка" data-i18n data-i18n-title>Банки</button>
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
 </header>
 
 <aside class="pwa-notice" id="pwaNotice" role="status" hidden>
   <span id="pwaMessage"></span>
-  <button class="btn primary" id="updateApp" hidden>Обновить</button>
+  <button class="btn primary" id="updateApp" hidden data-i18n>Обновить</button>
 </aside>
 <aside class="pwa-notice" id="alertsNotice" role="status" hidden>
   <span id="alertsMessage"></span>
@@ -91,38 +98,38 @@
   <section class="card welcome-card" id="welcomeCard" hidden aria-labelledby="welcomeTitle">
     <div class="welcome-visual" aria-hidden="true"><span>₽</span><i>✦</i></div>
     <div class="welcome-content">
-      <span class="welcome-kicker">ВАШИ ФИНАНСЫ · ВАШИ ПРАВИЛА</span>
-      <h2 id="welcomeTitle">Начнём с чистого листа?</h2>
-      <p>Добавьте только свои счета и активы — или сначала изучите приложение на демонстрационных данных. Демо можно включить отдельно, ваши реальные данные не затрагиваются.</p>
+      <span class="welcome-kicker" data-i18n>ВАШИ ФИНАНСЫ · ВАШИ ПРАВИЛА</span>
+      <h2 id="welcomeTitle" data-i18n>Начнём с чистого листа?</h2>
+      <p data-i18n>Добавьте только свои счета и активы — или сначала изучите приложение на демонстрационных данных. Демо можно включить отдельно, ваши реальные данные не затрагиваются.</p>
       <div class="welcome-actions">
-        <button class="btn primary" id="startBlankBtn">Начать без демо</button>
-        <button class="btn" id="startDemoBtn">Посмотреть демо-портфель</button>
+        <button class="btn primary" id="startBlankBtn" data-i18n>Начать без демо</button>
+        <button class="btn" id="startDemoBtn" data-i18n>Посмотреть демо-портфель</button>
       </div>
-      <small>Данные хранятся локально в этом браузере. Их можно экспортировать в настройках.</small>
+      <small data-i18n>Данные хранятся локально в этом браузере. Их можно экспортировать в настройках.</small>
     </div>
   </section>
 
   <section class="card" id="portfolioSection">
-    <div class="section-heading"><div><h2>Активы и обязательства</h2><p>Все счета, вклады, долги и инвестиционные портфели</p></div><div class="section-heading-actions"><button class="btn small chart-toggle" id="portfolioChartBtn" aria-expanded="false" aria-controls="portfolioInsights" title="Структура портфеля по категориям"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></button><span class="section-kicker">МОЙ ПОРТФЕЛЬ</span></div></div>
+    <div class="section-heading"><div><h2 data-i18n>Активы и обязательства</h2><p data-i18n>Все счета, вклады, долги и инвестиционные портфели</p></div><div class="section-heading-actions"><button class="btn small chart-toggle" id="portfolioChartBtn" aria-expanded="false" aria-controls="portfolioInsights" title="Структура портфеля по категориям" data-i18n-title><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></button><span class="section-kicker" data-i18n>МОЙ ПОРТФЕЛЬ</span></div></div>
     <section class="portfolio-insights" id="portfolioInsights" hidden>
-      <div class="portfolio-insights-top"><div><b>Структура портфеля</b><small>Распределение по типам продуктов</small></div><button class="btn small" id="portfolioInsightClose" type="button" aria-label="Закрыть диаграмму">×</button></div>
+      <div class="portfolio-insights-top"><div><b data-i18n>Структура портфеля</b><small data-i18n>Распределение по типам продуктов</small></div><button class="btn small" id="portfolioInsightClose" type="button" aria-label="Закрыть диаграмму">×</button></div>
       <div class="portfolio-insights-grid"><div class="portfolio-chart-wrap"><canvas id="portfolioDonut" aria-label="Круговая диаграмма состава портфеля"></canvas><div class="portfolio-legend" id="portfolioLegend"></div></div><div class="portfolio-details" id="portfolioDetails"></div></div>
     </section>
-    <label class="product-search"><span aria-hidden="true">⌕</span><input id="productSearch" type="search" placeholder="Найти счёт, банк или продукт…" autocomplete="off"></label>
-    <div id="productsList"></div><div id="productSearchEmpty" class="empty search-empty" hidden>Ничего не найдено. Попробуйте другое название.</div>
+    <label class="product-search"><span aria-hidden="true">⌕</span><input id="productSearch" type="search" placeholder="Найти счёт, банк или продукт…" data-i18n-ph autocomplete="off"></label>
+    <div id="productsList"></div><div id="productSearchEmpty" class="empty search-empty" hidden data-i18n>Ничего не найдено. Попробуйте другое название.</div>
     <div class="actions-bar">
-      <button class="btn primary" id="addBtn2">+ Добавить продукт</button>
-      <button class="btn danger" id="deleteBtn">Удалить выбранные</button>
+      <button class="btn primary" id="addBtn2" data-i18n>+ Добавить продукт</button>
+      <button class="btn danger" id="deleteBtn" data-i18n>Удалить выбранные</button>
     </div>
   </section>
 
   <section class="card" id="sinceVisitCard" hidden></section>
 
   <details class="dashboard-fold" open>
-    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="fold-title">События и календарь</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="fold-title" data-i18n>События и календарь</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
     <div class="grid-2">
       <section class="card">
-        <h2>Ближайшие события</h2>
+        <h2 data-i18n>Ближайшие события</h2>
         <div id="eventsList"></div>
       </section>
       <section class="card">
@@ -138,24 +145,24 @@
   </details>
 
   <details class="dashboard-fold">
-    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h17m-14-4 4-4 3 2 6-7"/></svg></span><span class="fold-title">Графики финансового результата</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h17m-14-4 4-4 3 2 6-7"/></svg></span><span class="fold-title" data-i18n>Графики финансового результата</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
     <section class="charts-row">
-      <div class="chart-card"><h3>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
-      <div class="chart-card"><h3>Финансовый результат (накопленный)</h3><canvas id="chartIncome"></canvas></div>
+      <div class="chart-card"><h3 data-i18n>Общий баланс</h3><canvas id="chartBalance"></canvas></div>
+      <div class="chart-card"><h3 data-i18n>Финансовый результат (накопленный)</h3><canvas id="chartIncome"></canvas></div>
     </section>
   </details>
 
 
   <details class="dashboard-fold">
-    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><span class="fold-title">Прогноз динамики капитала</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
+    <summary><span class="fold-icon"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><span class="fold-title" data-i18n>Прогноз динамики капитала</span><span class="fold-chevron"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
     <section class="card forecast-card">
       <div class="forecast-grid">
         <div class="forecast-col">
-          <h3>Без учёта событий</h3>
+          <h3 data-i18n>Без учёта событий</h3>
           <div id="fc1"></div>
         </div>
         <div class="forecast-col">
-          <h3>С учётом событий</h3>
+          <h3 data-i18n>С учётом событий</h3>
           <div id="fc2"></div>
         </div>
       </div>
@@ -164,11 +171,11 @@
 
   <section class="card">
     <details id="resultsDetails">
-      <summary>Результаты</summary>
+      <summary data-i18n>Результаты</summary>
       <div class="results-body">
         <div class="results-top">
           <div id="snapshotCurrent"></div>
-          <button class="btn primary" id="snapshotBtn" title="Сохранить текущую сумму как промежуточный результат"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg> Зафиксировать</button>
+          <button class="btn primary" id="snapshotBtn" title="Сохранить текущую сумму как промежуточный результат"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg> <span data-i18n>Зафиксировать</span></button>
         </div>
         <canvas id="chartSnapshots"></canvas>
         <div id="snapshotsList"></div>
@@ -177,28 +184,28 @@
   </section>
 
   <div class="actions-bar goal-create-bar">
-    <button class="btn" id="createGoalBtn"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg> Создать цель</button>
+    <button class="btn" id="createGoalBtn"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg> <span data-i18n>Создать цель</span></button>
   </div>
 </main>
 
 <main id="modeCashback" hidden>
   <section class="card">
-    <h2 id="cbMonth">Кешбэк</h2>
+    <h2 id="cbMonth" data-i18n>Кешбэк</h2>
     <div id="cbView"></div>
     <div id="cbEdit" hidden></div>
   </section>
 </main>
 
 <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Основная навигация">
-  <button type="button" data-mobile-nav="overview" aria-current="page"><span><svg class="ui-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3zM9 20v-6h6v6"/></svg></span><small>Обзор</small></button>
-  <button type="button" data-mobile-nav="portfolio"><span><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><small>Портфель</small></button>
-  <button type="button" data-mobile-nav="cashback"><span><svg class="ui-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 5-14 14"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/></svg></span><small>Кешбэк</small></button>
+  <button type="button" data-mobile-nav="overview" aria-current="page"><span><svg class="ui-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3zM9 20v-6h6v6"/></svg></span><small data-i18n>Обзор</small></button>
+  <button type="button" data-mobile-nav="portfolio"><span><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a9 9 0 1 0 10 10H11z"/><path d="M14 3v7h7a9 9 0 0 0-7-7z"/></svg></span><small data-i18n>Портфель</small></button>
+  <button type="button" data-mobile-nav="cashback"><span><svg class="ui-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 5-14 14"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/></svg></span><small data-i18n>Кешбэк</small></button>
 </nav>
 
 <!-- Сводка продукта: просмотр не изменяет данные -->
 <div class="product-detail-bg" id="productDetailBg" hidden><section class="product-detail-modal" role="dialog" aria-modal="true" aria-labelledby="productDetailTitle" tabindex="-1">
-<div class="product-detail-top"><span class="product-detail-kicker">КАРТОЧКА ПРОДУКТА</span><button class="product-detail-close" id="productDetailClose" type="button" aria-label="Закрыть">×</button></div>
-<div id="productDetailContent"></div><div class="product-detail-actions"><button class="btn" id="productDetailDismiss" type="button">Закрыть</button><button class="btn primary" id="productDetailEdit" type="button">Редактировать</button></div></section></div>
+<div class="product-detail-top"><span class="product-detail-kicker" data-i18n>КАРТОЧКА ПРОДУКТА</span><button class="product-detail-close" id="productDetailClose" type="button" aria-label="Закрыть" data-i18n-aria>×</button></div>
+<div id="productDetailContent"></div><div class="product-detail-actions"><button class="btn" id="productDetailDismiss" type="button" data-i18n>Закрыть</button><button class="btn primary" id="productDetailEdit" type="button" data-i18n>Редактировать</button></div></section></div>
 <!-- Модальное окно редактора -->
 <div class="modal-bg" id="modalBg">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
@@ -206,12 +213,12 @@
     <form id="productForm">
       <input type="hidden" id="f_id">
       <div class="field">
-        <label>Тип продукта</label>
+        <label data-i18n>Тип продукта</label>
         <select id="f_type"></select>
       </div>
       <div class="field">
-        <label>Название</label>
-        <input type="text" id="f_name" required placeholder="Например, Вклад «Накопительный»">
+        <label data-i18n>Название</label>
+        <input type="text" id="f_name" required placeholder="Например, Вклад «Накопительный»" data-i18n-ph>
       </div>
       <div class="row-2">
         <div class="field">
@@ -219,43 +226,43 @@
           <input type="number" id="f_amount" step="0.01" required min="0">
         </div>
         <div class="field">
-          <label>Ставка (% годовых)</label>
+          <label data-i18n>Ставка (% годовых)</label>
           <input type="number" id="f_rate" step="0.01" required min="0">
         </div>
       </div>
       <div class="row-2">
         <div class="field">
-          <label>Дата начала</label>
+          <label data-i18n>Дата начала</label>
           <input type="date" id="f_start">
         </div>
         <div class="field" id="field_end">
-          <label>Дата окончания</label>
+          <label data-i18n>Дата окончания</label>
           <input type="date" id="f_end">
         </div>
       </div>
 
       <div id="endActionBlock" style="display:none">
         <div class="field">
-          <label>Действие при окончании</label>
+          <label data-i18n>Действие при окончании</label>
           <select id="f_endAction">
-            <option value="">— не выбрано —</option>
-            <option value="close">Закрыть</option>
-            <option value="transfer">Перевести на другой продукт</option>
-            <option value="change">Изменить условия</option>
+            <option value="" data-i18n>— не выбрано —</option>
+            <option value="close" data-i18n>Закрыть</option>
+            <option value="transfer" data-i18n>Перевести на другой продукт</option>
+            <option value="change" data-i18n>Изменить условия</option>
           </select>
         </div>
         <div class="field" id="field_transfer" style="display:none">
-          <label>Перевести на продукт</label>
+          <label data-i18n>Перевести на продукт</label>
           <select id="f_transferTo"></select>
         </div>
         <div id="changeBlock" style="display:none">
           <div class="row-2">
             <div class="field">
-              <label>Новая ставка (% годовых)</label>
+              <label data-i18n>Новая ставка (% годовых)</label>
               <input type="number" id="f_newRate" step="0.01" min="0">
             </div>
             <div class="field">
-              <label>Новая дата окончания</label>
+              <label data-i18n>Новая дата окончания</label>
               <input type="date" id="f_newEndDate">
             </div>
           </div>
@@ -263,46 +270,46 @@
       </div>
 
       <div class="field">
-        <label>Комментарий</label>
-        <input type="text" id="f_comment" placeholder="Банк, брокер и т.п.">
+        <label data-i18n>Комментарий</label>
+        <input type="text" id="f_comment" placeholder="Банк, брокер и т.п." data-i18n-ph>
       </div>
 
       <div class="ops-section">
-        <h4>Пополнения и снятия</h4>
+        <h4 data-i18n>Пополнения и снятия</h4>
         <div id="opsList"></div>
         <div class="add-op">
           <div class="row-3">
             <select id="op_dir">
-              <option value="in">Пополнить</option>
-              <option value="out">Снять</option>
+              <option value="in" data-i18n>Пополнить</option>
+              <option value="out" data-i18n>Снять</option>
             </select>
-            <input type="number" id="op_amount" step="0.01" placeholder="Сумма ₽">
+            <input type="number" id="op_amount" step="0.01" placeholder="Сумма ₽" data-i18n-ph>
             <select id="op_freq"></select>
           </div>
           <div class="row-2 op-date-fields">
             <div class="field">
-              <label for="op_date">Дата первой операции</label>
+              <label for="op_date" data-i18n>Дата первой операции</label>
               <input type="date" id="op_date">
-              <small class="op-meta">Когда выполнить пополнение или снятие впервые</small>
+              <small class="op-meta" data-i18n>Когда выполнить пополнение или снятие впервые</small>
             </div>
             <div class="field" id="op_endDateField" hidden>
-              <label for="op_endDate">Дата окончания повторений</label>
+              <label for="op_endDate" data-i18n>Дата окончания повторений</label>
               <input type="date" id="op_endDate">
-              <small class="op-meta">После этой даты операции выполняться не будут</small>
+              <small class="op-meta" data-i18n>После этой даты операции выполняться не будут</small>
             </div>
           </div>
           <div class="row-2" id="op_debtRow" style="display:none">
             <select id="op_debtTarget" title="Куда уходит платёж"></select>
           </div>
           <div class="add-op-actions">
-            <button type="button" class="btn small" id="addOpBtn">+ Добавить</button>
+            <button type="button" class="btn small" id="addOpBtn" data-i18n>+ Добавить</button>
           </div>
         </div>
       </div>
 
       <div class="modal-actions">
-        <button type="button" class="btn" id="cancelBtn">Отмена</button>
-        <button type="submit" class="btn primary">Сохранить</button>
+        <button type="button" class="btn" id="cancelBtn" data-i18n>Отмена</button>
+        <button type="submit" class="btn primary" data-i18n>Сохранить</button>
       </div>
     </form>
   </div>
@@ -310,6 +317,7 @@
 
 <!-- ВАЖНО: порядок подключения не менять -->
 <script src="data/seed.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/core.js"></script>
 <script src="js/moex.js"></script>
 <script src="js/vim.js"></script>

@@ -1,3 +1,4 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    results.js — Results: зафиксированные результаты и их график
    Зависит: Utils, Stats, Charts
@@ -6,7 +7,7 @@
    ============================================================ */
 
 const Results = (() => {
-  const { $, uid, fmtMoney, fmtDate, escapeHtml } = Utils;
+const { $, uid, fmtMoney, fmtDate, escapeHtml } = Utils;
   const LS = 'fin_snapshots';
   const DAY = 86400000;
 
@@ -94,7 +95,7 @@ const Results = (() => {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, rect.width, rect.height);
       ctx.fillStyle = Charts.cssVar('--chart-text', '#94a3b8'); ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('Зафиксируйте первый результат', rect.width/2, rect.height/2);
+      ctx.fillText(T('Зафиксируйте первый результат'), rect.width/2, rect.height/2);
       return;
     }
     // Подпись точки подсказки — дата зафиксированного результата

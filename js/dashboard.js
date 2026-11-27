@@ -1,3 +1,4 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    dashboard.js — Events, ProductList, Dashboard
    Зависит: Config, Utils, Storage, Simulator, Stats, Charts, MoexAPI
@@ -52,13 +53,13 @@ const Events = (() => {
         const d = parseDate(p.gracePeriodEndDate);
         if (d && d >= today){
           list.push({ date:d, product:p, icon:'clock',
-            title:`Льготный период: ${p.name}`, direction:'out', amount: p.amount });
+            title:T('Льготный период: ') + p.name, direction:'out', amount: p.amount });
         }
       }
       
       p.operations?.forEach(op=>{
         const isDebtPay = op.direction === 'out' && op.debtTargetId;
-        const opTitle = op.direction==='in' ? 'Пополнение' : isDebtPay ? 'Платёж по долгу' : 'Снятие';
+        const opTitle = op.direction==='in' ? T('Пополнение') : isDebtPay ? T('Платёж по долгу') : T('Снятие');
         if (op.frequency === 'once'){
           const d = parseDate(op.date);
           if (d && d >= today){
@@ -167,9 +168,9 @@ const ProductList = (() => {
         html += `<details class="product-group" data-group-type="${type}" ${viewState.groups.get(type) ? "open" : ""}>
           <summary>
             <span class="pg-icon">${Utils.iconSvg(t.icon,18)}</span>
-            <span class="pg-name">${t.label}</span>
-            <span class="pg-count">${items.length} шт.</span>
-            <span class="pg-sum">${t.liability ? 'долг ' : ''}${fmtMoney(Math.abs(sum))}</span>
+            <span class="pg-name">${T(t.label)}</span>
+            <span class="pg-count">${items.length} ${T("шт.")}</span>
+            <span class="pg-sum">${t.liability ? T('долг ') : ''}${fmtMoney(Math.abs(sum))}</span>
           </summary>
           <div class="pg-body">${items.map(rowHtml).join('')}</div>
         </details>`;
@@ -189,7 +190,7 @@ const ProductList = (() => {
       const extra = button.closest('.product-card')?.querySelector('.product-extra');
       if (extra) extra.hidden = !isOpen;
       button.setAttribute('aria-expanded', String(isOpen));
-      button.textContent = isOpen ? 'Подробнее ⌃' : 'Подробнее ⌄';
+      button.textContent = isOpen ? T('Подробнее ⌃') : T('Подробнее ⌄');
     });
     updateDeleteBtn();
     const searchInput = $('productSearch');
@@ -231,7 +232,7 @@ const ProductList = (() => {
         try {
           await refreshProductPrices(b.dataset.refresh);
         } catch (error) {
-          alert('Не удалось завершить обновление котировок: ' + String(error?.message || error));
+          alert(T('Не удалось завершить обновление котировок: ') + String(error?.message || error));
         } finally {
           if (b.isConnected) {
             b.disabled = false;
@@ -282,13 +283,13 @@ const ProductList = (() => {
             subParts.push(`аренда ${fmtMoney(p.rentPrice)}/мес`);
             if (value > 0) subParts.push(`доходность аренды ${((p.rentPrice * 12 / value) * 100).toFixed(1)}%/год`);
           } else {
-            subParts.push('не сдаётся');
+            subParts.push(T('не сдаётся'));
           }
           subParts.push(`ремонт ${p.upkeepRate ?? 2}%/год`);
         }
         if (isExpense) subParts.push(`${fmtMoney(p.amount)}/мес`);
         if (isInvest && assetsCount) subParts.push(`портфель: ${assetsCount} актив.`);
-        if (isInvest && !assetsCount) subParts.push('без активов');
+        if (isInvest && !assetsCount) subParts.push(T('без активов'));
         if (isInvest) subParts.push(`свободно: ${fmtMoney(p.amount || 0)}`);
         // Доходность фондов (учтена в прогнозе) и металлов (справочно) за полгода
         (p.assets || []).forEach(a => {
@@ -305,18 +306,18 @@ const ProductList = (() => {
           if (p.gracePeriodEndDate) subParts.push(`Льготный до: ${fmtDate(p.gracePeriodEndDate)}`);
         }
 
-        if (ev) subParts.push('след.: '+fmtDate(ev));
-        else subParts.push('нет событий');
+        if (ev) subParts.push(T('след.: ')+fmtDate(ev));
+        else subParts.push(T('нет событий'));
         if (chainCount) subParts.push(`${chainCount} действий`);
 
-        const searchText = [p.name, t.label, p.comment || ''].join(' ').toLocaleLowerCase('ru');
+        const searchText = [p.name, T(t.label), p.comment || ''].join(' ').toLocaleLowerCase('ru');
         return `<div class="product-card">
           <div class="product-row" data-search="${escapeHtml(searchText)}">
             <input type="checkbox" data-id="${p.id}" ${selected.has(p.id)?'checked':''}>
             <div class="prod-icon">${Utils.iconSvg(t.icon,18)}</div>
             <div class="prod-main">
               <div class="prod-name">${escapeHtml(p.name)}
-                <span class="badge">${t.label}</span>
+                <span class="badge">${T(t.label)}</span>
                 ${opsCount?`<span class="badge">${opsCount} оп.</span>`:''}
                 ${assetsCount?`<span class="badge">${Utils.iconSvg('chart',12)} ${assetsCount}</span>`:''}
               </div>
@@ -338,7 +339,7 @@ const ProductList = (() => {
   async function refreshProductPrices(id){
     const p = Storage.get(id);
     if (!p || p.type !== 'investment') return;
-    if (!navigator.onLine) { alert('Для обновления MOEX нужен интернет. Используются ранее сохранённые цены.'); return; }
+    if (!navigator.onLine) { alert(T('Для обновления MOEX нужен интернет. Используются ранее сохранённые цены.')); return; }
     let failed = 0;
     const failures = [];
     const assets = (p.assets || []).filter(a => !a.redeemed);
@@ -350,10 +351,10 @@ const ProductList = (() => {
         try {
           await MoexAPI.refreshAsset(a);
           a.moexError = a.moexUpdatedAt && a.moexUpdatedAt !== previousQuoteAt
-            ? null : 'MOEX пока не вернул новую котировку';
+            ? null : T('MOEX пока не вернул новую котировку');
         } catch(e){
           failed++;
-          a.moexError = String(e?.message || 'Ошибка запроса MOEX').slice(0,180);
+          a.moexError = String(e?.message || T('Ошибка запроса MOEX')).slice(0,180);
           failures.push(`${a.shortname || a.secid}: ${a.moexError}`);
         }
         a.moexAttemptAt = new Date().toISOString();
@@ -362,14 +363,14 @@ const ProductList = (() => {
     Bonds.settleProduct(p);
     Storage.upsert(p);
     if (typeof window.__REFRESH__ === 'function') window.__REFRESH__();
-    if (failed) alert('Не удалось обновить ' + failed + ' актив(а). Старые цены сохранены.\n' + failures.slice(0,4).join('\n'));
+    if (failed) alert(T('Не удалось обновить ') + failed + ' актив(а). Старые цены сохранены.\n' + failures.slice(0,4).join('\n'));
   }
 
   function updateDeleteBtn(){
     const b = $('deleteBtn'); if (!b) return;
     b.textContent = selected.size
       ? `Удалить выбранные (${selected.size})`
-      : 'Удалить выбранные';
+      : T('Удалить выбранные');
   }
   function getSelected(){ return Array.from(selected); }
   function clearSelection(){ selected.clear(); updateDeleteBtn(); }
@@ -410,7 +411,7 @@ const SinceVisit = (() => {
         occurrencesBetween(op, fromTs, toTs).forEach(d => items.push({
           ts: d.getTime(), date: d, direction: op.direction === 'out' ? 'out' : 'in',
           amount: op.amount || 0,
-          title: `${op.direction === 'out' ? 'Списание' : 'Пополнение'}: ${p.name}`
+          title: `${op.direction === 'out' ? T('Списание') : T('Пополнение')}: ${p.name}`
         }));
       });
       // Купоны и погашения фиксируются в paidEvents при запуске приложения
@@ -419,7 +420,7 @@ const SinceVisit = (() => {
           const ts = Date.parse(ev.date);
           if (ts > fromTs && ts <= toTs) items.push({
             ts, date: new Date(ts), direction: 'in', amount: ev.amount || 0,
-            title: `${ev.type === 'principal' ? 'Погашение' : 'Купон'}: ${a.shortname || a.secid}`
+            title: `${ev.type === 'principal' ? T('Погашение') : T('Купон')}: ${a.shortname || a.secid}`
           });
         });
       });
@@ -437,7 +438,7 @@ const SinceVisit = (() => {
     const sumIn  = items.filter(i => i.direction === 'in').reduce((s,i) => s + i.amount, 0);
     const sumOut = items.filter(i => i.direction === 'out').reduce((s,i) => s + i.amount, 0);
     const net = sumIn - sumOut;
-    const agoTxt = days === 0 ? 'сегодня' : days === 1 ? 'вчера' : `${days} дн. назад`;
+    const agoTxt = days === 0 ? T('сегодня') : days === 1 ? T('вчера') : `${days} дн. назад`;
 
     const rows = items.map(i => `
       <div class="event ${i.direction === 'in' ? 'event-in' : 'event-out'}">
@@ -486,14 +487,14 @@ const GoalBar = (() => {
 
   // Примерный срок до цели по текущему чистому темпу в месяц
   function etaText(net, goal, netMonthly){
-    if (net >= goal) return 'Цель достигнута';
+    if (net >= goal) return T('Цель достигнута');
     if (!(netMonthly > 0)) return '≈ —';
     const months = Math.ceil((goal - net) / netMonthly);
     if (months > 1200) return '≈ —';
     const y = Math.floor(months / 12), m = months % 12;
-    const yearsTxt = y ? (y === 1 ? '1 год' : y < 5 ? `${y} года` : `${y} лет`) : '';
-    const monthsTxt = m ? (m === 1 ? '1 мес' : `${m} мес`) : '';
-    const txt = [yearsTxt, monthsTxt].filter(Boolean).join(' ') || 'меньше месяца';
+    const yearsTxt = y ? (y === 1 ? T('1 год') : y < 5 ? y + T(' года') : y + T(' лет')) : '';
+    const monthsTxt = m ? (m === 1 ? T('1 мес') : `${m} мес`) : '';
+    const txt = [yearsTxt, monthsTxt].filter(Boolean).join(' ') || T('меньше месяца');
     return `≈ ${txt}`;
   }
 
@@ -507,13 +508,13 @@ const GoalBar = (() => {
       g ? String(g.amount) : '');
     if (input === null) return;
     const amount = Number(String(input).replace(/\s/g, '').replace(',', '.'));
-    if (!(amount > 0) || !Number.isFinite(amount)){ alert('Укажите положительную сумму цели'); return; }
+    if (!(amount > 0) || !Number.isFinite(amount)){ alert(T('Укажите положительную сумму цели')); return; }
     save({ name: name.trim(), amount, createdAt: (g && g.createdAt) || new Date().toISOString() });
     Dashboard.renderAll();
   }
 
   function remove(){
-    if (!confirm('Удалить цель?')) return;
+    if (!confirm(T('Удалить цель?'))) return;
     localStorage.removeItem(LS);
     Dashboard.renderAll();
   }
@@ -523,7 +524,7 @@ const GoalBar = (() => {
     if (!card) return;
     const g = load();
     const btn = $('createGoalBtn');
-    if (btn) btn.textContent = g ? 'Изменить цель' : 'Создать цель';
+    if (btn) btn.textContent = g ? T('Изменить цель') : T('Создать цель');
     if (!g){ card.hidden = true; card.innerHTML = ''; return; }
     const s = Stats.aggregate();
     const net = s.net;  // активы минус долги
@@ -552,7 +553,7 @@ const GoalBar = (() => {
 })();
 
 const Dashboard = (() => {
-  const { $, fmtMoney, fmtPct, fmtDate, escapeHtml, dateKey } = Utils;
+const { $, fmtMoney, fmtPct, fmtDate, escapeHtml, dateKey } = Utils;
   let calDate = new Date();
 
   // Ближайшие события: страницы по 6 (1–6, 7–12, 13–18, 19–24).
@@ -565,24 +566,24 @@ const Dashboard = (() => {
     const s = Stats.aggregate();
     $('stats').innerHTML = `
       <div class="stat-card">
-        <div class="stat-label">Общий баланс</div>
+        <div class="stat-label">${T('Общий баланс')}</div>
         <div class="stat-value ${s.net>=0?'green':'red'}">${fmtMoney(s.net)}</div>
-        <div class="stat-sub">Активы ${fmtMoney(s.assets)} · Долги ${fmtMoney(s.debts)}</div>
+        <div class="stat-sub">${T('Активы ')}${fmtMoney(s.assets)}${T(' · Долги ')}${fmtMoney(s.debts)}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Расчётный результат за год</div>
+        <div class="stat-label">${T('Расчётный результат за год')}</div>
         <div class="stat-value ${s.netAnnual>=0?'green':'red'}">${fmtMoney(s.netAnnual)}</div>
-        <div class="stat-sub">${fmtPct(s.pctAnnual)} от активов · с учётом роста стоимости</div>
+        <div class="stat-sub">${fmtPct(s.pctAnnual)} ${T('от активов · с учётом роста стоимости')}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Расчётный результат за месяц</div>
+        <div class="stat-label">${T('Расчётный результат за месяц')}</div>
         <div class="stat-value ${s.netMonthly>=0?'green':'red'}">${fmtMoney(s.netMonthly)}</div>
-        <div class="stat-sub">${fmtPct(s.pctMonthly)} от активов</div>
+        <div class="stat-sub">${fmtPct(s.pctMonthly)} ${T('от активов')}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Продуктов</div>
+        <div class="stat-label">${T('Продуктов')}</div>
         <div class="stat-value">${Storage.all().length}</div>
-        <div class="stat-sub">${Storage.all().filter(p=>Config.TYPES[p.type].liability).length} обязательств</div>
+        <div class="stat-sub">${Storage.all().filter(p=>Config.TYPES[p.type].liability).length} ${T('обязательств')}</div>
       </div>`;
   }
 
@@ -601,7 +602,7 @@ const Dashboard = (() => {
     const now = new Date(); now.setHours(0,0,0,0);
     const rows = evs.map(e=>{
       const days = Math.round((e.date - now)/86400000);
-      const dtxt = days===0?'сегодня':days===1?'завтра':`через ${days} дн.`;
+      const dtxt = days===0?T('сегодня'):days===1?T('завтра'):`через ${days} дн.`;
       return `<div class="event clickable ${e.direction === 'in' ? 'event-in' : e.direction === 'out' ? 'event-out' : ''}" data-evprod="${e.product ? e.product.id : ''}">
         <div class="event-icon">${Utils.iconSvg(e.icon,17)}</div>
         <div class="event-body">
@@ -616,7 +617,7 @@ const Dashboard = (() => {
     const pager = totalPages > 1 ? `
       <div class="events-pager">
         <button class="btn small" data-evpage="prev" ${eventsPage === 0 ? 'disabled' : ''} aria-label="Предыдущая страница событий">‹</button>
-        <span class="events-pager-info">${from}–${to} из ${all.length}</span>
+        <span class="events-pager-info">${from}–${to} ${T('из')} ${all.length}</span>
         <button class="btn small" data-evpage="next" ${eventsPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Следующая страница событий">›</button>
       </div>` : '';
     el.innerHTML = rows + pager;
@@ -643,7 +644,7 @@ const Dashboard = (() => {
     const dayPanel = $('calDayInfo');
     if (dayPanel){ dayPanel.hidden = true; dayPanel.innerHTML = ''; }
     const y = calDate.getFullYear(), m = calDate.getMonth();
-    $('calTitle').textContent = calDate.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+    $('calTitle').textContent = calDate.toLocaleDateString((typeof I18n !== 'undefined' ? I18n.localeTag() : 'ru-RU'),{month:'long',year:'numeric'});
     const evMap = {};
     Events.all().forEach(e=>{
       const k = dateKey(e.date);
@@ -655,7 +656,7 @@ const Dashboard = (() => {
     const today = new Date();
     const isThisMonth = today.getFullYear()===y && today.getMonth()===m;
     let html = '<div class="cal-dows">' +
-      ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=>`<div class="cal-dow">${d}</div>`).join('') +
+      [T('Пн'),T('Вт'),T('Ср'),T('Чт'),T('Пт'),T('Сб'),T('Вс')].map(d=>`<div class="cal-dow">${d}</div>`).join('') +
       '</div><div class="cal-grid">';
     for (let i=0;i<startDow;i++) html += '<div class="cal-cell empty"></div>';
     for (let d=1; d<=daysInMonth; d++){
@@ -714,7 +715,7 @@ const Dashboard = (() => {
         c.width = r.width*dpr; c.height = r.height*dpr;
         ctx.scale(dpr,dpr);
         ctx.fillStyle = Charts.cssVar('--chart-text', '#94a3b8'); ctx.font='11px sans-serif'; ctx.textAlign='center';
-        ctx.fillText('Нет данных', r.width/2, r.height/2);
+        ctx.fillText(T('Нет данных'), r.width/2, r.height/2);
       });
       return;
     }
@@ -735,15 +736,15 @@ const Dashboard = (() => {
     }
     // Отметки оси X для прогнозов на 2 года (24 точки по месяцам)
     const xTicks = [
-      {x: 0, label: 'сейчас'},
-      {x: 1/24, label: '1 мес'},
-      {x: 6/24, label: '6 мес'},
-      {x: 12/24, label: '1 год'},
-      {x: 18/24, label: '1.5 года'},
-      {x: 1, label: '2 года'}
+      {x: 0, label: T('сейчас')},
+      {x: 1/24, label: T('1 мес')},
+      {x: 6/24, label: T('6 мес')},
+      {x: 12/24, label: T('1 год')},
+      {x: 18/24, label: T('1.5 года')},
+      {x: 1, label: T('2 года')}
     ];
     // Подпись точки подсказки: сколько месяцев от сегодня
-    const monthLabel = i => i === 0 ? 'сейчас' : i + ' мес';
+    const monthLabel = i => i === 0 ? T('сейчас') : i + T(' мес');
     Charts.draw($('chartBalance'), [{color:'#2563eb', data:balance}], {xTicks, pointLabel: monthLabel});
     Charts.draw($('chartIncome'),  [{color:'#16a34a', data:income}], {xTicks, pointLabel: monthLabel});
   }
@@ -784,7 +785,7 @@ const Dashboard = (() => {
     const base0 = assets0 > 0 ? assets0 : (Math.abs(now0) || 1);
 
     const periods = [
-      {label:'1 мес', m:1},{label:'1 год', m:12},{label:'5 лет', m:60},{label:'10 лет',m:120},
+      {label:T('1 мес'), m:1},{label:T('1 год'), m:12},{label:T('5 лет'), m:60},{label:T('10 лет'),m:120},
     ];
     function col(map){
       return periods.map(per=>{

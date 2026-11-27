@@ -1,6 +1,7 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* Category-level portfolio composition and annual effect. */
 const ProductInsights = (() => {
-  const $ = Utils.$;
+const $ = Utils.$;
   let selected = null, open = false;
   const palette = ['#3978d5','#20a17a','#e3a23b','#8b72cf','#d46b78','#4b9cae','#8b9aa9'];
   function icon(g,size=15){ return Utils.iconSvg(g.icon,size,'insight-icon'); }
@@ -19,7 +20,7 @@ const ProductInsights = (() => {
     c.width=Math.max(1,r.width*dpr);c.height=Math.max(1,r.height*dpr);const x=c.getContext('2d');x.scale(dpr,dpr);
     const cx=r.width/2,cy=r.height/2,rad=Math.min(r.width,r.height)*.43,inner=rad*.62,total=data.reduce((s,g)=>s+g.value,0);let a=-Math.PI/2;
     data.forEach((g,i)=>{const n=a+(total?g.value/total:0)*Math.PI*2;x.beginPath();x.arc(cx,cy,rad,a,n);x.arc(cx,cy,inner,n,a,true);x.closePath();x.globalAlpha=(selected && selected!==g.type) ? 0.22 : 1;x.fillStyle=palette[i%palette.length];x.fill();x.globalAlpha=1;a=n;});
-    if(!total){x.fillStyle='#94a3b8';x.font='12px sans-serif';x.textAlign='center';x.fillText('Нет данных',cx,cy);}
+    if(!total){x.fillStyle='#94a3b8';x.font='12px sans-serif';x.textAlign='center';x.fillText(T('Нет данных'),cx,cy);}
     c.onclick=ev=>{const b=c.getBoundingClientRect(),dx=ev.clientX-b.left-cx,dy=ev.clientY-b.top-cy,dist=Math.hypot(dx,dy);if(dist<inner||dist>rad)return;
       let a=Math.atan2(dy,dx)+Math.PI/2;if(a<0)a+=Math.PI*2;let cur=0;
       for(const g of data){const part=total?g.value/total*Math.PI*2:0;if(a>=cur&&a<cur+part){selected=selected===g.type?null:g.type;render();return;}cur+=part;}

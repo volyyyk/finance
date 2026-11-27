@@ -1,9 +1,10 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    app.js — точка входа.
    ============================================================ */
 
 const App = (() => {
-  const { $ } = Utils;
+const { $ } = Utils;
 
   function renderProducts(){
     ProductList.render((id) => ProductEditor.open(id, App.refresh), (id) => ProductDetail.open(id, (productId) => { ProductDetail.close(); ProductEditor.open(productId, App.refresh); }));
@@ -21,11 +22,11 @@ const App = (() => {
     if (!card) return;
     const issues = [];
     const products = Storage.all();
-    if (!products.length) issues.push({icon:'plus-circle',title:'Добавьте первый продукт',detail:'Начните со счетов, вкладов или инвестиций.'});
+    if (!products.length) issues.push({icon:'plus-circle',title:T('Добавьте первый продукт'),detail:T('Начните со счетов, вкладов или инвестиций.')});
     const quoteProblems = [];
     products.forEach(p => {
       if (!p || !p.id || !Config.TYPES[p.type] || !Number.isFinite(Number(p.amount))){
-        issues.push({icon:'alert-triangle',title:'Проверьте данные продукта',detail:'Обнаружена запись с неполными или некорректными основными данными.'});
+        issues.push({icon:'alert-triangle',title:T('Проверьте данные продукта'),detail:T('Обнаружена запись с неполными или некорректными основными данными.')});
         return;
       }
       if (p.type === 'investment') (p.assets || []).forEach(a => {
@@ -46,14 +47,14 @@ const App = (() => {
       const failed = quoteProblems.filter(x => x.error).length;
       issues.push({
         icon:'refresh',
-        title:`Проверьте котировки: ${quoteProblems.length} бумаг`,
-        detail:(failed ? `${failed} запросов завершились ошибкой. ` : 'Цена устарела или дата обновления неизвестна. ') +
+        title:T('Проверьте котировки: ') + quoteProblems.length + T(' бумаг'),
+        detail:(failed ? `${failed} запросов завершились ошибкой. ` : T('Цена устарела или дата обновления неизвестна. ')) +
           names + (quoteProblems.length > 3 ? ` и ещё ${quoteProblems.length - 3}` : '')
       });
     }
     const last = Backup.lastExport();
     const days = last ? (Date.now() - last.getTime()) / 86400000 : Infinity;
-    if (days > 30) issues.push({icon:'download',title:'Создайте резервную копию',detail:last ? 'Последняя копия старше 30 дней.' : 'Данные хранятся только в этом браузере; резервная копия ещё не создавалась.'});
+    if (days > 30) issues.push({icon:'download',title:T('Создайте резервную копию'),detail:last ? T('Последняя копия старше 30 дней.') : T('Данные хранятся только в этом браузере; резервная копия ещё не создавалась.')});
     const visible = issues.slice(0,3);
     if (!issues.length){
       card.hidden = true;
@@ -63,8 +64,8 @@ const App = (() => {
     card.hidden = false;
     card.innerHTML = `
       <div class="financial-check-head">
-        <div><h2>Состояние финансов</h2><p>Автоматическая проверка данных и резервной копии</p></div>
-        <span class="financial-check-count ${issues.length ? 'needs-attention' : 'all-good'}">${issues.length ? `${issues.length} замеч.` : 'Всё в порядке'}</span>
+        <div><h2>${T('Состояние финансов')}</h2><p>${T('Автоматическая проверка данных и резервной копии')}</p></div>
+        <span class="financial-check-count ${issues.length ? 'needs-attention' : 'all-good'}">${issues.length ? `${issues.length} замеч.` : T('Всё в порядке')}</span>
       </div>
       ${visible.length ? visible.map(x => `<div class="financial-check-item"><span class="fc-icon">${Utils.iconSvg(x.icon,16)}</span><div><b>${Utils.escapeHtml(x.title)}</b><small>${Utils.escapeHtml(x.detail)}</small></div></div>`).join('') : '<div class="financial-check-ok">Критичных замечаний по основным данным не обнаружено.</div>'}
       ${issues.length > 3 ? `<small class="financial-check-more">И ещё ${issues.length - 3} замечаний.</small>` : ''}
@@ -81,7 +82,7 @@ const App = (() => {
 
   function deleteSelected(){
     const ids = ProductList.getSelected();
-    if (!ids.length){ alert('Выберите продукты для удаления'); return; }
+    if (!ids.length){ alert(T('Выберите продукты для удаления')); return; }
     if (!confirm(`Удалить выбранных продуктов: ${ids.length}?`)) return;
     Storage.remove(ids);
     ProductList.clearSelection();
@@ -136,7 +137,7 @@ const App = (() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b1424' : '#234e78');
     const btn = $('themeToggle');
-    if (btn) btn.innerHTML = Utils.iconSvg(theme === 'dark' ? 'sun' : 'moon', 16) + (theme === 'dark' ? ' Светлая тема' : ' Тёмная тема');
+    if (btn) btn.innerHTML = Utils.iconSvg(theme === 'dark' ? 'sun' : 'moon', 16) + (theme === 'dark' ? T(' Светлая тема') : T(' Тёмная тема'));
   }
   function afterThemeChange(){
     // Цвета графиков кэшируются по CSS-переменным — при смене темы кэш сбрасывается
@@ -202,7 +203,7 @@ const App = (() => {
     const last = Backup.lastExport();
     el.textContent = last
       ? `Последняя копия: ${last.toLocaleString('ru-RU')}`
-      : 'Резервная копия ещё не создавалась';
+      : T('Резервная копия ещё не создавалась');
   }
 
   function exportData(){
@@ -221,7 +222,7 @@ const App = (() => {
       updateBackupStatus();
       renderFinancialCheck();
     } catch(error) {
-      alert('Не удалось создать резервную копию: ' + (error.message || error));
+      alert(T('Не удалось создать резервную копию: ') + (error.message || error));
     }
   }
 
@@ -254,8 +255,8 @@ const App = (() => {
     const totalRow = (label, value) =>
       `<tr><td class="lbl">${label}</td>${num(value)}</tr>`;
 
-    const cols = ['Тип','Название','Сумма ₽','Ставка % годовых','Начало','Окончание','Комментарий',
-      'Сдаётся','Аренда ₽/мес','Ремонт %/год','Вне бюджета','Операций','Активов'];
+    const cols = [T('Тип'),T('Название'),T('Сумма ₽'),T('Ставка % годовых'),T('Начало'),T('Окончание'),T('Комментарий'),
+      T('Сдаётся'),T('Аренда ₽/мес'),T('Ремонт %/год'),T('Вне бюджета'),T('Операций'),T('Активов')];
     const typeLabels = (typeof Config !== 'undefined' && Config.TYPES) || {};
     const rows = list.map(p => `<tr>` +
       `<td>${esc(typeLabels[p.type]?.label || p.type)}</td>` +
@@ -265,10 +266,10 @@ const App = (() => {
       `<td>${esc(p.startDate || '')}</td>` +
       `<td>${esc(p.endDate || '')}</td>` +
       `<td>${esc(p.comment || '')}</td>` +
-      `<td>${p.type === 'apartment' ? (p.rented ? 'да' : 'нет') : ''}</td>` +
+      `<td>${p.type === 'apartment' ? (p.rented ? T('да') : T('нет')) : ''}</td>` +
       `<td>${p.type === 'apartment' ? (Number(p.rentPrice) || 0) : ''}</td>` +
       `<td>${p.type === 'apartment' ? (Number(p.upkeepRate) || 0) : ''}</td>` +
-      `<td>${p.offBudget ? 'да' : 'нет'}</td>` +
+      `<td>${p.offBudget ? T('да') : T('нет')}</td>` +
       `<td class="num">${(p.operations || []).length}</td>` +
       `<td class="num">${(p.assets || []).length}</td>` +
       `</tr>`).join('');
@@ -287,9 +288,9 @@ h3{font-family:Calibri,Arial,sans-serif;margin:14px 0 6px;font-size:14px}
 </style></head><body>
 <h2>Финансы — экспорт от ${stamp}</h2>
 <table>
-${totalRow('Общий баланс (активы), ₽', assets)}
-${totalRow('Общий долг, ₽', debts)}
-${totalRow('Чистый капитал (баланс − долг), ₽', net)}
+${totalRow(T('Общий баланс (активы), ₽'), assets)}
+${totalRow(T('Общий долг, ₽'), debts)}
+${totalRow(T('Чистый капитал (баланс − долг), ₽'), net)}
 </table>
 <h3>Продукты (${list.length})</h3>
 <table>
@@ -315,7 +316,7 @@ ${rows}
       try {
         const parsed = Backup.parse(e.target.result);
         const description = parsed.legacy
-          ? 'Это старая копия только со списком продуктов. Остальные разделы текущего приложения сохранятся.'
+          ? T('Это старая копия только со списком продуктов. Остальные разделы текущего приложения сохранятся.')
           : `Будут заменены все данные приложения: ${parsed.products.length} продуктов, кешбэк, словари и сохранённые результаты.`;
         if (!confirm(`Импорт резервной копии?\n\n${description}\n\nРекомендуется сначала скачать текущую копию.`)) return;
         const count = Backup.restore(parsed);
@@ -323,10 +324,10 @@ ${rows}
         updateBackupStatus();
         alert(`Восстановлено продуктов: ${count}`);
       } catch(err){
-        alert('Импорт отменён: ' + (err.message || err));
+        alert(T('Импорт отменён: ') + (err.message || err));
       }
     };
-    reader.onerror = () => alert('Не удалось прочитать файл резервной копии');
+    reader.onerror = () => alert(T('Не удалось прочитать файл резервной копии'));
     reader.readAsText(file);
   }
 
@@ -338,7 +339,7 @@ ${rows}
     if (!confirm('Сброс к демо-данным — шаг 3 из 3\n\nПоследнее предупреждение: заменить все данные демо-примерами?')) return;
     Backup.clear();
     if (!Storage.loadFromSeed()){
-      alert('В data/seed.js нет данных (window.SEED_DATA пуст или отсутствует)');
+      alert(T('В data/seed.js нет данных (window.SEED_DATA пуст или отсутствует)'));
     } else {
       applySeedGoal();
     }
@@ -359,6 +360,24 @@ ${rows}
     $('themeToggle').onclick = () =>
       setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 
+    // Язык интерфейса: русский / английский. Статическая разметка
+    // перерисовывается словарём, динамическая — через refresh().
+    const langButtons = document.querySelectorAll('#langSwitch [data-lang]');
+    const syncLangButtons = () => langButtons.forEach(b =>
+      b.classList.toggle('active', b.dataset.lang === I18n.lang));
+    syncLangButtons();
+    langButtons.forEach(btn => btn.onclick = () => {
+      if (btn.dataset.lang === I18n.lang) return;
+      I18n.setLang(btn.dataset.lang);
+      I18n.applyStatic(document);
+      syncLangButtons();
+      if (typeof Charts !== 'undefined' && Charts.resetThemeCache) Charts.resetThemeCache();
+      if ($('modalBg').classList.contains('show') && typeof ProductEditor !== 'undefined' && ProductEditor.refreshLang)
+        ProductEditor.refreshLang();
+      if (localStorage.getItem('fin_mode') === 'cashback' && window.Cashback) window.Cashback.render();
+      refresh();
+    });
+
     // Пользовательский Cloudflare Worker для запросов к публичному MOEX ISS.
     const moexProxyInput = $('moexProxyUrl');
     const moexProxyStatus = $('moexProxyStatus');
@@ -367,28 +386,28 @@ ${rows}
       const raw = moexProxyInput ? moexProxyInput.value.trim() : '';
       if (!raw) {
         localStorage.removeItem('moex_proxy_url');
-        if (moexProxyStatus) moexProxyStatus.textContent = 'Собственный Worker отключён. Используются прямой ISS и резервные каналы.';
+        if (moexProxyStatus) moexProxyStatus.textContent = T('Собственный Worker отключён. Используются прямой ISS и резервные каналы.');
         if (window.__REFRESH_MARKET__) window.__REFRESH_MARKET__();
         return;
       }
       const proxy = MoexAPI.normalizeProxyUrl(raw);
       if (!proxy) {
-        if (moexProxyStatus) moexProxyStatus.textContent = 'Нужен корректный HTTPS-адрес Worker без пути и параметров.';
+        if (moexProxyStatus) moexProxyStatus.textContent = T('Нужен корректный HTTPS-адрес Worker без пути и параметров.');
         return;
       }
       const button = $('configureMoexProxyBtn');
       button.disabled = true;
-      if (moexProxyStatus) moexProxyStatus.textContent = 'Проверяем соединение с Worker и MOEX…';
+      if (moexProxyStatus) moexProxyStatus.textContent = T('Проверяем соединение с Worker и MOEX…');
       try {
         const result = await MoexAPI.testProxy(proxy);
         localStorage.setItem('moex_proxy_url', proxy);
         moexProxyInput.value = proxy;
         if (moexProxyStatus) moexProxyStatus.textContent =
-          'Подключено. MOEX отвечает через Worker; строк в ответе: ' + result.rows + '.';
+          T('Подключено. MOEX отвечает через Worker; строк в ответе: ') + result.rows + '.';
         if (window.__REFRESH_MARKET__) window.__REFRESH_MARKET__();
       } catch (error) {
         if (moexProxyStatus) moexProxyStatus.textContent =
-          'Проверка не пройдена: ' + String(error?.message || error).slice(0, 220);
+          T('Проверка не пройдена: ') + String(error?.message || error).slice(0, 220);
       } finally {
         button.disabled = false;
       }
@@ -453,7 +472,7 @@ ${rows}
         $('tabMain').classList.toggle('active', !isCb);
         $('tabCashback').classList.toggle('active', isCb);
         $('addBtn').hidden = false;
-        $('addBtn').querySelector('span').textContent = isCb ? 'Добавить кешбэк' : 'Добавить продукт';
+        $('addBtn').querySelector('span').textContent = isCb ? T('Добавить кешбэк') : T('Добавить продукт');
         $('cbBanksBtn').hidden = true;
         document.querySelectorAll('[data-mobile-nav]').forEach(button => {
           const activeTarget = isCb ? 'cashback'
@@ -540,10 +559,10 @@ ${rows}
               } else if (!a.moexError && !previousQuoteAt){
                 // ISS может успешно ответить без LAST (например, нет сделок).
                 // Это не HTTP-ошибка, но и цену покупки не выдаём за котировку.
-                a.moexQuoteStatus = 'MOEX ответил, но актуальная цена пока недоступна';
+                a.moexQuoteStatus = T('MOEX ответил, но актуальная цена пока недоступна');
               }
             } catch (error) {
-              a.moexError = String(error?.message || 'Ошибка запроса MOEX').slice(0, 180);
+              a.moexError = String(error?.message || T('Ошибка запроса MOEX')).slice(0, 180);
               if (!a.moexErrorSince) a.moexErrorSince = new Date(attemptStartedAt).toISOString();
               const delay = Math.max(0, 30000 - (Date.now() - attemptStartedAt));
               setTimeout(() => renderFinancialCheck(), delay);

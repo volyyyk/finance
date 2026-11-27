@@ -1,9 +1,10 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    moex.js — MOEX ISS API + ключевая ставка ЦБ
    ============================================================ */
 
 const MoexAPI = (() => {
-  const ISS = 'http://iss.moex.com/iss';
+const ISS = 'http://iss.moex.com/iss';
   const ISS_HTTPS = 'https://iss.moex.com/iss';
   const CBR_KEY_RATE = 'https://www.cbr-xml-daily.ru/keyrate.json';
   const DEFAULT_MOEX_PROXY = 'https://autumn-mouse-2e3f.kudrin-dim11.workers.dev';
@@ -46,7 +47,7 @@ const MoexAPI = (() => {
     const signal = AbortSignal.timeout(ms);
     const timedOut = new Promise((_, reject) => {
       signal.addEventListener('abort', () => {
-        const error = new Error('Тайм-аут запроса (' + Math.round(ms / 1000) + ' с)');
+        const error = new Error(T('Тайм-аут запроса (') + Math.round(ms / 1000) + T(' с)'));
         error.code = 'ETIMEDOUT';
         reject(error);
       }, { once: true });
@@ -83,18 +84,18 @@ const MoexAPI = (() => {
         // small test doubles and compatible fetch implementations working.
         if (typeof res.text !== 'function') {
           const data = await res.json();
-          if (!data || typeof data !== 'object') throw new Error('MOEX ISS вернул пустой или некорректный JSON');
+          if (!data || typeof data !== 'object') throw new Error(T('MOEX ISS вернул пустой или некорректный JSON'));
           return data;
         }
         const body = await res.text();
         let data;
         try { data = JSON.parse(body); }
         catch {
-          const contentType = res.headers?.get?.('content-type') || 'не указан';
-          throw new Error('Ответ не является JSON (Content-Type: ' + contentType + '): '
+          const contentType = res.headers?.get?.('content-type') || T('не указан');
+          throw new Error(T('Ответ не является JSON (Content-Type: ') + contentType + '): '
             + String(body).replace(/\s+/g, ' ').slice(0, 180));
         }
-        if (!data || typeof data !== 'object') throw new Error('MOEX ISS вернул пустой или некорректный JSON');
+        if (!data || typeof data !== 'object') throw new Error(T('MOEX ISS вернул пустой или некорректный JSON'));
         return data;
       })(),
       timedOut
@@ -117,7 +118,7 @@ const MoexAPI = (() => {
   }
 
   async function fetchJSON(url, timeout = 30000){
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Нет подключения к интернету');
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error(T('Нет подключения к интернету'));
     const isMoex = url.startsWith(ISS + '/');
     if (!isMoex) return requestJSON(url, timeout);
 
@@ -177,16 +178,16 @@ const MoexAPI = (() => {
       }
     }
     const elapsed = Math.max(0, timeout - Math.max(0, deadline - Date.now()));
-    throw new Error('Не удалось получить данные MOEX за ' + Math.ceil(elapsed / 1000) + ' с. Проверены: ' + failures.join(' | '));
+    throw new Error(T('Не удалось получить данные MOEX за ') + Math.ceil(elapsed / 1000) + T(' с. Проверены: ') + failures.join(' | '));
   }
 
   async function testProxy(value){
     const proxy = normalizeProxyUrl(value);
-    if (!proxy) throw new Error('Укажите корректный HTTPS-адрес Cloudflare Worker без пути');
+    if (!proxy) throw new Error(T('Укажите корректный HTTPS-адрес Cloudflare Worker без пути'));
     const data = await requestJSON(proxy + '/iss/engines/stock/markets/shares/securities/VTBR.json?iss.meta=off&iss.only=marketdata', 12000);
     const marketdata = parseBlock(data?.marketdata);
     if (!marketdata)
-      throw new Error('Worker ответил, но блок marketdata не соответствует формату ISS compact/extended');
+      throw new Error(T('Worker ответил, но блок marketdata не соответствует формату ISS compact/extended'));
     return { ok:true, rows:marketdata.data.length };
   }
 
@@ -271,8 +272,8 @@ const MoexAPI = (() => {
   function requireRows(json, blockName){
     const parsed = parseBlock(json?.[blockName]);
     if (!parsed) {
-      const keys = json && typeof json === 'object' ? Object.keys(json).join(', ') : 'нет';
-      throw new Error('MOEX ISS: блок "' + blockName + '" отсутствует или имеет неизвестную структуру (получены блоки: ' + keys + ')');
+      const keys = json && typeof json === 'object' ? Object.keys(json).join(', ') : T('нет');
+      throw new Error(T('MOEX ISS: блок "') + blockName + T('" отсутствует или имеет неизвестную структуру (получены блоки: ') + keys + ')');
     }
     return parsed.data.map(row =>
       Object.fromEntries(parsed.columns.map((column, index) => [column, row[index]])));
@@ -321,7 +322,7 @@ const MoexAPI = (() => {
     if (!['stock','fund','bond'].includes(kind)) return true;
     const markets = await tradableMarkets(secid, kind);
     if (!markets.length)
-      throw new Error('MOEX не допускает эту бумагу к обычным биржевым торгам. Закрытые или снятые с торгов инструменты добавить нельзя.');
+      throw new Error(T('MOEX не допускает эту бумагу к обычным биржевым торгам. Закрытые или снятые с торгов инструменты добавить нельзя.'));
     return markets[0];
   }
 
@@ -553,7 +554,7 @@ const MoexAPI = (() => {
         let start = 0;
         while (true) {
           const url = `${ISS}/statistics/engines/stock/markets/bonds/bondization/${encodeURIComponent(secid)}.json?iss.meta=off&iss.only=${block},${block}.cursor&start=${start}&limit=100`;
-          if (Date.now() - started > 8000) throw new Error('MOEX: превышено время загрузки графика');
+          if (Date.now() - started > 8000) throw new Error(T('MOEX: превышено время загрузки графика'));
           const json = await fetchJSON(url, 4000);
           const page = rows(json[block]);
           result[block].push(...page.map(c => ({
@@ -582,14 +583,14 @@ const MoexAPI = (() => {
     const couponType = /плавающ|переменн|флоат|floating|variable/i.test(description) ? 'floater'
       : /фиксирован|постоянн|fixed/i.test(description) ? 'fixed' : 'unknown';
     const currency = price.currency || d.FACEUNIT;
-    if (!['RUB','SUR'].includes(currency)) throw new Error('Пока поддерживаются только рублёвые облигации');
+    if (!['RUB','SUR'].includes(currency)) throw new Error(T('Пока поддерживаются только рублёвые облигации'));
     const nominal = price.nominal ?? number(d.FACEVALUE);
     const last = price.last ?? (price.pricePercent != null && nominal != null
       ? price.pricePercent * nominal / 100 : null);
     return {
       ...price, last, lastPrice: last, nominal,
       maturityDate: price.maturityDate || d.MATDATE || null,
-      couponType, couponDescription: d.COUPON_DETAILS || d.BOND_TYPE || 'Тип купона не указан MOEX',
+      couponType, couponDescription: d.COUPON_DETAILS || d.BOND_TYPE || T('Тип купона не указан MOEX'),
       couponRate: number(d.COUPONPERCENT), couponAmount: number(d.COUPONVALUE),
       couponFreq: number(d.COUPONFREQUENCY), nextCouponDate: d.COUPONDATE || null,
       // ISSUENAME — полное название выпуска; SHORTNAME у старых облигаций
@@ -621,7 +622,7 @@ const MoexAPI = (() => {
       asset.moexUpdatedAt = null;
       delete asset.moexError;
       delete asset.moexQuoteStatus;
-      asset.moexStatusText = 'Бывший VTBL (RSHL): с 26.12.2023 закрытый ЗПИФ-А, биржевые торги прекращены. Актуальной биржевой котировки нет.';
+      asset.moexStatusText = T('Бывший VTBL (RSHL): с 26.12.2023 закрытый ЗПИФ-А, биржевые торги прекращены. Актуальной биржевой котировки нет.');
       asset.sixMonthBase = null;
       asset.sixMonthPct = null;
       asset.sixMonthBaseDate = null;

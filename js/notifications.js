@@ -1,3 +1,4 @@
+var T = typeof T === 'function' ? T : (typeof I18n !== 'undefined' ? s => I18n.t(s) : s => s);
 /* ============================================================
    notifications.js — локальные уведомления
    1) Раз в неделю напоминание зайти и свериться с расходами.
@@ -7,7 +8,7 @@
    ============================================================ */
 
 const Notify = (() => {
-  const { $, fmtMoney, dateKey } = Utils;
+const { $, fmtMoney, dateKey } = Utils;
   const DAY_MS  = 86400000;
   const WEEK_MS = 7 * DAY_MS;
   const LS_ALERTS = 'fin_alertedEvents';
@@ -29,7 +30,7 @@ const Notify = (() => {
       const t = e.product.type;
       if (t !== 'credit_card' && t !== 'loan') return false;
       if (e.date < now || e.date > horizon) return false;
-      if (e.title.startsWith('Льготный период')) return true;
+      if (e.title.startsWith(T('Льготный период'))) return true;
       return e.direction === 'in';
     });
   }
@@ -68,7 +69,7 @@ const Notify = (() => {
     if (d.getDay() !== getCheckDay()) return null;
     localStorage.setItem('fin_lastWeeklyTs', String(Date.now()));
     syncMeta();
-    return 'Сегодня день сверки расходов — проверьте траты за неделю';
+    return T('Сегодня день сверки расходов — проверьте траты за неделю');
   }
 
   // Начало месяца: напоминание внести категории кешбэка за новый месяц.
@@ -99,12 +100,12 @@ const Notify = (() => {
     localStorage.setItem('fin_cbMonthNotified', key); // один раз за месяц
     if (cashbackHasEntries()) return null;           // категории уже внесены
     const text = `Начался ${MONTH_NAMES[now.getMonth()]} — добавьте категории кешбэка за новый месяц`;
-    show('Кешбэк за новый месяц', text, 'fin-cb-month');
+    show(T('Кешбэк за новый месяц'), text, 'fin-cb-month');
     return text;
   }
 
   function dayText(days){
-    return days <= 0 ? 'сегодня' : days === 1 ? 'завтра' : `через ${days} дн.`;
+    return days <= 0 ? T('сегодня') : days === 1 ? T('завтра') : `через ${days} дн.`;
   }
 
   // Напоминания о скорых списаниях; каждое событие уведомляется один раз
@@ -123,7 +124,7 @@ const Notify = (() => {
       paymentTexts.push(text);
       if (!alerted[key]){
         alerted[key] = e.date.getTime();
-        show('Скорое списание', text, key);
+        show(T('Скорое списание'), text, key);
       }
     });
     localStorage.setItem(LS_ALERTS, JSON.stringify(alerted));
@@ -151,6 +152,7 @@ const Notify = (() => {
       const sw = reg?.active || reg?.waiting || reg?.installing;
       sw?.postMessage({
         type: 'fin-meta',
+        lang: (typeof I18n !== 'undefined') ? I18n.lang : 'ru',
         lastVisit: Number(localStorage.getItem('fin_lastVisit') || Date.now()),
         lastWeeklyTs: Number(localStorage.getItem('fin_lastWeeklyTs') || 0),
         checkDay: getCheckDay(),
@@ -170,11 +172,11 @@ const Notify = (() => {
     if (!btn) return;
     if (!('Notification' in window)){ btn.hidden = true; return; }
     if (Notification.permission === 'granted'){
-      btn.textContent = '✓ Уведомления включены'; btn.disabled = true;
+      btn.textContent = T('✓ Уведомления включены'); btn.disabled = true;
     } else if (Notification.permission === 'denied'){
-      btn.textContent = 'Уведомления заблокированы в браузере'; btn.disabled = true;
+      btn.textContent = T('Уведомления заблокированы в браузере'); btn.disabled = true;
     } else {
-      btn.textContent = 'Включить уведомления'; btn.disabled = false;
+      btn.textContent = T('Включить уведомления'); btn.disabled = false;
     }
   }
 

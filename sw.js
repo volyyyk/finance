@@ -1,11 +1,11 @@
 // Bump this version whenever the application shell changes.
-const CACHE_NAME = 'finance-cache-v62';
+const CACHE_NAME = 'finance-cache-v63';
 // Базовый путь приложения: работает и в корне домена (Netlify),
 // и в подкаталоге вроде /finance/ на GitHub Pages.
 const BASE = new URL('./', self.registration.scope);
 const ASSET_NAMES = [
   './', './index.html', './styles.css', './manifest.json',
-  './data/seed.js', './data/vim/8000.json', './data/vim/8002.json',
+  './data/seed.js', './data/vim/8000.json', './data/vim/8002.json', './js/i18n.js',
   './js/core.js', './js/moex.js', './js/vim.js', './js/simulator.js', './js/bonds.js',
   './js/charts.js', './js/results.js', './js/cashback.js', './js/editor.js', './js/dashboard.js',
   './js/notifications.js', './js/product-insights.js', './js/product-detail.js', './js/backup.js', './js/app.js',
@@ -17,6 +17,32 @@ const META_CACHE = 'finance-meta';
 const META_URL = new URL('./meta', BASE).toString();
 const ICON_URL = new URL('./icons/finapp.svg', BASE).toString();
 const DAY_MS = 86400000;
+// Тексты уведомлений на языке интерфейса, переданном страницей в fin-meta.
+const NOTIFY_STRINGS = {
+  ru: {
+    reviewTitle: 'Пора свериться с расходами',
+    reviewBody: 'Сегодня день сверки расходов. Откройте приложение и проверьте траты за неделю.',
+    cbTitle: 'Кешбэк за новый месяц',
+    cbBody: month => `Начался ${month} — добавьте категории кешбэка за месяц`,
+    payTitle: 'Скорое списание',
+    today: 'сегодня', tomorrow: 'завтра', inDays: d => `через ${d} дн.`,
+    paySuffix: (title, amount) => `${title}${amount ? ': ' + amount.toLocaleString('ru-RU') + ' ₽' : ''} — `,
+    months: ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'],
+    amountLocale: 'ru-RU',
+  },
+  en: {
+    reviewTitle: 'Time to review expenses',
+    reviewBody: 'Today is the weekly expense review. Open the app and check this week’s spending.',
+    cbTitle: 'Cashback for the new month',
+    cbBody: month => `${month} has started — add cashback categories for the month`,
+    payTitle: 'Upcoming payment',
+    today: 'today', tomorrow: 'tomorrow', inDays: d => `in ${d} d.`,
+    paySuffix: (title, amount) => `${title}${amount ? ': ' + amount.toLocaleString('en-US') + ' ₽' : ''} — `,
+    months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    amountLocale: 'en-US',
+  }
+};
+const notifyStrings = meta => NOTIFY_STRINGS[(meta && meta.lang) === 'en' ? 'en' : 'ru'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(async cache => {
@@ -68,9 +94,10 @@ self.addEventListener('periodicsync', event => {
     // Недельная сверка расходов: в выбранный день, не чаще раза в сутки
     const checkDay = Number.isInteger(meta.checkDay) ? meta.checkDay : 0;
     const nowDate = new Date();
+    const S = notifyStrings(meta);
     if (nowDate.getDay() === checkDay && now - (meta.lastWeeklyTs || 0) >= 20 * 3600 * 1000){
-      await self.registration.showNotification('Пора свериться с расходами', {
-        body: 'Сегодня день сверки расходов. Откройте приложение и проверьте траты за неделю.',
+      await self.registration.showNotification(S.reviewTitle, {
+        body: S.reviewBody,
         tag: 'fin-weekly', icon: ICON_URL, badge: ICON_URL, data: { url: BASE.toString() }
       });
       meta.lastWeeklyTs = now;
@@ -84,10 +111,8 @@ self.addEventListener('periodicsync', event => {
     const monthKey = `${monthNow.getFullYear()}-${String(monthNow.getMonth() + 1).padStart(2, '0')}`;
     if ((meta.cbMonth || '') !== monthKey){
       meta.cbMonth = monthKey;
-      const MONTH_NAMES = ['январь','февраль','март','апрель','май','июнь',
-        'июль','август','сентябрь','октябрь','ноябрь','декабрь'];
-      await self.registration.showNotification('Кешбэк за новый месяц', {
-        body: `Начался ${MONTH_NAMES[monthNow.getMonth()]} — добавьте категории кешбэка за месяц`,
+      await self.registration.showNotification(S.cbTitle, {
+        body: S.cbBody(S.months[monthNow.getMonth()]),
         tag: 'fin-cb-month', icon: ICON_URL, badge: ICON_URL, data: { url: BASE.toString() }
       });
     }
@@ -96,9 +121,9 @@ self.addEventListener('periodicsync', event => {
     for (const p of meta.payments || []){
       const days = Math.round((p.ts - now) / DAY_MS);
       if (days < 0 || days > 3 || meta.sent.includes(p.key)) continue;
-      await self.registration.showNotification('Скорое списание', {
-        body: `${p.title}${p.amount ? ': ' + p.amount.toLocaleString('ru-RU') + ' ₽' : ''} — ` +
-              (days === 0 ? 'сегодня' : days === 1 ? 'завтра' : `через ${days} дн.`),
+      await self.registration.showNotification(S.payTitle, {
+        body: S.paySuffix(p.title, p.amount) +
+              (days === 0 ? S.today : days === 1 ? S.tomorrow : S.inDays(days)),
         tag: p.key, icon: ICON_URL, badge: ICON_URL, data: { url: BASE.toString() }
       });
       meta.sent.push(p.key);
