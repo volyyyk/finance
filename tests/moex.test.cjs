@@ -66,6 +66,7 @@ test('lastPrice returns a current marketdata price and the actual selected board
 
 test('lastPrice retries a browser network/CORS failure through the public-data relay', async () => {
   const originalFetch = global.fetch;
+  MoexAPI.resetWorkerHealth();
   const requested = [];
   global.fetch = async url => {
     requested.push(String(url));
@@ -92,6 +93,7 @@ test('lastPrice retries a browser network/CORS failure through the public-data r
 
 test('lastPrice tries AllOrigins when the first CORS relay returns HTTP 502', async () => {
   const originalFetch = global.fetch;
+  MoexAPI.resetWorkerHealth();
   const requested = [];
   global.fetch = async url => {
     requested.push(String(url));
@@ -183,6 +185,7 @@ test('configured Cloudflare Worker is tried before browser-to-MOEX requests', as
 test('configured Worker failure falls back to direct ISS and public relay', async () => {
   const originalFetch = global.fetch;
   const originalStorage = global.localStorage;
+  MoexAPI.resetWorkerHealth();
   const requested = [];
   global.localStorage = { getItem: key => key === 'moex_proxy_url' ? 'https://finapp-test.workers.dev' : null };
   global.fetch = async url => {
@@ -416,24 +419,57 @@ test('legacy VTBL is identified as closed-end RSHL and is not requested as a liv
   } finally { global.fetch=originalFetch; }
 });
 
-test('all MOEX upstream URLs use HTTP, with HTTPS only for relay hosts', async () => {
+test('direct HTTPS ISS is the last-resort target after the worker, direct HTTP and public relays', async () => {
   const originalFetch = global.fetch;
+  MoexAPI.resetWorkerHealth();
   const requested=[];
   global.fetch=async url=>{
     requested.push(String(url));
-    if(requested.length<=2) throw new TypeError('Failed to fetch');
+    if(requested.length<=4) throw new TypeError('Failed to fetch');
     return {ok:true,json:async()=>({
       marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',10]]},
       securities:{columns:['FACEVALUE'],data:[[1]]}
     })};
   };
   try {
-    await MoexAPI.lastPrice('TEST_HTTP_ONLY_1','TQBR','stock');
+    await MoexAPI.lastPrice('TEST_HTTPS_LAST_1','TQBR','stock');
     assert.match(requested[0],/^https:\/\/autumn-mouse-2e3f\.kudrin-dim11\.workers\.dev/);
     assert.match(requested[1],/^http:\/\/iss\.moex\.com/);
-    assert.match(requested[2],/^https:\/\/proxy\.cors\.dev\/http:\/\/iss\.moex\.com/);
-    assert.ok(requested.every(url=>!url.startsWith('https://iss.moex.com')));
+    assert.match(requested[2],/^https:\/\/proxy\.cors\.dev\//);
+    assert.match(requested[3],/^https:\/\/api\.allorigins\.win\//);
+    assert.match(requested[4],/^https:\/\/iss\.moex\.com/);
   } finally { global.fetch=originalFetch; }
+});
+
+test('refreshSixMonth computes the trend from the saved price when the live quote is unavailable', async () => {
+  const originalFetch = global.fetch;
+  // Все запросы котировок падают (сеть/прокси недоступны), но свечи ISS
+  // в тесте отдаются: история должна считаться от сохранённой цены,
+  // а не обнуляться вместе с котировкой.
+  global.fetch = async url => {
+    const u = String(url);
+    if (u.includes('/candles.json')) {
+      // Окно запроса истории: с 1-го числа месяца 6 мес назад (минус 14 дней)
+      const target = new Date();
+      target.setDate(1);
+      target.setMonth(target.getMonth() - 6);
+      const begin = target.toISOString().slice(0, 10);
+      return { ok:true, json:async()=>({ candles:{ columns:['begin','close'], data:[[begin, 100]] } }) };
+    }
+    throw new TypeError('Failed to fetch');
+  };
+  try {
+    const asset = {
+      kind:'stock', secid:'TEST_SAVED_QUOTE_1', board:'TQBR',
+      lastPrice:110, moexUpdatedAt:new Date(Date.now() - 5 * 86400000).toISOString()
+    };
+    await MoexAPI.refreshSixMonth(asset);
+    assert.equal(asset.historyMonths, 6);
+    assert.ok(Math.abs(asset.historyPct - 10) < 0.01, 'изменение от сохранённой цены: +10%');
+    assert.ok(Math.abs(asset.historyAnnualPct - 21) < 0.01, 'экстраполяция до года: +21%');
+    assert.equal(asset.sixMonthPct, asset.historyPct);
+    assert.equal(asset.yieldMonth, MoexAPI.monthKey());
+  } finally { global.fetch = originalFetch; }
 });
 
 
@@ -610,4 +646,32 @@ test('refreshSixMonth falls back to one-month history and stores annualized tren
   assert.ok(Math.abs(fund.sixMonthPct-10)<1e-9);
   assert.equal(fund.yieldMonth,'2026-05');
   assert.equal(requested.filter(x=>x.includes('/candles.json')).length,7);
+});
+
+test('a hanging Worker is skipped for the next requests after three failures', async () => {
+  MoexAPI.resetWorkerHealth();
+  const originalFetch = global.fetch;
+  const requested = [];
+  global.fetch = async url => {
+    const u = String(url);
+    requested.push(u);
+    if (u.includes('workers.dev')) throw new TypeError('Failed to fetch');
+    return { ok:true, json:async()=>({
+      marketdata:{columns:['BOARDID','LAST'],data:[['TQBR',5]]},
+      securities:{columns:['FACEVALUE'],data:[[1]]}
+    })};
+  };
+  try {
+    for (const secid of ['TEST_BREAKER_1','TEST_BREAKER_2','TEST_BREAKER_3','TEST_BREAKER_4']){
+      await MoexAPI.lastPrice(secid, 'TQBR', 'stock');
+    }
+    assert.equal(requested.filter(u => u.includes('workers.dev')).length, 3,
+      'Worker используется, пока не накопится три сбоя');
+    assert.equal(requested.filter(u => u.includes('iss.moex.com')).length, 4,
+      'каждый запрос всё равно доходит до MOEX по прямому каналу');
+    assert.equal(requested.length, 7, 'четвёртый запрос не тратит время на Worker');
+  } finally {
+    MoexAPI.resetWorkerHealth();
+    global.fetch = originalFetch;
+  }
 });

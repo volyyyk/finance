@@ -1475,3 +1475,29 @@ test('ProductEditor: asset search matches saved custom names across investment a
   assert.equal(mods.ProductEditor.findSavedAssetMatches('мой фонд ликвидности','stock').length,0,
     'совпадения другого типа актива не показываются');
 });
+
+test('Simulator: прогнозная цена актива не уходит ниже нуля', () => {
+  const { mods } = simMods([{ id:'floor-test', type:'investment', amount:0, operations:[], assets:[
+    { id:'f1', kind:'stock', secid:'TOZERO', qty:10, lastPrice:100, historyAnnualPct:-100, sixMonthPct:-100 },
+    { id:'f2', kind:'stock', secid:'CRASH', qty:10, lastPrice:100, historyAnnualPct:-300 },
+    { id:'f3', kind:'stock', secid:'DECAY', qty:10, lastPrice:100, historyAnnualPct:-50, sixMonthPct:-25 }
+  ]}]);
+  const p = mods.Storage.get('floor-test');
+  const result = mods.Simulator.simulateProduct(p, 12);
+  for (const row of result.history){
+    assert.ok(row.value >= -1e-9, 'стоимость портфеля не может быть ниже нуля');
+  }
+  assert.ok(Math.abs(result.history[12].value - 500) < 0.5,
+    '−100% и абсурдные −300% обнуляются (в реальности ниже нуля не бывает), −50%/год оставляет половину');
+});
+
+test('Simulator.investmentForecast: годовая потеря ограничена стоимостью позиции', () => {
+  const { mods } = simMods([{ id:'forecast-floor', type:'investment', amount:0, operations:[], assets:[
+    { id:'g1', kind:'stock', secid:'CRASH2', qty:10, lastPrice:100, historyAnnualPct:-300 }
+  ]}]);
+  const p = mods.Storage.get('forecast-floor');
+  const f = mods.Simulator.investmentForecast(p);
+  assert.equal(f.totalValue, 1000);
+  assert.equal(f.annual, -1000, 'даже при −300% потеря не может превышать стоимость позиции');
+  assert.equal(f.annualPct, -100);
+});

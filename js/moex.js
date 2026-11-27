@@ -4,6 +4,7 @@
 
 const MoexAPI = (() => {
   const ISS = 'http://iss.moex.com/iss';
+  const ISS_HTTPS = 'https://iss.moex.com/iss';
   const CBR_KEY_RATE = 'https://www.cbr-xml-daily.ru/keyrate.json';
   const DEFAULT_MOEX_PROXY = 'https://autumn-mouse-2e3f.kudrin-dim11.workers.dev';
   const CACHE_TTL = 10 * 60 * 1000;
@@ -23,6 +24,22 @@ const MoexAPI = (() => {
       const configured = localStorage.getItem('moex_proxy_url');
       return normalizeProxyUrl(configured || DEFAULT_MOEX_PROXY) || DEFAULT_MOEX_PROXY;
     } catch { return DEFAULT_MOEX_PROXY; }
+  }
+
+  // Предохранитель: зависший или недоступный Worker не должен съедать
+  // тайм-аут каждого запроса. После трёх подряд неудач Worker пропускается
+  // на 10 минут — запросы сразу идут по следующему каналу. Первый же
+  // успешный ответ возвращает Worker в работу.
+  const workerHealth = { fails: 0, skipUntil: 0 };
+  const WORKER_SKIP_MS = 10 * 60 * 1000;
+  function resetWorkerHealth(){
+    workerHealth.fails = 0;
+    workerHealth.skipUntil = 0;
+  }
+  function noteWorkerResult(success){
+    if (success){ resetWorkerHealth(); return; }
+    workerHealth.fails++;
+    if (workerHealth.fails >= 3) workerHealth.skipUntil = Date.now() + WORKER_SKIP_MS;
   }
 
   async function requestJSON(target, ms){
@@ -109,25 +126,45 @@ const MoexAPI = (() => {
     const requestUrl = compactIssUrl(url);
     const proxy = getProxyUrl();
     const targets = [];
-    // Все обращения к самому MOEX используют HTTP (официальный протокол ISS).
-    // На HTTPS-странице браузер блокирует прямой fetch к HTTP как mixed content,
-    // поэтому сначала идём через HTTPS Worker, который обращается к MOEX по HTTP.
-    if (proxy) targets.push({ name: 'Cloudflare Worker (HTTP upstream)', url: proxy + '/iss' + requestUrl.slice(ISS.length) });
+    // Основной путь — HTTP через собственный Worker: у MOEX с некоторых
+    // сетей TLS не проверяется (проблема с сертификатами), а на HTTPS-странице
+    // браузер блокирует прямой fetch к HTTP как mixed content. Worker
+    // обращается к MOEX по HTTP и возвращает ответ по HTTPS.
+    if (proxy && Date.now() >= workerHealth.skipUntil){
+      targets.push({
+        name: 'Cloudflare Worker (HTTP upstream)',
+        isWorker: true,
+        url: proxy + '/iss' + requestUrl.slice(ISS.length)
+      });
+    }
     targets.push({ name: 'MOEX ISS HTTP (direct; may be blocked by mixed-content policy)', url: requestUrl });
     // Резервные HTTPS-реле также получают именно HTTP-адрес MOEX как upstream.
     targets.push({ name: 'cors.dev (HTTP upstream)', url: 'https://proxy.cors.dev/' + requestUrl });
     targets.push({ name: 'AllOrigins (HTTP upstream)', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(requestUrl) });
+    // Последний запасной: прямой HTTPS к ISS. В сетях с проверкой отозванных
+    // сертификатов он не проходит, но на других машинах спасает, когда
+    // Worker и реле недоступны. Ошибка попытки не ломает цепочку.
+    targets.push({ name: 'MOEX ISS HTTPS (direct; fails when certificates are not trusted)', url: ISS_HTTPS + requestUrl.slice(ISS.length) });
 
     const failures = [];
     const deadline = Date.now() + Math.max(1000, timeout);
-    const budgets = timeout <= 15000 ? [5000,1000,4000,4000] : [8000,8000,8000,8000];
+    const budgets = timeout <= 15000 ? [5000,1000,4000,4000,5000] : [8000,8000,8000,8000,8000];
     for (let targetIndex=0; targetIndex<targets.length; targetIndex++){
       const target = targets[targetIndex];
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
+      // Первая попытка не должна съедать весь лимит: оставляем резерв,
+      // иначе при зависшем первом канале резервные даже не пробуются
+      // (график выплат облигаций с тайм-аутом 4 с падал целиком).
+      const targetsLeft = targets.length - targetIndex - 1;
+      const reserve = targetsLeft ? Math.min(1500 * targetsLeft, 4500) : 0;
+      const budget = Math.min(budgets[targetIndex] || 4000, Math.max(500, remaining - reserve));
       try {
-        return await requestJSON(target.url, Math.min(budgets[targetIndex] || 4000, remaining));
+        const data = await requestJSON(target.url, budget);
+        if (target.isWorker) noteWorkerResult(true);
+        return data;
       } catch (error) {
+        if (target.isWorker) noteWorkerResult(false);
         failures.push(target.name + ': ' + String(error?.message || error).slice(0, 260));
         const retryable = error instanceof TypeError
           || error?.code === 'ETIMEDOUT'
@@ -450,17 +487,27 @@ const MoexAPI = (() => {
     if (!['stock','fund','bond','metal'].includes(asset.kind) || asset.moexInactive || asset.quoteSource === 'manual') return asset;
     // Сначала проверяем известные закрытые/переименованные инструменты:
     // сохранённая свежая дата старой котировки не должна обходить миграцию.
-    if (asset.kind === 'fund' && (asset.secid === 'VTBL' || asset.secid === 'RSHL'))
-      await refreshAsset(asset);
+    if (asset.kind === 'fund' && (asset.secid === 'VTBL' || asset.secid === 'RSHL')){
+      try { await refreshAsset(asset); } catch { /* ниже используем сохранённую цену */ }
+    }
     if (asset.moexInactive) return asset;
     const quoteTimeBefore = Date.parse(asset.moexUpdatedAt || '');
     const quoteAlreadyFresh = Number.isFinite(quoteTimeBefore) && Date.now() - quoteTimeBefore < 10 * 60 * 1000;
     // refreshAsset populates missing bond nominal/board metadata as well as a live quote.
-    if (!quoteAlreadyFresh) await refreshAsset(asset);
+    // Сбой сети не отменяет прогноз: если сохранённая цена ещё в горизонте
+    // доверия (30 дней, как и для баланса), история считается от неё.
+    if (!quoteAlreadyFresh){
+      try { await refreshAsset(asset); }
+      catch { /* котировки сейчас не получить — работаем с сохранённой */ }
+    }
     if (asset.moexInactive || asset.quoteSource === 'manual') return asset;
     const quoteTime = Date.parse(asset.moexUpdatedAt || '');
     const quoteIsFresh = Number.isFinite(quoteTime) && Date.now() - quoteTime < 10 * 60 * 1000;
-    const cur = quoteIsFresh ? (asset.lastPrice ?? null) : null;
+    const savedQuoteUsable = !quoteIsFresh
+      && Number(asset.lastPrice) > 0 && Number.isFinite(quoteTime)
+      && Date.now() - quoteTime < 30 * 86400000;
+    const cur = (quoteIsFresh || savedQuoteUsable) && Number(asset.lastPrice) > 0
+      ? Number(asset.lastPrice) : null;
     if (cur == null || !Number.isFinite(Number(cur)) || cur < 0){
       asset.historyMonths = null; asset.historyPct = null; asset.historyAnnualPct = null;
       return asset;
@@ -633,6 +680,6 @@ const MoexAPI = (() => {
     });
   }
 
-  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, historyClose, annualizeTrend, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets, tradableMarkets, assertTradable };
+  return { searchSecurity, lastPrice, bondCoupons, bondDetails, bondSchedule, refreshAsset, refreshSixMonth, historyClose, annualizeTrend, monthKey, keyRate, chooseMarketRow, parseBlock, normalizeProxyUrl, getProxyUrl, testProxy, resolveMarket, resolveMarkets, tradableMarkets, assertTradable, resetWorkerHealth };
 })();
 if (typeof module !== 'undefined') module.exports = MoexAPI;
