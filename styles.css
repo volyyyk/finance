@@ -1642,3 +1642,8 @@ main > section:nth-child(3){animation-delay:.1s}
   header{gap:6px}
 }
 .goal-card b,.goal-card .goal-name{white-space:normal;overflow:visible;text-overflow:clip}
+
+
+/* ── Кнопка удаления: компактная, появляется при выборе ── */
+.actions-bar .btn.danger{padding:6px 10px;font-size:11px}
+.actions-bar .btn.danger[hidden]{display:none}

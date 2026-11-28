@@ -375,8 +375,10 @@ const ProductList = (() => {
 
   function updateDeleteBtn(){
     const b = $('deleteBtn'); if (!b) return;
+    // Кнопка удаления видна только когда есть что удалять
+    b.hidden = selected.size === 0;
     b.textContent = selected.size
-      ? `Удалить выбранные (${selected.size})`
+      ? `${T('Удалить выбранные')} (${selected.size})`
       : T('Удалить выбранные');
   }
   function getSelected(){ return Array.from(selected); }
