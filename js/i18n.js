@@ -489,6 +489,21 @@ const I18n = (() => {
     'Шаг 2 из 4 · ': 'الخطوة 2 من 4 · ',
     'Шаг 3 из 4 · ': 'الخطوة 3 من 4 · ',
     'Шаг 4 из 4 · ': 'الخطوة 4 من 4 · ',
+    'Лучшие кешбэки по категориям': 'أفضل كاش باك حسب الفئة',
+    'По банкам': 'حسب البنك',
+    'Категории': 'الفئات',
+    'Категория': 'الفئة',
+    'Категория и процент': 'الفئة والنسبة',
+    'Название банка': 'اسم البنك',
+    'Название категории': 'اسم الفئة',
+    'Найдено': 'найдено',
+    'Копировать промт': 'انسخ المطالبة',
+    'Нажмите, чтобы скопировать': 'اضغط للنسخ',
+    'Добавить': 'إضافة',
+    'Добавьте один или несколько': 'أضف واحداً أو أكثر',
+    'Кафе и рестораны': 'المقاهي والمطاعم',
+    'Заполнить по фото / ИИ': 'ملء من صورة / ذكاء اصطناعي',
+    'Кешбэк ·': 'كاش باك ·',
   };
   const supported = ['ru', 'en', 'ar'];
 
@@ -1161,6 +1176,20 @@ const I18n = (() => {
     '<b>Пополнения и снятия</b><small>Регулярные и разовые операции</small><span aria-hidden="true">⌄</span>': '<b>Deposits and withdrawals</b><small>Regular and one-off operations</small><span aria-hidden="true">⌄</span>',
     '<span>Ориентировочный доход за срок</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму, ставку и срок</small>': '<span>Estimated income over the term</span><b id="effectMoney">—</b><small id="effectPercent">Enter an amount, rate and term</small>',
     '<option value="">Обычное снятие (в расход)</option>': '<option value="">Regular withdrawal (an expense)</option>',
+    'Лучшие кешбэки по категориям': 'Best cashback by category',
+    'По банкам': 'By bank',
+    'Категории': 'Categories',
+    'Категория и процент': 'Category and percent',
+    'Название банка': 'Bank name',
+    'Название категории': 'Category name',
+    'Найдено': 'Found',
+    'Копировать промт': 'Copy prompt',
+    'Нажмите, чтобы скопировать': 'Tap to copy',
+    'Добавить': 'Add',
+    'Добавьте один или несколько': 'Add one or more',
+    'Кафе и рестораны': 'Cafés and restaurants',
+    'Заполнить по фото / ИИ': 'Fill from photo / AI',
+    'Кешбэк ·': 'Cashback ·',
 
   };
 
