@@ -485,6 +485,10 @@ const I18n = (() => {
     '<b>Пополнения и снятия</b><small>Регулярные и разовые операции</small><span aria-hidden="true">⌄</span>': '<b>الإيداع والسحب</b><small>عمليات منتظمة ومرة واحدة</small><span aria-hidden="true">⌄</span>',
     '<span>Ориентировочный доход за срок</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму, ставку и срок</small>': '<span>الدخل التقديري خلال المدة</span><b id="effectMoney">—</b><small id="effectPercent">أدخل المبلغ والنسبة والمدة</small>',
     '<option value="">Обычное снятие (в расход)</option>': '<option value="">سحب عادي (مصروف)</option>',
+    'Шаг 1 из 4 · ': 'الخطوة 1 من 4 · ',
+    'Шаг 2 из 4 · ': 'الخطوة 2 من 4 · ',
+    'Шаг 3 из 4 · ': 'الخطوة 3 من 4 · ',
+    'Шаг 4 из 4 · ': 'الخطوة 4 من 4 · ',
   };
   const supported = ['ru', 'en', 'ar'];
 
@@ -1157,6 +1161,7 @@ const I18n = (() => {
     '<b>Пополнения и снятия</b><small>Регулярные и разовые операции</small><span aria-hidden="true">⌄</span>': '<b>Deposits and withdrawals</b><small>Regular and one-off operations</small><span aria-hidden="true">⌄</span>',
     '<span>Ориентировочный доход за срок</span><b id="effectMoney">—</b><small id="effectPercent">Укажите сумму, ставку и срок</small>': '<span>Estimated income over the term</span><b id="effectMoney">—</b><small id="effectPercent">Enter an amount, rate and term</small>',
     '<option value="">Обычное снятие (в расход)</option>': '<option value="">Regular withdrawal (an expense)</option>',
+
   };
 
   function t(ru, params){

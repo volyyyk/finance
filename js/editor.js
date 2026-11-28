@@ -373,7 +373,7 @@ const { $, uid, fmtDate, fmtMoney, escapeHtml } = Utils;
     const labels = [T('Выберите категорию'),T('Основные данные'),T('Условия и доходность'),T('Операции и состав')];
     const wizard = $('productWizard');
     if (!wizard) return;
-    $('wizardStepLabel').textContent = `Шаг ${wizardStep} из 4 · ${labels[wizardStep-1]}`;
+    $('wizardStepLabel').textContent = `${T(`Шаг ${wizardStep} из 4 · `)}${T(labels[wizardStep-1])}`;
     $('wizardTypeGrid').hidden = wizardStep !== 1;
     $('editorBasics').hidden = wizardStep !== 2;
     $('editorConditions').hidden = wizardStep !== 3;
