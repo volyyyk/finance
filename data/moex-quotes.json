@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-28T07:23:16.273Z",
+ "generatedAt": "2026-11-28T14:27:27.120Z",
  "count": 80,
  "quotes": {
   "VTBR": {
@@ -123,8 +123,16 @@
    "historyAnnualPct": -1.3982392542723932
   },
   "RU000A10G1X7": {
-   "stale": true,
-   "error": "HTTP 404"
+   "last": 1001.4,
+   "board": "TQCB",
+   "kind": "bond",
+   "shortname": "Сегежа4P1R",
+   "date": "2026-11-28",
+   "historyMonths": null,
+   "historyBase": null,
+   "historyBaseDate": null,
+   "historyPct": null,
+   "historyAnnualPct": null
   },
   "RU000A10D491": {
    "last": 560.1,
@@ -240,11 +248,11 @@
    "kind": "bond",
    "shortname": "Органик1Р1",
    "date": "2026-11-28",
-   "historyMonths": 6,
-   "historyBase": 1117.9,
-   "historyBaseDate": "2026-05-01",
-   "historyPct": -12.389301368637629,
-   "historyAnnualPct": -23.243654853246
+   "historyMonths": 12,
+   "historyBase": 1173.6,
+   "historyBaseDate": "2025-11-01",
+   "historyPct": -16.54737559645535,
+   "historyAnnualPct": -16.54737559645535
   },
   "RU000A10CU30": {
    "last": 787.9,
@@ -343,8 +351,16 @@
    "historyAnnualPct": -25.970384995064165
   },
   "RU000A10GBM8": {
-   "stale": true,
-   "error": "HTTP 404"
+   "last": 1025.3,
+   "board": "TQCB",
+   "kind": "bond",
+   "shortname": "ТомОб34079",
+   "date": "2026-11-28",
+   "historyMonths": null,
+   "historyBase": null,
+   "historyBaseDate": null,
+   "historyPct": null,
+   "historyAnnualPct": null
   },
   "AKGD": {
    "last": 215.02,
@@ -460,11 +476,11 @@
    "kind": "stock",
    "shortname": "МТС-ао",
    "date": "2026-11-28",
-   "historyMonths": 6,
-   "historyBase": 220.05,
-   "historyBaseDate": "2026-05-01",
-   "historyPct": -22.017723244717114,
-   "historyAnnualPct": -39.18764512062466
+   "historyMonths": 12,
+   "historyBase": 202.95,
+   "historyBaseDate": "2025-11-01",
+   "historyPct": -15.44715447154471,
+   "historyAnnualPct": -15.44715447154471
   },
   "BELU": {
    "last": 277.6,
@@ -587,8 +603,16 @@
    "historyAnnualPct": -3.7955513487931913
   },
   "RU000A10B2U6": {
-   "stale": true,
-   "error": "HTTP 404"
+   "last": 760.1,
+   "board": "TQCB",
+   "kind": "bond",
+   "shortname": "Баррель01",
+   "date": "2026-11-28",
+   "historyMonths": 12,
+   "historyBase": 1004.2,
+   "historyBaseDate": "2025-11-01",
+   "historyPct": -24.307906791475798,
+   "historyAnnualPct": -24.307906791475798
   },
   "RU000A10AS28": {
    "last": 999.7,
@@ -843,8 +867,16 @@
    "historyAnnualPct": -87.81275200120164
   },
   "RU000A10ASE2": {
-   "stale": true,
-   "error": "HTTP 404"
+   "last": 1007.6,
+   "board": "TQCB",
+   "kind": "bond",
+   "shortname": "РОЛЬФ 1Р07",
+   "date": "2026-11-28",
+   "historyMonths": 12,
+   "historyBase": 1083,
+   "historyBaseDate": "2025-11-01",
+   "historyPct": -6.962142197599263,
+   "historyAnnualPct": -6.962142197599263
   },
   "RU000A10DD97": {
    "last": 540,
